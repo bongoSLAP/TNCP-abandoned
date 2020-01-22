@@ -6,10 +6,10 @@
 chrome.runtime.onMessage.addListener(function(message, sender, sendResponse) {
     if (message.request === 'Requesting headline') {
         let headlineList = document.getElementsByTagName("h1");
-        sendResponse({
+        return Promise.resolve({
             response: "Message received",
             headline: headlineList[0].innerText
-        })
+        });
     }
     return true;
 });

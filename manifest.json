@@ -1,0 +1,36 @@
+{
+	"manifest_version": 2,
+	"name": "TNCP",
+	"version": "1.0",
+	"description": "The News Critic Platform",
+	"permissions": [
+		"declarativeContent", 
+		"storage", 
+		"activeTab"
+	],
+	"content_scripts": [
+		{
+		  "matches": [
+			"*://developer.chrome.com/*",
+			"*://bbc.co.uk/*",
+			"*://theguardian.com/*",
+			"*://dailymail.co.uk/*"
+		  ],
+		  "js": ["content.js"]
+		}
+	  ],
+    "background": {
+      "scripts": ["background.js"],
+      "persistent": false
+	},
+	"content_security_policy": "script-src 'self' https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js; object-src 'self'",
+	"page_action": {
+		"default_popup": "popup.html"
+	},
+	"icons": {
+		"16": "images/icon16.png",
+		"32": "images/icon32.png",
+		"48": "images/icon48.png",
+		"128": "images/icon128.png"
+	  }
+}

@@ -1,12 +1,3 @@
-function onGot(item) {
-    let headline = item.headline;
-    $("#article-headline").text(headline);
-}
-  
-function onError(error) {
-    console.log(`Error: ${error}`);
-}
-
 $(document).ready(function() {
     $("#detect-article").click(function() {
         chrome.tabs.query({active: true, currentWindow: true}, function(tabs){
@@ -14,16 +5,27 @@ $(document).ready(function() {
                 console.log("Requesting headline")
             });
         });
-        getHeadline();
     });    
 })
 
-function getHeadline() {
+function getHeadline(changes) {
+    let changedValues = Object.keys(changes);
+    //console.log(changedValues);
+
+    for (var item of changedValues) {
+        console.log("new value: " + changes[item].newValue);
+        $("#article-headline").text(changes[item].newValue)
+    }
+
+    /*
     chrome.storage.local.get(["headline"], function(result) {
         console.log('Value currently is ' + result.key);
-
         let data = result.key
-        console.log(data);
+        //console.log(data);
         getHeadline.then(onGot(data), onError);
     });
+    */
 }
+
+chrome.storage.onChanged.addListener(getHeadline);
+

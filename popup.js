@@ -1,4 +1,4 @@
-var article = null;
+  var article = null;
 
 function setValue() {
     console.log("new value: " + article.headerValue);

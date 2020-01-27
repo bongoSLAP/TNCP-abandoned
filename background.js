@@ -21,5 +21,9 @@ chrome.runtime.onInstalled.addListener(function() {
 });
 
 function processSelectionData(message, sender, sendResponse) {
-  alert(message.selection);
+  //alert(message.selection);
+  //validate data
+  //store data in database
 }
+
+chrome.runtime.onMessage.addListener(processSelectionData);

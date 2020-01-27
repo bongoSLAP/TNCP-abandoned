@@ -1,14 +1,18 @@
-function handleRequest(message, sender, sendResponse) {
+function handleHeadlineRequest(message, sender, sendResponse) {
     console.log("Request recieved");
     let headlineList = document.getElementsByTagName("h1");
-    chrome.storage.local.set({headline: headlineList[0].innerText}, function() {
-        console.log("'" + headlineList[0].innerText + "' stored in local storage");
-    });
-    return true;
+    sendResponse({headerValue: headlineList[0].innerText})
 }
 
-chrome.runtime.onMessage.addListener(handleRequest);
+function doneSelecting() {
+    let selectedText = window.getSelection().toString();
+    if (selectedText.length > 0) {
+        chrome.runtime.sendMessage({selection: selectedText});
+    }
+}
+
+chrome.runtime.onMessage.addListener(handleHeadlineRequest);
+
+window.addEventListener("mouseup", doneSelecting);
 
 
-
-//console.log("message recieved");

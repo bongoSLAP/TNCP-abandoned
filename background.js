@@ -20,13 +20,6 @@ chrome.runtime.onInstalled.addListener(function() {
   });
 });
 
-/*
-chrome.runtime.onMessage.addListener(function(message, sender, sendResponse) {
-  if (message.request === "headline") {
-    chrome.tabs.query({active: true, currentWindow: true}, function(tabs){
-      console.log(tabs);
-      chrome.tabs.sendMessage(tabs[0].id, {action: "get headline from source"});  
-    });
-  }
-});
-*/
+function processSelectionData(message, sender, sendResponse) {
+  alert(message.selection);
+}

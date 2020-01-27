@@ -10,12 +10,7 @@
 	],
 	"content_scripts": [
 		{
-		  "matches": [
-			"*://developer.chrome.com/*",
-			"*://bbc.co.uk/*",
-			"*://theguardian.com/*",
-			"*://dailymail.co.uk/*"
-		  ],
+		  "matches": ["<all_urls>"],
 		  "js": ["content.js"]
 		}
 	  ],

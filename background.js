@@ -12,7 +12,10 @@ chrome.runtime.onInstalled.addListener(function() {
           pageUrl: { hostContains: 'theguardian.com' },
         }),
         new chrome.declarativeContent.PageStateMatcher({
-            pageUrl: { hostContains: 'dailymail.co.uk' },
+          pageUrl: { hostContains: 'dailymail.co.uk' },
+        }),
+        new chrome.declarativeContent.PageStateMatcher({
+          pageUrl: { hostContains: 'buzzfeednews.com' },
         }),
       ],
     actions: [new chrome.declarativeContent.ShowPageAction()]

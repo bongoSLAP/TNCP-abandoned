@@ -4,7 +4,7 @@ var charCount = 0;
 
 function handlePopupRequests(message, sender) {
     console.log("success1");
-    if (message.request === "requesting char count update") {
+    if (message.request === "update>charCount") {
         $("#char-count-value").text(message.charCount);
         if (message.charCount <= 200) {
             //console.log("success")
@@ -31,11 +31,19 @@ function setValue() {
 $(document).ready(function() {
     $("#detect-article").click(function() {
         chrome.tabs.query({active: true, currentWindow: true}, function(tabs){
-            chrome.tabs.sendMessage(tabs[0].id, {request: "requesting headline update"}, function(response) {
+            chrome.tabs.sendMessage(tabs[0].id, {request: "update>headline"}, function(response) {
                 console.log("Requesting headline")
                 article = response;
                 setValue();
             });
+        });
+    });    
+});
+
+$(document).ready(function() {
+    $("#clear-selection").click(function() {
+        chrome.tabs.query({active: true, currentWindow: true}, function(tabs){
+            chrome.tabs.sendMessage(tabs[0].id, {request: "reset>selection"});
         });
     });    
 });

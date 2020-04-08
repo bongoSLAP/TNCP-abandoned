@@ -1,0 +1,66 @@
+TRY SEEING IF PARENT OF CHILD[I] IS THE FULLTEXT 
+*************BUG FOUND*****************
+say a selection of 2 <p> elements is made, the first of which having an <a> element inline which is also selected.
+
+wholeText of anchorNode will be the <p> element's text up to the beginning of the <a> tag.
+
+This means that when the search is carried out to get the value of startChar, the selection contains more text than the fullText value, so the search returns -1, meaning the while loop never gets executed (as -1 < 0.)
+
+Need to add inline element's fullText onto the end of its parent element so that the regExp will find the actual startChar index without returning -1.
+****************************************
+
+//recursive function for attaining child node data of selected nodes
+function getChildNodes(nodeArray, level) {
+    let parentNodes = [nodeArray[0]];
+    level = level || 1;
+    console.log("level: ", level);
+    
+    parentNodes.forEach(function(child) {
+        //console.log("child: ", child.children);
+        if (child.children.length > 0) {
+            for (let i=0; i<child.children.length; i++) {
+                test.push(child.children[i]);
+            }
+        }
+        
+        if (child.children.length > 0) {
+            console.log("child: ", child);
+            console.log("child.children: ", child.children);
+            console.log("child.children.length: ", child.children.length);
+            console.log("=================================");
+            getChildNodes(child.children, level + 1);
+        }
+    });
+}
+****************************************************
+
+let parentNodes = [nodeArray[0], nodeArray[nodeArray.length-1]];
+
+<p>This is some test text.<span>This <span>is <strong>more</strong> text.</span>This </span>is even more text.</p>
+****************************************************
+
+//recursive function for attaining child node data of selected nodes
+function getChildNodes(targetNode) {
+    let siblingArray = []
+    siblingArray.push(targetNode.textContent);
+    siblingArray.push(targetNode.nextSibling.textContent);
+    
+    
+    let pushSibling = function(sibling) {
+        if (sibling != null) {
+            console.log("sibling.textContent: ", sibling.textContent);
+            console.log("sibling.nextSibling ", sibling.nextSibling);
+
+            siblingArray.push(sibling.textContent);
+
+            console.log("----------next loop----------");
+            pushSibling(sibling.nextSibling)
+        }
+        else {
+            console.log("siblingArray: ", siblingArray);
+            return siblingArray
+        }
+    };
+
+    pushSibling(targetNode.nextSibling);
+}

@@ -14,20 +14,23 @@ function handleContentRequests(message, sender, sendResponse) {
     }
 }
 
-//special chars can be selected and the search will still work
-function escapeRegExp(string) {
-    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+function validateRegExp(string) {
+    //filtering out line breaks
+    string = string.replace(/(\r\n|\n|\r)/gm, "");
+    //special chars can be selected and the search will still work
+    string = string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return string;
 }
 
 
 //recursive function for attaining child node data of selected nodes
-//function getSiblingNodes(targetNode) {
+//function getParentNode(targetNode) {
 
-function getSiblingNodes(targetNode, staticArray) {
-    console.log("targetNode.wholeText: ", targetNode.wholeText);
-    console.log("staticArray[0].innerText", staticArray[0].innerText);
+function getParentNode(targetNode) {
+    let newWholeText = "";
 
-    newWholeText = targetNode.wholeText + staticArray[0].innerText;
+    //IF SELECTION BEGINS ON A PARENT OR BLOCK ELEMENT
     /*
     let siblingArray = [];
     siblingArray.push(targetNode.wholeText);
@@ -49,7 +52,6 @@ function getSiblingNodes(targetNode, staticArray) {
             else {
                 siblingArray.push(sibling.nextSibling.innerText);
             }
-
             pushSibling(sibling.nextSibling)
             console.log("not finished");
         }
@@ -59,16 +61,33 @@ function getSiblingNodes(targetNode, staticArray) {
         }
     };
     
-
     pushSibling(targetNode.nextSibling);
-
     let newWholeText = siblingArray.join("");
     console.log("newWholeText: ", newWholeText);
-
     //if anchornode is a span then use .parentsibling value
     */
 
+    //IF SELECTION BEGINS ON A CHILD OR INLINE ELEMENT
+    let pushSibling = function(child) {
+        console.log("child.parentNode.nodeName: ", child.parentNode.nodeName);
+        if (child.parentNode.nodeName == "P" || child.parentNode.nodeName == "LI" || child.parentNode.nodeName == "SPAN" || child.parentNode.nodeName == "A") {
+            if (child.parentNode.nodeName == "#text") {
+                newWholeText = child.parentNode.wholeText;
+            }
+            else {
+                newWholeText = child.parentNode.innerText;
+
+            pushSibling(child.parentNode)
+            }
+        }
+        else {
+            return
+        }
+    };
+
+    pushSibling(targetNode.parentNode);
     console.log("newWholeText: ", newWholeText);
+
     return newWholeText; 
 
     
@@ -76,20 +95,19 @@ function getSiblingNodes(targetNode, staticArray) {
 
 //autocompletes first selected word.
 function completeFirstWord(fullText, selection) {
-    let regExp = new RegExp(escapeRegExp(selection));
+    console.log("fullText: ", fullText);
+    console.log("selection: ", selection);
+
+    //selection = selection.replace(/(\r\n|\n|\r)/gm, "");
+
+    let regExp = new RegExp(validateRegExp(selection));
+
+    console.log("regExp: ", regExp);
     let startChar = fullText.search(regExp);
 
     if (startChar == -1) {console.log("failed")}
 
     if (fullText.charAt(startChar-1) != " " && startChar != 0) {
-        
-        /*
-        console.log("fullText.charAt: ", fullText.charAt(startChar-1));
-        console.log("startChar: ", startChar);
-        console.log("fullText: ", fullText);
-        console.log("selection: ", selection);
-        */
-
         while (fullText.charAt(startChar-1) != " " && startChar > 0) {
             selection = fullText.charAt(startChar-1).concat(selection);
             startChar--;
@@ -151,7 +169,6 @@ function pushFilteredNodes(staticArray) {
 function doneSelecting() {
     let selectionObj = window.getSelection();
     let selection = selectionObj.toString();
-    //console.log("selectionObj: ", selectionObj);
     
     if (selection.length > 0) {
         if (selectionObj.anchorNode == selectionObj.focusNode) {
@@ -161,19 +178,19 @@ function doneSelecting() {
             let range = selectionObj.getRangeAt(0);
             let liveNodeList = range.cloneContents().querySelectorAll('*');
             let staticNodeArray = filterSelectedNodes(liveNodeList);
-            let newAnchorText = "";
+            //let newAnchorText = getParentNode(selectionObj.anchorNode)
             let newFocusText = "";
 
-            //dont need to use getSiblingNodes function if no sibling elements
-            if (selectionObj.anchorNode.nextSibling != null) {newAnchorText = getSiblingNodes(selectionObj.anchorNode, staticNodeArray)}
-            else {newAnchorText = selectionObj.anchorNode.wholeText}
+            //dont need to use getParentNode function if no sibling elements
+            //if (selectionObj.anchorNode.nextSibling != null) {newAnchorText = getParentNode(selectionObj.anchorNode)}
+            //else {newAnchorText = selectionObj.anchorNode.wholeText}
 
-            //if (selectionObj.focusNode.nextSibling != null) {newFocusText = getSiblingNodes(selectionObj.focusNode)}
+            //if (selectionObj.focusNode.nextSibling != null) {newFocusText = getParentNode(selectionObj.focusNode)}
             //else {newFocusText = selectionObj.focusNode.wholeText}
 
             //if selection went up the page from starting point or down the page from starting point
             if (selectionObj.anchorNode.wholeText.search(staticNodeArray[staticNodeArray.length-1].innerText) == -1) {
-                selectionList.push(completeFirstWord(newAnchorText, staticNodeArray[0].innerText));
+                selectionList.push(completeFirstWord(getParentNode(selectionObj.anchorNode), staticNodeArray[0].innerText));
                 pushFilteredNodes(staticNodeArray);
                 selectionList.push(completeLastWord(selectionObj.focusNode.wholeText, staticNodeArray[staticNodeArray.length-1].innerText));
             }
@@ -188,9 +205,10 @@ function doneSelecting() {
             
             
             //console.log("selectionList: ", selectionList);
-            console.log("finalSelection: ", finalSelection);
             console.log("staticNodeArray: ", staticNodeArray);
             console.log("selectionObj: ", selectionObj);
+            console.log("======================OUTCOME======================");
+            console.log("finalSelection: ", finalSelection);
             console.log("***************************************************");
             
         }

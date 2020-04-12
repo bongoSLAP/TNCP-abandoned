@@ -27,85 +27,102 @@ function validateRegExp(string) {
 //recursive function for attaining child node data of selected nodes
 //function getParentNode(targetNode) {
 
-function getParentNode(targetNode) {
+function getParentNode(targetNode, context) {
     let newWholeText = "";
 
-    //IF SELECTION BEGINS ON A PARENT OR BLOCK ELEMENT
-    /*
-    let siblingArray = [];
-    siblingArray.push(targetNode.wholeText);
-    if (targetNode.nextSibling.nodeName == "#text") {
-        siblingArray.push(targetNode.nextSibling.wholeText);
-    }
-    else {
-        siblingArray.push(targetNode.nextSibling.innerText);
-    }
-    
-    
-    let pushSibling = function(sibling) {
-        console.log("siblingArray", siblingArray);
-        console.log("sibling.nextSibling", sibling.nextSibling);
-        if (sibling.nextSibling != null) {
-            if (sibling.nextSibling.nodeName == "#text") {
-                siblingArray.push(sibling.nextSibling.wholeText);
-            }
-            else {
-                siblingArray.push(sibling.nextSibling.innerText);
-            }
-            pushSibling(sibling.nextSibling)
-            console.log("not finished");
+    //outer means that the wholeText is cut off by a 'sibling' inline tag, so the recursive function adds text value of each nextSibling node until there are none left, assigning newWholeText to this value
+    else if (context == "inner") {
+    if (context == "outer") {
+        let siblingArray = [];
+        siblingArray.push(targetNode.wholeText);
+        if (targetNode.nextSibling.nodeName == "#text") {
+            siblingArray.push(targetNode.nextSibling.wholeText);
         }
         else {
-            console.log("finished");
-            return
+            siblingArray.push(targetNode.nextSibling.innerText);
         }
-    };
-    
-    pushSibling(targetNode.nextSibling);
-    let newWholeText = siblingArray.join("");
-    console.log("newWholeText: ", newWholeText);
-    //if anchornode is a span then use .parentsibling value
-    */
-
-    //IF SELECTION BEGINS ON A CHILD OR INLINE ELEMENT
-    let pushSibling = function(child) {
-        console.log("child.parentNode.nodeName: ", child.parentNode.nodeName);
-        if (child.parentNode.nodeName == "P" || child.parentNode.nodeName == "LI" || child.parentNode.nodeName == "SPAN" || child.parentNode.nodeName == "A") {
-            if (child.parentNode.nodeName == "#text") {
-                newWholeText = child.parentNode.wholeText;
+        
+        let pushSibling = function(sibling) {
+            console.log("siblingArray", siblingArray);
+            console.log("sibling.nextSibling", sibling.nextSibling);
+            if (sibling.nextSibling != null) {
+                if (sibling.nextSibling.nodeName == "#text") {
+                    siblingArray.push(sibling.nextSibling.wholeText);
+                }
+                else {
+                    siblingArray.push(sibling.nextSibling.innerText);
+                }
+                pushSibling(sibling.nextSibling)
+                console.log("not finished");
             }
             else {
-                newWholeText = child.parentNode.innerText;
-
-            pushSibling(child.parentNode)
+                console.log("finished");
+                return
             }
-        }
-        else {
-            return
-        }
-    };
-
-    pushSibling(targetNode.parentNode);
-    console.log("newWholeText: ", newWholeText);
-
+        };
+        
+        pushSibling(targetNode.nextSibling);
+        newWholeText = siblingArray.join("");
+    }
+    //inner means that the wholeText is part of an inline tag, so the recursive function moves up the family tree until it reaches the last appropriate parent of the inital node, assigning newWholeText to this value
+    else if (context == "inner") {
+        let pushChild = function(child) {
+            console.log("child.parentNode.nodeName: ", child.parentNode.nodeName);
+            if (child.parentNode.nodeName == "P" || child.parentNode.nodeName == "LI" || child.parentNode.nodeName == "SPAN" || child.parentNode.nodeName == "A" || child.parentNode.nodeName == "UL") {
+                if (child.parentNode.nodeName == "#text") {
+                    newWholeText = child.parentNode.wholeText;
+                }
+                else {
+                    newWholeText = child.parentNode.innerText;
+    
+                pushChild(child.parentNode)
+                }
+            }
+            else {
+                return
+            }
+        };
+    
+        pushChild(targetNode.parentNode);
+        console.log("newWholeText: ", newWholeText);
+    
+    }
+       
     return newWholeText; 
-
-    
 }
 
 //autocompletes first selected word.
-function completeFirstWord(fullText, selection) {
-    console.log("fullText: ", fullText);
+function completeFirstWord(targetNode, selection) {
+    let fullText = targetNode.wholeText;
+    console.log("fullText:", fullText);
     console.log("selection: ", selection);
 
-    //selection = selection.replace(/(\r\n|\n|\r)/gm, "");
+    let searchForContext = function(thisFullText, query) {
+        let regExp = new RegExp(validateRegExp(selection));
+        let contextSearch = targetNode.wholeText.search(regExp);
 
-    let regExp = new RegExp(validateRegExp(selection));
+        if (contextSearch == -1) {
+            return "search failed";
+        }
+        else {return contextSearch}
+    }
+        
 
-    console.log("regExp: ", regExp);
-    let startChar = fullText.search(regExp);
+    if (searchForContext(fullText, selection) == "search failed") {
+        console.log("outer");
+        fullText = getParentNode(targetNode, "outer");
+        startChar = searchForContext(fullText, selection);
+        console.log("new fullText: ", fullText);
+    }
+    else {
+        console.log("inner")
+        fullText = getParentNode(targetNode, "inner");
+        startChar = searchForContext(fullText, selection);
+        console.log("new fullText: ", fullText);
+    }
+    
 
-    if (startChar == -1) {console.log("failed")}
+    
 
     if (fullText.charAt(startChar-1) != " " && startChar != 0) {
         while (fullText.charAt(startChar-1) != " " && startChar > 0) {
@@ -113,12 +130,13 @@ function completeFirstWord(fullText, selection) {
             startChar--;
         }
     }
+
     return selection;
 }
 
 //autocompletes last selected word
 function completeLastWord(fullText, selection) {
-    let regExp = new RegExp(escapeRegExp(selection));
+    let regExp = new RegExp(validateRegExp(selection));
     let startChar = fullText.search(regExp);
     let endChar = startChar + selection.length;
 
@@ -128,21 +146,9 @@ function completeLastWord(fullText, selection) {
             endChar++;
         }
     }
+
     return selection;
 }
-
-/*
-//only pushes text-based tags to array to produce final output
-function filterSelectedNodes(nodeArray) {
-    let validTags = ["H1", "H2", "H3", "H4", "H5", "H6", "P", "LI", "CODE"];
-
-    for (let i=1; i<nodeArray.length-1; i++) {
-        for (let j=0; j<validTags.length; j++) {
-            if (nodeArray[i].tagName == validTags[j]) {selectionList.push(nodeArray[i].innerText)}
-        }
-    }
-}
-*/
 
 function filterSelectedNodes(liveList) {
     let validTags = ["H1", "H2", "H3", "H4", "H5", "H6", "P", "LI", "CODE"];
@@ -169,6 +175,7 @@ function pushFilteredNodes(staticArray) {
 function doneSelecting() {
     let selectionObj = window.getSelection();
     let selection = selectionObj.toString();
+    console.log("selectionObj: ", selectionObj);
     
     if (selection.length > 0) {
         if (selectionObj.anchorNode == selectionObj.focusNode) {
@@ -190,7 +197,7 @@ function doneSelecting() {
 
             //if selection went up the page from starting point or down the page from starting point
             if (selectionObj.anchorNode.wholeText.search(staticNodeArray[staticNodeArray.length-1].innerText) == -1) {
-                selectionList.push(completeFirstWord(getParentNode(selectionObj.anchorNode), staticNodeArray[0].innerText));
+                selectionList.push(completeFirstWord(selectionObj.anchorNode, staticNodeArray[0].innerText));
                 pushFilteredNodes(staticNodeArray);
                 selectionList.push(completeLastWord(selectionObj.focusNode.wholeText, staticNodeArray[staticNodeArray.length-1].innerText));
             }
@@ -208,7 +215,7 @@ function doneSelecting() {
             console.log("staticNodeArray: ", staticNodeArray);
             console.log("selectionObj: ", selectionObj);
             console.log("======================OUTCOME======================");
-            console.log("finalSelection: ", finalSelection);
+            console.log(finalSelection);
             console.log("***************************************************");
             
         }

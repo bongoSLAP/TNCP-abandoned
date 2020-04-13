@@ -14,7 +14,6 @@ function handleContentRequests(message, sender, sendResponse) {
     }
 }
 
-
 function validateRegExp(string) {
     //filtering out line breaks
     string = string.replace(/(\r\n|\n|\r)/gm, "");
@@ -23,13 +22,68 @@ function validateRegExp(string) {
     return string;
 }
 
+function searchForContext(targetNode, selection) {
+    let fullText = targetNode.wholeText;
+    let newSearch = function(searchIn, query) {
+        let regExp = new RegExp(validateRegExp(query));
+        let searchOutcome = searchIn.search(regExp);
 
-//recursive function for attaining child node data of selected nodes
-//function getParentNode(targetNode) {
+        if (searchOutcome == -1) {
+            return "failed";
+        }
+        else {return searchOutcome}
+    }
+    
+    if (newSearch(fullText, selection) == "failed") {        
+        fullText = getParentNode(targetNode);
+    }
+
+    let indexFound = newSearch(fullText, selection);
+    console.log("indexFound: ", indexFound);
+    return [fullText, indexFound];
+
+}
+
+//recursive function for attaining parentNode data of selected nodes
+function getParentNode(targetNode) {
+    let newWholeText = null;
+
+    let getNextParent = function(child) {
+        let validTags = ["H1", "H2", "H3", "H4", "H5", "H6", "P", "SPAN", "LI", "A", "STRONG", "B", "CITE", "DFN", "EM", "I", "KBD", "LABEL", "Q", "SMALL", "BIG", "SUB", "SUP", "TIME", "VAR"];
+        let finished = false;
+
+        for (let i=0; i<validTags.length; i++) {
+            if (child.parentNode.nodeName == validTags[i]) {
+                if (child.parentNode.nodeName == "#text") {
+                    newWholeText = child.parentNode.wholeText;
+                }
+                else {
+                    newWholeText = child.parentNode.innerText;
+                    
+                getNextParent(child.parentNode);
+                }
+
+                finished = true;
+            }
+
+            if (finished == true) {
+                return
+            }
+            else if (finished == false && i == validTags.length) {
+                console.log("ERROR: tag not accepted");
+            }
+        }
+    };
+
+    getNextParent(targetNode);
+    
+    if (newWholeText == null) {console.log("ERROR: conditions not met at getNextParent")}
+
+    return newWholeText; 
+}
+
 /*
-function getParentNode(targetNode, context) {
     let newWholeText = "";
-
     //outer means that the wholeText is cut off by a 'sibling' inline tag, so the recursive function adds text value of each nextSibling node until there are none left, assigning newWholeText to this value
         let siblingArray = [];
         siblingArray.push(targetNode.wholeText);
@@ -64,61 +118,16 @@ function getParentNode(targetNode, context) {
     
     //inner means that the wholeText is part of an inline tag, so the recursive function moves up the family tree until it reaches the last appropriate parent of the inital node, assigning newWholeText to this value
     
-        let pushChild = function(child) {
-            console.log("child.parentNode.nodeName: ", child.parentNode.nodeName);
-            if (child.parentNode.nodeName == "P" || child.parentNode.nodeName == "LI" || child.parentNode.nodeName == "SPAN" || child.parentNode.nodeName == "A" || child.parentNode.nodeName == "UL") {
-                if (child.parentNode.nodeName == "#text") {
-                    newWholeText = child.parentNode.wholeText;
-                }
-                else {
-                    newWholeText = child.parentNode.innerText;
-    
-                pushChild(child.parentNode)
-                }
-            }
-            else {
-                return
-            }
-        };
-    
-        pushChild(targetNode.parentNode);
-        console.log("newWholeText: ", newWholeText);
- 
-    return newWholeText; 
+        
 }
 */
-
+//goes is function above
 
 
 //autocompletes first selected word.
 function completeFirstWord(targetNode, selection) {
-    let fullText = targetNode.wholeText;
-    console.log("fullText:", fullText);
-
-    let searchForContext = function(fullText, query) {
-        let regExp = new RegExp(validateRegExp(query));
-        let contextSearch = fullText.search(regExp);
-    
-        if (contextSearch == -1) {
-            return "search failed";
-        }
-        else {return contextSearch}
-    }
-    
-    let offset = 0
-    while (searchForContext(fullText, selection) == "search failed") {
-        offset +=1;
-        console.log("current offset is: ", offset);
-        
-        while (selection.length > fullText.length - offset) {
-            var tempArray = selection.split(''); 
-            tempArray.splice(tempArray.length-1);
-            selection = tempArray.join('');
-        }
-    }
-
-    console.log("selection", selection);
-    let startChar = searchForContext(fullText, selection);
+    fullText = searchForContext(targetNode, selection)[0];
+    let startChar = searchForContext(targetNode, selection)[1];
 
     if (fullText.charAt(startChar-1) != " " && startChar != 0) {
         while (fullText.charAt(startChar-1) != " " && startChar > 0) {
@@ -130,14 +139,10 @@ function completeFirstWord(targetNode, selection) {
     return selection;
 }
 
-
-
-    
-
 //autocompletes last selected word
-function completeLastWord(fullText, selection) {
-    let regExp = new RegExp(validateRegExp(selection));
-    let startChar = fullText.search(regExp);
+function completeLastWord(targetNode, selection) {
+    fullText = searchForContext(targetNode, selection)[0];
+    let startChar = searchForContext(targetNode, selection)[1];
     let endChar = startChar + selection.length;
 
     if (fullText.charAt(endChar) != " ") {
@@ -151,7 +156,7 @@ function completeLastWord(fullText, selection) {
 }
 
 function filterSelectedNodes(liveList) {
-    let validTags = ["H1", "H2", "H3", "H4", "H5", "H6", "P", "LI", "CODE"];
+    let validTags = ["H1", "H2", "H3", "H4", "H5", "H6", "P", "LI"];
     let staticArray = [];
 
     for (let i=0; i<liveList.length; i++) {
@@ -164,10 +169,8 @@ function filterSelectedNodes(liveList) {
 }
 
 function pushFilteredNodes(staticArray) {
-    console.log("staticArray: ", staticArray);
     if (staticArray.length > 2) {
         for (let i=1; i<staticArray.length-1; i++) {
-            console.log("staticArray[i].innerText: ", staticArray[i].innerText);
             selectionList.push(staticArray[i].innerText);
         }
     }
@@ -181,33 +184,23 @@ function doneSelecting() {
     
     if (selection.length > 0) {
         if (selectionObj.anchorNode == selectionObj.focusNode) {
-            console.log(completeFirstWord(selectionObj.anchorNode.wholeText, completeLastWord(selectionObj.anchorNode.wholeText, selection)));
+            console.log(completeFirstWord(selectionObj.anchorNode, completeLastWord(selectionObj.anchorNode, selection)));
         }
         else {
             let range = selectionObj.getRangeAt(0);
             let liveNodeList = range.cloneContents().querySelectorAll('*');
             let staticNodeArray = filterSelectedNodes(liveNodeList);
-            //let newAnchorText = getParentNode(selectionObj.anchorNode)
-            let newFocusText = "";
-
-            //dont need to use getParentNode function if no sibling elements
-            //if (selectionObj.anchorNode.nextSibling != null) {newAnchorText = getParentNode(selectionObj.anchorNode)}
-            //else {newAnchorText = selectionObj.anchorNode.wholeText}
-
-            //if (selectionObj.focusNode.nextSibling != null) {newFocusText = getParentNode(selectionObj.focusNode)}
-            //else {newFocusText = selectionObj.focusNode.wholeText}
 
             //if selection went up the page from starting point or down the page from starting point
             if (selectionObj.anchorNode.wholeText.search(staticNodeArray[staticNodeArray.length-1].innerText) == -1) {
                 selectionList.push(completeFirstWord(selectionObj.anchorNode, staticNodeArray[0].innerText));
                 pushFilteredNodes(staticNodeArray);
-                selectionList.push(completeLastWord(selectionObj.focusNode.wholeText, staticNodeArray[staticNodeArray.length-1].innerText));
-                console.log("selectionList: ", selectionList);
+                selectionList.push(completeLastWord(selectionObj.focusNode, staticNodeArray[staticNodeArray.length-1].innerText));
             }
             else {
-                selectionList.push(completeFirstWord(newFocusText, staticNodeArray[0].innerText));
+                selectionList.push(completeFirstWord(selectionObj.focusNode, staticNodeArray[0].innerText));
                 pushFilteredNodes(staticNodeArray);
-                selectionList.push(completeLastWord(selectionObj.anchorNode.wholeText, staticNodeArray[staticNodeArray.length-1].innerText));
+                selectionList.push(completeLastWord(selectionObj.anchorNode, staticNodeArray[staticNodeArray.length-1].innerText));
             }
 
             //concatenating text values of filtered selected elements
@@ -215,7 +208,7 @@ function doneSelecting() {
             
             
             console.log("selectionList: ", selectionList);
-            console.log("staticNodeArray: ", staticNodeArray);
+            //console.log("staticNodeArray: ", staticNodeArray);
             console.log("selectionObj: ", selectionObj);
             console.log("======================OUTCOME======================");
             console.log(finalSelection);

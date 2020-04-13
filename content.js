@@ -26,13 +26,11 @@ function validateRegExp(string) {
 
 //recursive function for attaining child node data of selected nodes
 //function getParentNode(targetNode) {
-
+/*
 function getParentNode(targetNode, context) {
     let newWholeText = "";
 
     //outer means that the wholeText is cut off by a 'sibling' inline tag, so the recursive function adds text value of each nextSibling node until there are none left, assigning newWholeText to this value
-    else if (context == "inner") {
-    if (context == "outer") {
         let siblingArray = [];
         siblingArray.push(targetNode.wholeText);
         if (targetNode.nextSibling.nodeName == "#text") {
@@ -63,9 +61,9 @@ function getParentNode(targetNode, context) {
         
         pushSibling(targetNode.nextSibling);
         newWholeText = siblingArray.join("");
-    }
+    
     //inner means that the wholeText is part of an inline tag, so the recursive function moves up the family tree until it reaches the last appropriate parent of the inital node, assigning newWholeText to this value
-    else if (context == "inner") {
+    
         let pushChild = function(child) {
             console.log("child.parentNode.nodeName: ", child.parentNode.nodeName);
             if (child.parentNode.nodeName == "P" || child.parentNode.nodeName == "LI" || child.parentNode.nodeName == "SPAN" || child.parentNode.nodeName == "A" || child.parentNode.nodeName == "UL") {
@@ -85,44 +83,42 @@ function getParentNode(targetNode, context) {
     
         pushChild(targetNode.parentNode);
         console.log("newWholeText: ", newWholeText);
-    
-    }
-       
+ 
     return newWholeText; 
 }
+*/
+
+
 
 //autocompletes first selected word.
 function completeFirstWord(targetNode, selection) {
     let fullText = targetNode.wholeText;
     console.log("fullText:", fullText);
-    console.log("selection: ", selection);
 
-    let searchForContext = function(thisFullText, query) {
-        let regExp = new RegExp(validateRegExp(selection));
-        let contextSearch = targetNode.wholeText.search(regExp);
-
+    let searchForContext = function(fullText, query) {
+        let regExp = new RegExp(validateRegExp(query));
+        let contextSearch = fullText.search(regExp);
+    
         if (contextSearch == -1) {
             return "search failed";
         }
         else {return contextSearch}
     }
+    
+    let offset = 0
+    while (searchForContext(fullText, selection) == "search failed") {
+        offset +=1;
+        console.log("current offset is: ", offset);
         
-
-    if (searchForContext(fullText, selection) == "search failed") {
-        console.log("outer");
-        fullText = getParentNode(targetNode, "outer");
-        startChar = searchForContext(fullText, selection);
-        console.log("new fullText: ", fullText);
+        while (selection.length > fullText.length - offset) {
+            var tempArray = selection.split(''); 
+            tempArray.splice(tempArray.length-1);
+            selection = tempArray.join('');
+        }
     }
-    else {
-        console.log("inner")
-        fullText = getParentNode(targetNode, "inner");
-        startChar = searchForContext(fullText, selection);
-        console.log("new fullText: ", fullText);
-    }
-    
 
-    
+    console.log("selection", selection);
+    let startChar = searchForContext(fullText, selection);
 
     if (fullText.charAt(startChar-1) != " " && startChar != 0) {
         while (fullText.charAt(startChar-1) != " " && startChar > 0) {
@@ -130,9 +126,13 @@ function completeFirstWord(targetNode, selection) {
             startChar--;
         }
     }
-
+    
     return selection;
 }
+
+
+
+    
 
 //autocompletes last selected word
 function completeLastWord(fullText, selection) {
@@ -164,8 +164,10 @@ function filterSelectedNodes(liveList) {
 }
 
 function pushFilteredNodes(staticArray) {
+    console.log("staticArray: ", staticArray);
     if (staticArray.length > 2) {
         for (let i=1; i<staticArray.length-1; i++) {
+            console.log("staticArray[i].innerText: ", staticArray[i].innerText);
             selectionList.push(staticArray[i].innerText);
         }
     }
@@ -200,6 +202,7 @@ function doneSelecting() {
                 selectionList.push(completeFirstWord(selectionObj.anchorNode, staticNodeArray[0].innerText));
                 pushFilteredNodes(staticNodeArray);
                 selectionList.push(completeLastWord(selectionObj.focusNode.wholeText, staticNodeArray[staticNodeArray.length-1].innerText));
+                console.log("selectionList: ", selectionList);
             }
             else {
                 selectionList.push(completeFirstWord(newFocusText, staticNodeArray[0].innerText));
@@ -211,7 +214,7 @@ function doneSelecting() {
             finalSelection = selectionList.join(" ");
             
             
-            //console.log("selectionList: ", selectionList);
+            console.log("selectionList: ", selectionList);
             console.log("staticNodeArray: ", staticNodeArray);
             console.log("selectionObj: ", selectionObj);
             console.log("======================OUTCOME======================");

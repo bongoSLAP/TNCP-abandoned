@@ -176,19 +176,18 @@ function pushFilteredNodes(staticArray) {
     }
 }
 
-function iframeRef(frameRef) {
-    return frameRef.contentWindow
-        ? frameRef.contentWindow.document
-        : frameRef.contentDocument
-}
-
+/*
 function begunSelecting() {
-    var iframe  = document.createElement ('iframe');
+    var iframe = document.createElement('iframe');
     iframe.classList.add("char-count-iframe");
-    iframe.src  = chrome.extension.getURL ('character_count.html');
-    document.body.appendChild (iframe);
-    let inside = iframeRef(document.getElementsByClassName('char-count-iframe')[0]);
-    console.log("inside: ", inside);
+    iframe.src = chrome.extension.getURL('/character_count.html');
+    document.body.appendChild(iframe);
+
+    console.log("iframe: ", iframe);
+    let iframeWindow = iframe.contentWindow;
+
+    console.log("iframeWindow", iframeWindow);
+    console.log("iframe.src", iframe.src);
 
     let checkCharCount = function() {
         let initSelection = window.getSelection();
@@ -197,12 +196,30 @@ function begunSelecting() {
     }
 
     setInterval(function(){
-        inside.getElementById("char-count-value").innerHTML= checkCharCount();
-        console.log("charCount: ", checkCharCount())
+        console.log("iframeWindow in setinterval function", iframeWindow);
+        //iframeWindow.getElementById("#char-count-value").textContent = checkCharCount();
+        //console.log("charCount: ", checkCharCount())
 
     }, 1000);
-    //console.log("charCount: ", charCount);
+}
+*/
+//iframe method ^^^
 
+function begunSelecting() {
+    $.get(chrome.extension.getURL('/character_count.html'), function(data) {
+        $(data).appendTo('body')
+    });
+
+    let checkCharCount = function() {
+        let initSelection = window.getSelection();
+        let charCount = initSelection.toString().length;
+        return charCount;
+    }
+
+    $(document).on("mousemove", function(event) {
+        $("#char-count-value").text(checkCharCount());
+        $("#char-count-container").css({position: "absolute", left: event.pageX + 75, top: event.pageY + 75});
+    });
 }
 
 //selection callback function

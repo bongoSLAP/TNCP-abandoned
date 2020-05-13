@@ -224,9 +224,26 @@ function updateCharCount() {
 //this updates whenever mouse moves, only need to do it while mouse is held, maybe addeventlistener inside begunselecting function?
 
 function begunSelecting() {
+    /*
     $.get(chrome.extension.getURL('/character_count.html'), function(data) {
         $(data).appendTo('body')
     });
+    */
+
+    shadowHost = document.createElement("div");
+    shadowRoot = shadowHost.attachShadow({mode: "open"});
+    
+    charCountContainer = document.createElement("div");
+    charCountContainer.id = "char-count-container";
+
+    outOfValue = document.createElement("h2");
+    outOfValue.innerText = "/200";
+    countValue = document.createElement("span");
+    countValue.id = "char-count-value";
+
+    outOfValue.appendChild(countValue);
+    charCountContainer.appendChild(outOfValue);
+    shadowRoot.appendChild(charCountContainer);
 
     window.addEventListener("mousemove", updateCharCount);
 }

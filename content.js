@@ -230,20 +230,53 @@ function begunSelecting() {
     });
     */
 
-    shadowHost = document.createElement("div");
+    hostElement = document.createElement("div");
+    hostElement.id = "host-element"
+    $(hostElement).appendTo("body");
+
+    shadowHost = hostElement;
     shadowRoot = shadowHost.attachShadow({mode: "open"});
     
     charCountContainer = document.createElement("div");
     charCountContainer.id = "char-count-container";
+    charCountContainer.className = "char-count";
 
-    outOfValue = document.createElement("h2");
+    outOfValue = document.createElement("p");
+    outOfValue.id = "char-count-outof";
+    outOfValue.className = "char-count";
     outOfValue.innerText = "/200";
+
     countValue = document.createElement("span");
     countValue.id = "char-count-value";
+    countValue.className = "char-count";
+
+    charCountStyles = document.createElement("style");
+    charCountStyles.innerText = `
+        #char-count-container {
+            height: 25px;
+            width: 100px;
+            background-color: rgb(230, 230, 230)
+        }
+
+        #char-count-value, #char-count-outof {
+            font-family: calibri, sans-serif;
+            font-size: 20px
+        }
+        
+        .char-count {
+            position: relative;
+            text-align: center
+        }
+    `;
 
     outOfValue.appendChild(countValue);
     charCountContainer.appendChild(outOfValue);
+
+    shadowRoot.appendChild(charCountStyles);
     shadowRoot.appendChild(charCountContainer);
+
+    console.log("shadowRoot: ", shadowRoot);
+    console.log("document: ", document);
 
     window.addEventListener("mousemove", updateCharCount);
 }

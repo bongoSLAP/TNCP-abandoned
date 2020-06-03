@@ -1,6 +1,7 @@
 let selectionList = [];
 let finalSelection = "";
 let validTags = ["H1", "H2", "H3", "H4", "H5", "H6", "P", "SPAN", "LI", "A", "STRONG", "B", "CITE", "DFN", "EM", "I", "KBD", "LABEL", "Q", "SMALL", "BIG", "SUB", "SUP", "TIME", "VAR"];
+let clicked = false;
 
 //messaging callback to send data between js files
 function handleContentRequests(message, sender, sendResponse) {
@@ -217,67 +218,78 @@ function updateCharCount() {
         return charCount;
     }
 
-    $("#char-count-value").text(checkCharCount());
-    $("#char-count-container").css({position: "absolute", left: event.pageX + 75, top: event.pageY + 75});
+    //YOU NEED TO TRY SELECTING IT AND THEN ALTERING STYLES PROPERTY:
+    //https://stackoverflow.com/questions/36960950/how-to-change-style-of-a-class-without-jquery
+    //VANILLA JS MOUSE COORD VALUE:
+    //https://www.w3schools.com/jsref/event_clientx.asp 
+
+    shadowRoot.querySelector("#char-count-value.char-count").innerText = checkCharCount();
+
+
+    //let charCounter = shadowRoot.querySelector("#char-count-container.char-count");
+    //shadowRoot.querySelector("#char-count-container.char-count").style.top = event.clientY;
+    //$(charCountContainer).css({left: event.pageX + 75, top: event.pageY + 50});
+    let declaration = shadowRoot.styleSheets[0].cssRules[0].style;
+    declaration.setProperty("position", "absolute");
+    declaration.setProperty("left", event.clientX + 75 + "px");
+    declaration.setProperty("top", event.clientY + 50 + "px");
+
     console.log("char count: ", checkCharCount());
+    /*
+    let myStyle = window.getComputedStyle(shadowRoot.querySelector("#char-count-container.char-count"), null).getPropertyValue("top");
+    console.log("style: ", myStyle);
+    console.log("declaration", declaration);
+    */
 }
 //this updates whenever mouse moves, only need to do it while mouse is held, maybe addeventlistener inside begunselecting function?
 
 function begunSelecting() {
-    /*
-    $.get(chrome.extension.getURL('/character_count.html'), function(data) {
-        $(data).appendTo('body')
-    });
-    */
+    if (clicked == false) {
+        let hostElement = document.createElement("div");
+        //hostElement.style.position = "absolute";
+        hostElement.id = "host-element"
+        $(hostElement).appendTo("body");
 
-    hostElement = document.createElement("div");
-    hostElement.id = "host-element"
-    $(hostElement).appendTo("body");
-
-    shadowHost = hostElement;
-    shadowRoot = shadowHost.attachShadow({mode: "open"});
-    
-    charCountContainer = document.createElement("div");
-    charCountContainer.id = "char-count-container";
-    charCountContainer.className = "char-count";
-
-    outOfValue = document.createElement("p");
-    outOfValue.id = "char-count-outof";
-    outOfValue.className = "char-count";
-    outOfValue.innerText = "/200";
-
-    countValue = document.createElement("span");
-    countValue.id = "char-count-value";
-    countValue.className = "char-count";
-
-    charCountStyles = document.createElement("style");
-    charCountStyles.innerText = `
-        #char-count-container {
-            height: 25px;
-            width: 100px;
-            background-color: rgb(230, 230, 230)
-        }
-
-        #char-count-value, #char-count-outof {
-            font-family: calibri, sans-serif;
-            font-size: 20px
-        }
+        let shadowHost = hostElement;
+        shadowRoot = shadowHost.attachShadow({mode: "open"});
         
-        .char-count {
-            position: relative;
-            text-align: center
-        }
-    `;
+        
+        let charCountContainer = document.createElement("div");
+        charCountContainer.id = "char-count-container";
+        charCountContainer.className = "char-count";
+        charCountContainer.innerHTML = `
+            <p class="char-count char-count-text"><span id="char-count-value" class="char-count char-count-text"></span>/200</p>
+        `;
 
-    outOfValue.appendChild(countValue);
-    charCountContainer.appendChild(outOfValue);
+        let charCountStyles = document.createElement("style");
+        charCountStyles.innerText = `
+            #char-count-container {
+                height: 25px;
+                width: 100px;
+                background-color: rgb(230, 230, 230);
+                padding: 0px;
+                z-index: 100
+            }
 
-    shadowRoot.appendChild(charCountStyles);
-    shadowRoot.appendChild(charCountContainer);
+            .char-count-text {
+                font-family: calibri, sans-serif;
+                font-size: 20px
+            }
+            
+            .char-count {
+                text-align: center
+            }
+        `;
 
-    console.log("shadowRoot: ", shadowRoot);
-    console.log("document: ", document);
+        shadowRoot.appendChild(charCountStyles);
+        shadowRoot.appendChild(charCountContainer);
 
+        console.log("shadowRoot: ", shadowRoot);
+        console.log("document: ", document);
+        console.log("charCountContainer: ", charCountContainer);    
+    }
+
+    clicked = true;
     window.addEventListener("mousemove", updateCharCount);
 }
 
@@ -318,7 +330,7 @@ function doneSelecting() {
             finalSelection = selectionList.join(" ");
             
             console.log("selectionList: ", selectionList);
-            //console.log("staticNodeArray: ", staticNodeArray);
+            console.log("staticNodeArray: ", staticNodeArray);
             //console.log("selectionObj: ", selectionObj);
             console.log("======================OUTCOME======================");
             console.log(finalSelection);

@@ -3,6 +3,7 @@ let finalSelection = "";
 let validTags = ["H1", "H2", "H3", "H4", "H5", "H6", "P", "SPAN", "LI", "A", "STRONG", "B", "CITE", "DFN", "EM", "I", "KBD", "LABEL", "Q", "SMALL", "BIG", "SUB", "SUP", "TIME", "VAR"];
 let clicked = false;
 
+
 //messaging callback to send data between js files
 function handleContentRequests(message, sender, sendResponse) {
     if (message.request === "update>headline") {
@@ -25,6 +26,40 @@ function validateRegExp(string) {
 
 function searchForContext(targetNode, selection) {
     let fullText = targetNode.wholeText;
+    let getParentNode = function(targetNode) {
+        let newWholeText = null;
+
+        let getNextParent = function(child) {
+            let finished = false;
+
+            for (let i=0; i<validTags.length; i++) {
+                if (child.parentNode.nodeName == validTags[i]) {
+                    if (child.parentNode.nodeName == "#text") {
+                        newWholeText = child.parentNode.wholeText;
+                    }
+                    else {
+                        newWholeText = child.parentNode.innerText;
+                        getNextParent(child.parentNode);
+                    }
+
+                    finished = true;
+                }
+
+                if (finished == true) {
+                    return
+                }
+                else if (finished == false && i == validTags.length) {
+                    console.log("ERROR: tag not accepted");
+                }
+            }
+        };
+
+        getNextParent(targetNode);
+        
+        if (newWholeText == null) {console.log("ERROR: conditions not met at getNextParent")}
+        return newWholeText; 
+    }
+
     let newSearch = function(searchIn, query) {
         let regExp = new RegExp(validateRegExp(query));
         let searchOutcome = searchIn.search(regExp);
@@ -41,85 +76,24 @@ function searchForContext(targetNode, selection) {
 
     let indexFound = newSearch(fullText, selection);
     return [fullText, indexFound];
-
 }
 
-//recursive function for attaining parentNode data of selected nodes
-function getParentNode(targetNode) {
-    let newWholeText = null;
-
-    let getNextParent = function(child) {
-        let finished = false;
-
-        for (let i=0; i<validTags.length; i++) {
-            if (child.parentNode.nodeName == validTags[i]) {
-                if (child.parentNode.nodeName == "#text") {
-                    newWholeText = child.parentNode.wholeText;
-                }
-                else {
-                    newWholeText = child.parentNode.innerText;
-                    
-                getNextParent(child.parentNode);
-                }
-
-                finished = true;
-            }
-
-            if (finished == true) {
-                return
-            }
-            else if (finished == false && i == validTags.length) {
-                console.log("ERROR: tag not accepted");
-            }
+function testRange(range) {
+    let finished = false;
+    for (let i=0; i<validTags.length; i++) {
+        if (range.commonAncestorContainer.nodeName == validTags[i]) {
+            finished = true;
         }
-    };
 
-    getNextParent(targetNode);
-    
-    if (newWholeText == null) {console.log("ERROR: conditions not met at getNextParent")}
-
-    return newWholeText; 
-}
-
-/*
-function getSiblingNodes(targetNode) {
-    let siblingArray = [];
-    siblingArray.push(targetNode.wholeText);
-    if (targetNode.nextSibling.nodeName == "#text") {
-        siblingArray.push(targetNode.nextSibling.wholeText);
+        if (finished == true) {
+            return true;
+        }
+        else if (finished == false && i == validTags.length) {
+            return false;
+        }
     }
-    else {
-        siblingArray.push(targetNode.nextSibling.innerText);
-    }
-        
-    let pushSibling = function(sibling) {
-        console.log("siblingArray", siblingArray);
-        console.log("sibling.nextSibling", sibling.nextSibling);
-        if (sibling.nextSibling != null) {
-            if (sibling.nextSibling.nodeName == "#text") {
-                siblingArray.push(sibling.nextSibling.wholeText);
-            }
-            else {
-                siblingArray.push(sibling.nextSibling.innerText);
-            }
-            pushSibling(sibling.nextSibling)
-                console.log("not finished");
-        }
-        else {
-            console.log("finished");
-            return
-        }
-    };
-        
-    pushSibling(targetNode.nextSibling);
-    newWholeText = siblingArray.join("");     
 }
-*/
-//^^^reursive function for getting sibling nodes
 
-
-
-//autocompletes first selected word.
 function completeFirstWord(targetNode, selection) {
     fullText = searchForContext(targetNode, selection)[0];
     let startChar = searchForContext(targetNode, selection)[1];
@@ -134,7 +108,6 @@ function completeFirstWord(targetNode, selection) {
     return selection;
 }
 
-//autocompletes last selected word
 function completeLastWord(targetNode, selection) {
     fullText = searchForContext(targetNode, selection)[0];
     let startChar = searchForContext(targetNode, selection)[1];
@@ -171,148 +144,23 @@ function pushFilteredNodes(staticArray) {
     }
 }
 
-function testRange(range) {
-    let finished = false;
-    for (let i=0; i<validTags.length; i++) {
-        if (range.commonAncestorContainer.nodeName == validTags[i]) {
-            finished = true;
-        }
-
-        if (finished == true) {
-            return true;
-        }
-        else if (finished == false && i == validTags.length) {
-            return false;
-        }
-    }
-}
-
-/*
-function begunSelecting() {
-    var iframe = document.createElement('iframe');
-    iframe.classList.add("char-count-iframe");
-    iframe.src = chrome.extension.getURL('/character_count.html');
-    document.body.appendChild(iframe);
-    console.log("iframe: ", iframe);
-    let iframeWindow = iframe.contentWindow;
-    console.log("iframeWindow", iframeWindow);
-    console.log("iframe.src", iframe.src);
-    let checkCharCount = function() {
-        let initSelection = window.getSelection();
-        let charCount = initSelection.toString().length;
-        return charCount;
-    }
-    setInterval(function(){
-        console.log("iframeWindow in setinterval function", iframeWindow);
-        //iframeWindow.getElementById("#char-count-value").textContent = checkCharCount();
-        //console.log("charCount: ", checkCharCount())
-    }, 1000);
-}
-*/
-//iframe method ^^^
-
-function updateCharCount() {
-    let checkCharCount = function() {
-        let initSelection = window.getSelection();
-        let charCount = initSelection.toString().length;
-        return charCount;
-    }
-
-    //YOU NEED TO TRY SELECTING IT AND THEN ALTERING STYLES PROPERTY:
-    //https://stackoverflow.com/questions/36960950/how-to-change-style-of-a-class-without-jquery
-    //VANILLA JS MOUSE COORD VALUE:
-    //https://www.w3schools.com/jsref/event_clientx.asp 
-
-    shadowRoot.querySelector("#char-count-value.char-count").innerText = checkCharCount();
-
-
-    //let charCounter = shadowRoot.querySelector("#char-count-container.char-count");
-    //shadowRoot.querySelector("#char-count-container.char-count").style.top = event.clientY;
-    //$(charCountContainer).css({left: event.pageX + 75, top: event.pageY + 50});
-    let declaration = shadowRoot.styleSheets[0].cssRules[0].style;
-    declaration.setProperty("position", "absolute");
-    declaration.setProperty("left", event.clientX + 75 + "px");
-    declaration.setProperty("top", event.clientY + 50 + "px");
-
-    console.log("char count: ", checkCharCount());
-    /*
-    let myStyle = window.getComputedStyle(shadowRoot.querySelector("#char-count-container.char-count"), null).getPropertyValue("top");
-    console.log("style: ", myStyle);
-    console.log("declaration", declaration);
-    */
-}
-//this updates whenever mouse moves, only need to do it while mouse is held, maybe addeventlistener inside begunselecting function?
-
-function begunSelecting() {
-    if (clicked == false) {
-        let hostElement = document.createElement("div");
-        //hostElement.style.position = "absolute";
-        hostElement.id = "host-element"
-        $(hostElement).appendTo("body");
-
-        let shadowHost = hostElement;
-        shadowRoot = shadowHost.attachShadow({mode: "open"});
-        
-        
-        let charCountContainer = document.createElement("div");
-        charCountContainer.id = "char-count-container";
-        charCountContainer.className = "char-count";
-        charCountContainer.innerHTML = `
-            <p class="char-count char-count-text"><span id="char-count-value" class="char-count char-count-text"></span>/200</p>
-        `;
-
-        let charCountStyles = document.createElement("style");
-        charCountStyles.innerText = `
-            #char-count-container {
-                height: 25px;
-                width: 100px;
-                background-color: rgb(230, 230, 230);
-                padding: 0px;
-                z-index: 100
-            }
-
-            .char-count-text {
-                font-family: calibri, sans-serif;
-                font-size: 20px
-            }
-            
-            .char-count {
-                text-align: center
-            }
-        `;
-
-        shadowRoot.appendChild(charCountStyles);
-        shadowRoot.appendChild(charCountContainer);
-
-        console.log("shadowRoot: ", shadowRoot);
-        console.log("document: ", document);
-        console.log("charCountContainer: ", charCountContainer);    
-    }
-
-    clicked = true;
-    window.addEventListener("mousemove", updateCharCount);
-}
-
-
-//selection callback function
-function doneSelecting() {
-    window.removeEventListener("mousemove", updateCharCount);
-    window.removeEventListener("mousedown", begunSelecting);
+function autoCompSelection() {
     let selectionObj = window.getSelection();
     let selection = selectionObj.toString();
-    console.log("selectionObj: ", selectionObj);
+    //console.log("selectionObj: ", selectionObj);
     
     if (!selectionObj.isCollapsed) {
+        //console.log("IS NOT COLLAPSED");
         let range = selectionObj.getRangeAt(0);
-        console.log("range: ", range);
+        //console.log("range: ", range);
 
         if (selectionObj.anchorNode == selectionObj.focusNode || testRange(range) == true) {
-            console.log("outcome: ", completeFirstWord(selectionObj.anchorNode, completeLastWord(selectionObj.anchorNode, selection)));
+            finalSelection = completeFirstWord(selectionObj.anchorNode, completeLastWord(selectionObj.anchorNode, selection));
         }
         else if (selectionObj.anchorNode != selectionObj.focusNode) {
             let liveNodeList = range.cloneContents().querySelectorAll('*');
             let staticNodeArray = filterSelectedNodes(liveNodeList);
-            console.log("staticNodeArray: ", staticNodeArray);
+            //console.log("staticNodeArray: ", staticNodeArray);
 
             //if selection went up the page from starting point or down the page from starting point
             if (selectionObj.anchorNode.wholeText.search(staticNodeArray[staticNodeArray.length-1].innerText) == -1) {
@@ -329,16 +177,153 @@ function doneSelecting() {
             //concatenating text values of filtered selected elements
             finalSelection = selectionList.join(" ");
             
-            console.log("selectionList: ", selectionList);
-            console.log("staticNodeArray: ", staticNodeArray);
+            //console.log("selectionList: ", selectionList);
+            //console.log("staticNodeArray: ", staticNodeArray);
             //console.log("selectionObj: ", selectionObj);
-            console.log("======================OUTCOME======================");
-            console.log(finalSelection);
-            console.log("***************************************************");
-        }            
+
+        }           
     }
+    //console.log("======================OUTCOME======================");
+    //console.log(finalSelection);
+    //console.log("***************************************************");
+    return finalSelection;
+}
+
+function styleShadowDom(root, selector, properties) {
+    let newDeclaration = null;
+    if (typeof selector === "number") {
+        if (selector > 0 && selector < root.styleSheets[0].cssRules.length-1) {newDeclaration = root.styleSheets[0].cssRules[selector].style}
+        else {
+            console.log("ERROR: the index '" + selector + "' is out of range.")
+            return;
+        }
+    }
+    else if (typeof selector === "string") {
+        for (let i=0; i<root.styleSheets[0].cssRules.length; i++) {
+            if (selector == root.styleSheets[0].cssRules[i].selectorText) {
+                newDeclaration = root.styleSheets[0].cssRules[i].style
+                break;
+            }
+            
+            if (i == root.styleSheets[0].cssRules.length-1) {
+                console.log("ERROR: the selector '" + selector + "' does not exist.");
+                return;
+            }
+        }
+    }
+    else {
+        console.log("ERROR: the datatype of selector '" + selector + "' is invalid.")
+        return;
+    }
+
+    if (properties.length == 0) {console.log("ERROR: empty property array given")}
+    else if (properties.length == 1) {newDeclaration.setProperty(properties[0][0], properties[0][1])}
+    else {
+        for (let j=0; j<properties.length; j++) {
+            newDeclaration.setProperty(properties[j][0], properties[j][1]);
+        }
+    }
+
+}
+
+function updateCharCount() {
+    let countLimit = 200; 
+    selectionList = [];
+    
+    let currentSelection = autoCompSelection();
+    let charCount = currentSelection.length;
+
+    shadowRoot.querySelector("#char-count-value.char-count").innerText = charCount;
+
+    if (charCount > countLimit) {
+        styleShadowDom(shadowRoot, "#char-count-container", [
+            ["left", event.clientX + 75 + "px"],
+            ["top", event.clientY + 50 + "px"],
+            ["background-color", "rgb(255, 96, 96)"]
+        ]);
+    }
+    else {
+        styleShadowDom(shadowRoot, "#char-count-container", [
+            ["left", event.clientX + 75 + "px"],
+            ["top", event.clientY + 50 + "px"],
+            ["background-color", "rgb(230, 230, 230)"]
+        ]);
+    }
+}
+
+function begunSelecting() {
+    if (clicked == false) {
+        let hostElement = document.createElement("div");
+        hostElement.id = "host-element"
+        $(hostElement).appendTo("body");
+
+        let shadowHost = hostElement;
+        shadowRoot = shadowHost.attachShadow({mode: "open"});
+        
+        let charCountContainer = document.createElement("div");
+        charCountContainer.id = "char-count-container";
+        charCountContainer.className = "char-count";
+        charCountContainer.innerHTML = `
+            <p class="char-count char-count-text"><span id="char-count-value" class="char-count char-count-text"></span>/200</p>
+        `;
+
+        let charCountStyles = document.createElement("style");
+        charCountStyles.innerText = `
+            #char-count-container {
+                position: fixed;
+                height: 25px;
+                width: 100px;
+                background-color: rgb(230, 230, 230);
+                padding: 0px;
+                border-radius: 2.5px 10px;
+                z-index: 100
+            }
+
+            .char-count-text {
+                margin-top: 0px;
+                font-family: calibri, sans-serif;
+                font-size: 20px
+            }
+            
+            .char-count {
+                text-align: center
+            }
+
+            .hidden {
+                display: none
+            }
+        `;
+
+        shadowRoot.appendChild(charCountStyles);
+        shadowRoot.appendChild(charCountContainer);
+
+        console.log("shadowRoot: ", shadowRoot);
+        console.log("document: ", document);
+        console.log("charCountContainer: ", charCountContainer);    
+    }
+    else {
+        shadowRoot.querySelector("#char-count-container.char-count").classList.remove("hidden");
+    }
+
+    styleShadowDom(shadowRoot, "#char-count-container", [
+        ["left", event.clientX + 75 + "px"],
+        ["top", event.clientY + 50 + "px"],
+    ]);
+
+    clicked = true;
+    window.addEventListener("mousemove", updateCharCount);
+}
+
+
+//selection callback function
+function doneSelecting() {
+    window.removeEventListener("mousemove", updateCharCount);
+    window.removeEventListener("mousedown", begunSelecting);
+    shadowRoot.querySelector("#char-count-container.char-count").classList.add("hidden");
+    
     selectionList = [];
     finalSelection = "";
+    
     window.addEventListener("mousedown", begunSelecting);
     window.addEventListener("mouseup", doneSelecting);
 }

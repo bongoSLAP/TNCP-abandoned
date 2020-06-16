@@ -2,6 +2,8 @@ let selectionList = [];
 let finalSelection = "";
 let validTags = ["H1", "H2", "H3", "H4", "H5", "H6", "P", "SPAN", "LI", "A", "STRONG", "B", "CITE", "DFN", "EM", "I", "KBD", "LABEL", "Q", "SMALL", "BIG", "SUB", "SUP", "TIME", "VAR"];
 let clicked = false;
+let checkSelectMade = null;
+let updateCharCount = null;
 
 
 //messaging callback to send data between js files
@@ -223,15 +225,19 @@ function styleShadowDom(root, selector, properties) {
             newDeclaration.setProperty(properties[j][0], properties[j][1]);
         }
     }
-
 }
 
+/*
 function updateCharCount() {
+    let charCount = 0;
     let countLimit = 200; 
     selectionList = [];
-    
-    let currentSelection = autoCompSelection();
-    let charCount = currentSelection.length;
+
+    checkCharCount = setTimeout(function() {
+        let currentSelection = autoCompSelection();
+        charCount = currentSelection.length;
+        console.log("success")
+    });
 
     shadowRoot.querySelector("#char-count-value.char-count").innerText = charCount;
 
@@ -250,8 +256,10 @@ function updateCharCount() {
         ]);
     }
 }
+*/
 
 function begunSelecting() {
+    let isSelectMade = false;
     if (clicked == false) {
         let hostElement = document.createElement("div");
         hostElement.id = "host-element"
@@ -262,7 +270,7 @@ function begunSelecting() {
         
         let charCountContainer = document.createElement("div");
         charCountContainer.id = "char-count-container";
-        charCountContainer.className = "char-count";
+        charCountContainer.className = "char-count hidden";
         charCountContainer.innerHTML = `
             <p class="char-count char-count-text"><span id="char-count-value" class="char-count char-count-text"></span>/200</p>
         `;
@@ -301,9 +309,44 @@ function begunSelecting() {
         console.log("document: ", document);
         console.log("charCountContainer: ", charCountContainer);    
     }
-    else {
-        shadowRoot.querySelector("#char-count-container.char-count").classList.remove("hidden");
-    }
+
+    checkSelectMade = setInterval(function() {
+        let initSelection = window.getSelection().toString();
+        //console.log("initSelection.length: ", initSelection.length)
+
+        if (initSelection.length > 0) {
+            isSelectMade = true;
+            shadowRoot.querySelector("#char-count-container.char-count").classList.remove("hidden");
+        }
+    }, 50);
+
+    updateCharCount = setInterval(function() {
+        if (isSelectMade == true) {
+            let charCount = 0;
+            let countLimit = 200; 
+            selectionList = [];
+
+            let currentSelection = autoCompSelection();
+            charCount = currentSelection.length;
+
+            shadowRoot.querySelector("#char-count-value.char-count").innerText = charCount;
+
+            if (charCount > countLimit) {
+                styleShadowDom(shadowRoot, "#char-count-container", [
+                    ["left", event.clientX + 75 + "px"],
+                    ["top", event.clientY + 50 + "px"],
+                    ["background-color", "rgb(255, 96, 96)"]
+                ]);
+            }
+            else {
+                styleShadowDom(shadowRoot, "#char-count-container", [
+                    ["left", event.clientX + 75 + "px"],
+                    ["top", event.clientY + 50 + "px"],
+                    ["background-color", "rgb(230, 230, 230)"]
+                ]);
+            }
+        }
+    }, 50);
 
     styleShadowDom(shadowRoot, "#char-count-container", [
         ["left", event.clientX + 75 + "px"],
@@ -311,6 +354,7 @@ function begunSelecting() {
     ]);
 
     clicked = true;
+    //WHAT IF WE GET RID OF MOUSE MOVE AND UPDATE CHARCOUNT BY CALLING A SETINTERVAL IN MOUSEDOWN, THIS IS TO IMPROVE PERFORMANCE.
     window.addEventListener("mousemove", updateCharCount);
 }
 
@@ -319,6 +363,7 @@ function begunSelecting() {
 function doneSelecting() {
     window.removeEventListener("mousemove", updateCharCount);
     window.removeEventListener("mousedown", begunSelecting);
+    clearInterval(checkSelectMade);
     shadowRoot.querySelector("#char-count-container.char-count").classList.add("hidden");
     
     selectionList = [];

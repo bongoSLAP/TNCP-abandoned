@@ -9,6 +9,15 @@ let charCountText = undefined;
 let selectionMenu = undefined;
 let selectionMade = undefined;
 let exitButton = undefined;
+let confirmButton = undefined;
+let radioHeaders = undefined;
+let radioButtons = undefined;
+let radioLabels = undefined;
+let argumentNatureVals = undefined;
+let sourceVals = undefined;
+let anotationContainer = undefined;
+let anotationText = undefined;
+let publishButton = undefined;
 
 let isClicked = false;
 let isSelectMade = false;
@@ -278,9 +287,60 @@ function setToMousePos(event) {
     ]);
 }
 
+function exitButtonInactive() {
+    exitButton.src = chrome.runtime.getURL("images/exit-button.png");
+}
+
+function exitButtonActive() {
+    exitButton.src = chrome.runtime.getURL("images/exit-button-active.png");
+    exitButton.addEventListener("mouseout", exitButtonInactive);
+}
+
 function exitContextMenu() {
     console.log("exit button clicked")
     contextMenuContainer.classList.add("hidden");
+}
+
+function confirmChoices() {
+    let isArgNatureValid = false;
+    let isSourceValid = false;
+
+    for(let i=0; i<argumentNatureVals.length; i++) {
+        console.log("YES");
+        if (argumentNatureVals[i].checked) {
+            isArgNatureValid = true;
+            break;
+        }
+    }
+
+    for(let i=0; i<sourceVals.length; i++) {
+        if (sourceVals[i].checked) {
+            isSourceValid = true;
+            break;
+        }
+    }
+
+    if (isArgNatureValid && isSourceValid) {
+        let elemList = [radioButtons, radioLabels];
+        for (let i=0; i<radioHeaders.length; i++) {
+            radioHeaders[i].classList.add("slide-right-anim");
+        }
+
+        for (let i=0; i<elemList.length; i++) {
+            for(let j=0; j<elemList[i].length; j++) {
+                elemList[i][j].classList.add("slide-right-offset-anim");
+            }
+        }
+
+        setTimeout(function() {
+            anotationContainer.classList.add("fadein-anim");
+            setTimeout(function() {
+                anotationContainer.classList.remove("hidden");
+                anotationContainer.classList.remove("fadein-anim");
+            }, 150)
+        }, 1550);
+    }
+    else {alert("You did not confirm all of your choices")}
 }
 
 function begunSelecting() {
@@ -306,36 +366,41 @@ function begunSelecting() {
         container.id = "context-menu-container";
         container.className = "hidden";
         container.innerHTML = `
-            <img id="exit-button" class="hidden" src="` + chrome.runtime.getURL("images/exit-button.png") + `" alt="exit" height="15" width="15">
             <div class="char-count">
                 <p class="char-count-text"><span id="char-count-value" class="char-count-text"></span>/100</p>
             </div>
             <div id="selection-menu" class="hidden">
                 <div class="selection-menu-output">
-                    <p id="selection-quotes" class="selection-menu-text hidden quotes-font">‘<span id="selection-made" class="selection-menu-text"></span>’</p>
+                    <p id="selection-quotes" class="selection-menu-text hidden quotes-font">‘<span id="selection-made" class="selection-menu-text"></span>’<span><img id="exit-button" class="hidden" src="` + chrome.runtime.getURL("images/exit-button.png") + `" alt="exit" height="15" width="15"></span></p>
                 </div>
 
                 <br>
 
-                <div id="argument-nature-container">Nature of argument
+                <div id="argument-nature-container" class="radio-headers">Nature of argument
                     <br>
-                    <input class="selection-menu-radios" type="radio" id="for-radio" name="argument-nature" value="for">
-                    <label for="for">For</label><br>
-                    <input class="selection-menu-radios" type="radio" id="against-radio" name="argument-nature" value="against">
-                    <label for="against">Against</label><br>
-                    <input class="selection-menu-radios" type="radio" id="other-radio" name="argument-nature" value="other">
-                    <label for="other">Other</label><br>
+                    <input class="selection-menu-radios argument-nature-radios" type="radio" id="for-radio" name="argument-nature" value="for">
+                    <label class="selection-menu-labels" for="for">For</label><br>
+                    <input class="selection-menu-radios argument-nature-radios" type="radio" id="against-radio" name="argument-nature" value="against">
+                    <label class="selection-menu-labels" for="against">Against</label><br>
+                    <input class="selection-menu-radios argument-nature-radios" type="radio" id="other-radio" name="argument-nature" value="other">
+                    <label class="selection-menu-labels" for="other">Other</label><br>
                 </div>
 
                 <br>
                 
-                <div id="source-container">Have a source?
+                <div id="source-container" class="radio-headers">Have a source?
                     <br>
-                    <input class="selection-menu-radios" type="radio" id="yes-source-radio" name="source" value="yes">
-                    <label for="yes">Yes</label><br>
-                    <input class="selection-menu-radios" type="radio" id="no-source-radio" name="source" value="no">
-                    <label for="no">No</label><br>
+                    <input class="selection-menu-radios source-radios" type="radio" id="yes-source-radio" name="source" value="yes">
+                    <label class="selection-menu-labels" for="yes">Yes</label><br>
+                    <input class="selection-menu-radios source-radios" type="radio" id="no-source-radio" name="source" value="no">
+                    <label class="selection-menu-labels" for="no">No</label><br>
                     <button id="confirm-choices">Confirm</button>
+                </div>
+
+                <div id="user-anotation-container" class="hidden">
+                    <textarea id="user-anotation-text" name="user-anotation" rows="4" cols"60">Your thoughts...
+                    </textarea>
+                    <input id="publish-anotation" type="submit" value="Publish">
                 </div>
             </div>`
         ;
@@ -344,12 +409,12 @@ function begunSelecting() {
         shadowDomStyles.innerText = `
             #context-menu-container {
                 position: fixed;
-                height: 25px;
-                width: 100px;
+                height: 2%;
+                width: 6.5%;
                 background-color: rgba(230, 230, 230, 0.8);
                 padding: 0px;
                 border-radius: 2.5px 10px 10px 10px;
-                z-index: 100
+                z-index: 9999
             }
 
             #exit-button {
@@ -398,6 +463,10 @@ function begunSelecting() {
                 margin-top: 10px;
             }
 
+            #user-anotation-container {
+                margn-top: 0px;
+            }
+
             .char-count {
                 text-align: center
             }
@@ -411,10 +480,14 @@ function begunSelecting() {
             .hidden {
                 display: none
             }
+
+            .quotes-font {
+                font-family: 'Revalia', Verdana
+            }
             
             .shake-anim {
                 animation-name: shake;
-                animation-duration: 0.3s;
+                animation-duration: 0.3s
             }
 
             @keyframes shake {
@@ -429,44 +502,76 @@ function begunSelecting() {
             .expand-anim {
                 animation-name: expand;
                 animation-duration: 0.6s;
-                animation-fill-mode: forwards;            
+                animation-fill-mode: forwards       
             }
 
             @keyframes expand {
                 0% {
-                    height: 25px;
-                    width: 100px;
+                    height: 2%;
+                    width: 6.5%
                 }
                 100% {
-                    height: 240px;
-                    width: 480px;
+                    height: 20%;
+                    width: 30%
                 }
             }
 
             .fadein-anim {
-                animation-name: fadein;
+                animation-name: fade-in;
                 animation-duration: 0.1s;
-                animation-fill-mode: forwards;            
+                animation-fill-mode: forwards        
             }
 
-            @keyframes fadein {
+            @keyframes fade-in {
                 0% {opacity: 0}
                 100% {opacity: 1}
             }
 
             .fadeout-anim {
-                animation-name: fadeout;
+                animation-name: fade-out;
                 animation-duration: 0.1s;
-                animation-fill-mode: forwards;            
+                animation-fill-mode: forwards         
             }
 
-            @keyframes fadeout {
+            @keyframes fade-out {
                 0% {opacity: 1}
                 100% {opacity: 0}
             }
 
-            .quotes-font {
-                font-family: 'Revalia', Verdana
+            .slide-right-anim {
+                animation-name: slide-right;
+                animation-duration: 1.5s;
+                animation-fill-mode: forwards
+            }
+
+            @keyframes slide-right {
+                0% {
+                    opacity: 1;
+                    margin-left: 20px
+                }
+                50% {opacity: 0}
+                100% {
+                    margin-left: 400px;
+                    opacity: 0
+                }
+            }
+
+            .slide-right-offset-anim {
+                animation-name: slide-right-offset;
+                animation-duration: 1.5s;
+                animation-fill-mode: forwards
+            }
+
+            @keyframes slide-right-offset {
+                0% {
+                    opacity: 1;
+                    margin-left: 40px
+                }
+                50% {opacity: 0}
+                100% {
+                    margin-left: 400px;
+                    opacity: 0
+                }
             }
         `;
 
@@ -478,8 +583,18 @@ function begunSelecting() {
         charCountText = shadowRoot.querySelector(".char-count-text");
         selectionMenu = shadowRoot.querySelector("#selection-menu");
         selectionMade = shadowRoot.querySelector("#selection-made");
+        radioHeaders = shadowRoot.querySelectorAll(".radio-headers");
+        radioButtons = shadowRoot.querySelectorAll(".selection-menu-radios");
+        radioLabels = shadowRoot.querySelectorAll(".selection-menu-labels");
         exitButton = shadowRoot.querySelector("#exit-button");
         exitButton.addEventListener("click", exitContextMenu);
+        confirmButton = shadowRoot.querySelector("#confirm-choices");
+        confirmButton.addEventListener("click", confirmChoices);
+        argumentNatureVals = shadowRoot.querySelectorAll(".argument-nature-radios");
+        sourceVals = shadowRoot.querySelectorAll(".source-radios");
+        anotationContainer = shadowRoot.querySelector("#user-anotation-container");
+        anotationText = shadowRoot.querySelector("#user-anotation-text");
+        publishButton = shadowRoot.querySelector("#publish-anotation");
         
         console.log("shadowRoot: ", shadowRoot);
         console.log("document: ", document);
@@ -598,6 +713,7 @@ function doneSelecting() {
                     });
                     selectionMenu.classList.remove("hidden");
                     styleShadowDom(shadowRoot, ["#selection-quotes", "#exit-button", "#argument-nature-container", "#source-container"], [["display", "inline"]]);
+                    exitButton.addEventListener("mouseover", exitButtonActive);
                 }, 150)
             }, 150)
         }

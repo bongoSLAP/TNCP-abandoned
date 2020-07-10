@@ -5,7 +5,7 @@
 	"description": "The News Critic Platform",
 	"permissions": [
 		"declarativeContent", 
-		"storage", 
+		"storage",
 		"activeTab"
 	],
 	"content_scripts": [
@@ -30,5 +30,10 @@
 		"48": "images/icon48.png",
 		"128": "images/icon128.png"
 	},
-	"web_accessible_resources": ["character_count.html"]
+	"web_accessible_resources": [
+		"images/exit-button.png",
+		"images/exit-button-active.png",
+		"fonts/Revalia-Regular.ttf",
+		"fonts/Oswald-Regular.ttf"
+	]
 }

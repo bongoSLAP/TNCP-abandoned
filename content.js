@@ -10,6 +10,7 @@ let selectionMenu = undefined;
 let selectionMade = undefined;
 let exitButton = undefined;
 let confirmButton = undefined;
+let radioContainer = undefined;
 let radioHeaders = undefined;
 let radioButtons = undefined;
 let radioLabels = undefined;
@@ -333,12 +334,23 @@ function confirmChoices() {
         }
 
         setTimeout(function() {
+            radioContainer.classList.add("hidden");
+            for (let i=0; i<radioHeaders.length; i++) {
+                radioHeaders[i].classList.remove("slide-right-anim");
+            }
+    
+            for (let i=0; i<elemList.length; i++) {
+                for(let j=0; j<elemList[i].length; j++) {
+                    elemList[i][j].classList.remove("slide-right-offset-anim");
+                }
+            }
+
             anotationContainer.classList.add("fadein-anim");
             setTimeout(function() {
                 anotationContainer.classList.remove("hidden");
                 anotationContainer.classList.remove("fadein-anim");
             }, 150)
-        }, 1550);
+        }, 550);
     }
     else {alert("You did not confirm all of your choices")}
 }
@@ -373,33 +385,37 @@ function begunSelecting() {
                 <div class="selection-menu-output">
                     <p id="selection-quotes" class="selection-menu-text hidden quotes-font">‘<span id="selection-made" class="selection-menu-text"></span>’<span><img id="exit-button" class="hidden" src="` + chrome.runtime.getURL("images/exit-button.png") + `" alt="exit" height="15" width="15"></span></p>
                 </div>
-
                 <br>
-
-                <div id="argument-nature-container" class="radio-headers">Nature of argument
+                <div id="radio-container">
+                    <div id="argument-nature-container" class="radio-headers">Nature of argument
+                        <br>
+                        <input class="selection-menu-radios argument-nature-radios" type="radio" id="for-radio" name="argument-nature" value="for">
+                        <label class="selection-menu-labels" for="for">For</label>
+                        <br>
+                        <input class="selection-menu-radios argument-nature-radios" type="radio" id="against-radio" name="argument-nature" value="against">
+                        <label class="selection-menu-labels" for="against">Against</label>
+                        <br>
+                        <input class="selection-menu-radios argument-nature-radios" type="radio" id="other-radio" name="argument-nature" value="other">
+                        <label class="selection-menu-labels" for="other">Other</label>
+                        <br>
+                    </div>
                     <br>
-                    <input class="selection-menu-radios argument-nature-radios" type="radio" id="for-radio" name="argument-nature" value="for">
-                    <label class="selection-menu-labels" for="for">For</label><br>
-                    <input class="selection-menu-radios argument-nature-radios" type="radio" id="against-radio" name="argument-nature" value="against">
-                    <label class="selection-menu-labels" for="against">Against</label><br>
-                    <input class="selection-menu-radios argument-nature-radios" type="radio" id="other-radio" name="argument-nature" value="other">
-                    <label class="selection-menu-labels" for="other">Other</label><br>
+                    <div id="source-container" class="radio-headers">Have a source?
+                        <br>
+                        <input class="selection-menu-radios source-radios" type="radio" id="yes-source-radio" name="source" value="yes">
+                        <label class="selection-menu-labels" for="yes">Yes</label>
+                        <br>
+                        <input class="selection-menu-radios source-radios" type="radio" id="no-source-radio" name="source" value="no">
+                        <label class="selection-menu-labels" for="no">No</label>
+                        <br>
+                        <button id="confirm-choices">Confirm</button>
+                    </div>
                 </div>
-
-                <br>
                 
-                <div id="source-container" class="radio-headers">Have a source?
-                    <br>
-                    <input class="selection-menu-radios source-radios" type="radio" id="yes-source-radio" name="source" value="yes">
-                    <label class="selection-menu-labels" for="yes">Yes</label><br>
-                    <input class="selection-menu-radios source-radios" type="radio" id="no-source-radio" name="source" value="no">
-                    <label class="selection-menu-labels" for="no">No</label><br>
-                    <button id="confirm-choices">Confirm</button>
-                </div>
-
                 <div id="user-anotation-container" class="hidden">
-                    <textarea id="user-anotation-text" name="user-anotation" rows="4" cols"60">Your thoughts...
+                    <textarea id="user-anotation-input" name="user-anotation" rows="6">Your thoughts...
                     </textarea>
+                    <br>
                     <input id="publish-anotation" type="submit" value="Publish">
                 </div>
             </div>`
@@ -464,7 +480,19 @@ function begunSelecting() {
             }
 
             #user-anotation-container {
-                margn-top: 0px;
+                margin-top: 0px;
+            }
+            
+            #user-anotation-input {
+                margin-top: 10px;
+                margin-left: 15%;
+                margin-right: 15%;
+                width: 70%;
+                resize: none
+            }
+
+            #publish-anotation {
+                margin-left: 15%;
             }
 
             .char-count {
@@ -583,6 +611,7 @@ function begunSelecting() {
         charCountText = shadowRoot.querySelector(".char-count-text");
         selectionMenu = shadowRoot.querySelector("#selection-menu");
         selectionMade = shadowRoot.querySelector("#selection-made");
+        radioContainer = shadowRoot.querySelector("#radio-container");
         radioHeaders = shadowRoot.querySelectorAll(".radio-headers");
         radioButtons = shadowRoot.querySelectorAll(".selection-menu-radios");
         radioLabels = shadowRoot.querySelectorAll(".selection-menu-labels");
@@ -590,10 +619,12 @@ function begunSelecting() {
         exitButton.addEventListener("click", exitContextMenu);
         confirmButton = shadowRoot.querySelector("#confirm-choices");
         confirmButton.addEventListener("click", confirmChoices);
+        argNatureContainer = shadowRoot.querySelector("#argument-nature-container")
+        sourceContainer = shadowRoot.querySelector("#source-container")
         argumentNatureVals = shadowRoot.querySelectorAll(".argument-nature-radios");
         sourceVals = shadowRoot.querySelectorAll(".source-radios");
         anotationContainer = shadowRoot.querySelector("#user-anotation-container");
-        anotationText = shadowRoot.querySelector("#user-anotation-text");
+        anotationText = shadowRoot.querySelector("#user-anotation-input");
         publishButton = shadowRoot.querySelector("#publish-anotation");
         
         console.log("shadowRoot: ", shadowRoot);
@@ -668,6 +699,7 @@ function begunSelecting() {
         
     isClicked = true;
     console.log("isSelectMade: ", isSelectMade);
+    console.log("shadowRoot: ", shadowRoot);
 }
 
 //selection callback function
@@ -693,7 +725,8 @@ function doneSelecting() {
     }
     else {
         if (isSelectMade) {
-            if (event.detail === 3) {contextMenuContainer.classList.add("hidden")}
+            whenNotHovering(contextMenuContainer, function() {if (event.detail === 3) {contextMenuContainer.classList.add("hidden")}});
+
             let finalSelection = autoCompSelection();
             styleShadowDom(shadowRoot, "#context-menu-container", [["background-color", "rgb(230, 230, 230)"]]);
             charCountText.classList.add("fadeout-anim");

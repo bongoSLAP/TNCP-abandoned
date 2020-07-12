@@ -24,9 +24,7 @@ let isClicked = false;
 let isSelectMade = false;
 let isOverLimit = false;
 let isExpanded = false;
-
-
-
+let isConfirmed = false;
 
 //messaging callback to send data between js files
 function handleContentRequests(message, sender, sendResponse) {
@@ -298,7 +296,6 @@ function exitButtonActive() {
 }
 
 function exitContextMenu() {
-    console.log("exit button clicked")
     contextMenuContainer.classList.add("hidden");
 }
 
@@ -307,7 +304,6 @@ function confirmChoices() {
     let isSourceValid = false;
 
     for(let i=0; i<argumentNatureVals.length; i++) {
-        console.log("YES");
         if (argumentNatureVals[i].checked) {
             isArgNatureValid = true;
             break;
@@ -323,6 +319,7 @@ function confirmChoices() {
 
     if (isArgNatureValid && isSourceValid) {
         let elemList = [radioButtons, radioLabels];
+        isConfirmed = true;
         for (let i=0; i<radioHeaders.length; i++) {
             radioHeaders[i].classList.add("slide-right-anim");
         }
@@ -635,8 +632,9 @@ function begunSelecting() {
     else {
         whenNotHovering(contextMenuContainer, function() {
             if (isExpanded) {
-                console.log("clicked out of container bounds")
-                styleShadowDom(shadowRoot, ["#selection-quotes", "#exit-button", "#argument-nature-container", "#source-container"], [["display", "none"]]);
+                styleShadowDom(shadowRoot, ["#selection-quotes", "#exit-button", "#argument-nature-container", "#source-container"], [["display", "none"]]);    
+                if (isConfirmed) {styleShadowDom(shadowRoot, ["#user-anotation-container"], [["display", "none"]])}
+
                 contextMenuContainer.classList.remove("expand-anim");
                 charCountText.classList.add("fadein-anim");
     
@@ -655,39 +653,36 @@ function begunSelecting() {
             if (initSelection.length > 0) {
                 isSelectMade = true;
                 contextMenuContainer.classList.remove("hidden");
-                console.log("over 0", isSelectMade);
             }
             else {
                 isSelectMade = false
-                console.log("not over 0", isSelectMade);
-
             }
         })
     }, 50);
 
     updateCharCount = setInterval(function() {
-            if (isSelectMade) {
-                let countLimit = 100; 
-                let rgb = "";
-                selectionList = [];
+        if (isSelectMade) {
+            let countLimit = 100; 
+            let rgb = "";
+            selectionList = [];
 
-                let currentSelection = autoCompSelection();
-                charCount = currentSelection.length;
-                
-                shadowRoot.querySelector("#char-count-value").innerText = charCount;
+            let currentSelection = autoCompSelection();
+            charCount = currentSelection.length;
+            
+            shadowRoot.querySelector("#char-count-value").innerText = charCount;
 
-                if (charCount > countLimit) {
-                    rgb = "rgba(255, 96, 96, 0.8)"
-                    isOverLimit = true;
-                }
-                else {
-                    rgb = "rgba(230, 230, 230, 0.8)"
-                    isOverLimit = false;
-                }
-
-                styleShadowDom(shadowRoot, "#context-menu-container", [["background-color", rgb]]);
-                whenNotHovering(contextMenuContainer, function() {window.addEventListener("mousemove", setToMousePos)});
+            if (charCount > countLimit) {
+                rgb = "rgba(255, 96, 96, 0.8)"
+                isOverLimit = true;
             }
+            else {
+                rgb = "rgba(230, 230, 230, 0.8)"
+                isOverLimit = false;
+            }
+
+            styleShadowDom(shadowRoot, "#context-menu-container", [["background-color", rgb]]);
+            whenNotHovering(contextMenuContainer, function() {window.addEventListener("mousemove", setToMousePos)});
+        }
     }, 100);
 
     whenNotHovering(contextMenuContainer, function() {
@@ -743,15 +738,15 @@ function doneSelecting() {
                     whenNotHovering(contextMenuContainer, function() {
                         if (finalSelection.length > 50) {selectionMade.innerText = finalSelection.substr(0, 50) + "...";}
                         else {selectionMade.innerText = finalSelection}
+                        radioContainer.classList.remove("hidden");
+                        styleShadowDom(shadowRoot, ["#selection-quotes", "#exit-button", "#argument-nature-container", "#source-container"], [["display", "inline"]]);
+                        exitButton.addEventListener("mouseover", exitButtonActive);
                     });
-                    selectionMenu.classList.remove("hidden");
-                    styleShadowDom(shadowRoot, ["#selection-quotes", "#exit-button", "#argument-nature-container", "#source-container"], [["display", "inline"]]);
-                    exitButton.addEventListener("mouseover", exitButtonActive);
+                    selectionMenu.classList.remove("hidden");   
                 }, 150)
             }, 150)
         }
         else {
-            console.log("no select made: ", isSelectMade);
             contextMenuContainer.classList.add("hidden")
         }
     }
@@ -762,7 +757,6 @@ function doneSelecting() {
     
     window.addEventListener("mousedown", begunSelecting);
     window.addEventListener("mouseup", doneSelecting);
-    //console.log("contextMenuContainer.classList: ", contextMenuContainer.classList);
 }
 
 //event listeners

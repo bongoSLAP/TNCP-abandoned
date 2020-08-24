@@ -2,6 +2,7 @@ let selectionList = [];
 let autoCompOutcome = "";
 let validTags = ["H1", "H2", "H3", "H4", "H5", "H6", "P", "SPAN", "LI", "A", "STRONG", "B", "CITE", "DFN", "EM", "I", "KBD", "LABEL", "Q", "SMALL", "BIG", "SUB", "SUP", "TIME", "VAR"];
 
+//shadow DOM elements
 let checkSelectMade = undefined;
 let updateCharCount = undefined;
 let contextMenuContainer = undefined;
@@ -25,8 +26,10 @@ let isSelectMade = false;
 let isOverLimit = false;
 let isExpanded = false;
 let isConfirmed = false;
+let isFocussed = false;
 
-//messaging callback to send data between js files
+
+//messaging callback to send data between .js files
 function handleContentRequests(message, sender, sendResponse) {
     if (message.request === "update>headline") {
         let headlineList = document.getElementsByTagName("h1");
@@ -38,7 +41,8 @@ function handleContentRequests(message, sender, sendResponse) {
     }
 }
 
-function validateRegExp(string) {
+//line breaks, special chars etc cause errors in searchForContext()
+function sanitiseRegExp(string) {
     //filtering out line breaks etc
     string = string.replace(/(\r\n|\n|\r)/gm, "");
     //special chars can be selected and the search will still work
@@ -46,11 +50,13 @@ function validateRegExp(string) {
     return string;
 }
 
+//need to find the entirety of the text in nodes selected in order to calculate a start point carry out autocomplete function
 function searchForContext(targetNode, selection) {
     let fullText = targetNode.wholeText;
     let getParentNode = function(targetNode) {
         let newWholeText = undefined;
 
+        //recursive function to move up the tree of nodes starting from the selected node
         let getNextParent = function(child) {
             let isFinished = false;
 
@@ -82,8 +88,9 @@ function searchForContext(targetNode, selection) {
         return newWholeText; 
     }
 
+    //looks to find the point in which the selected text begins in the 'current' whole text
     let newSearch = function(searchIn, query) {
-        let regExp = new RegExp(validateRegExp(query));
+        let regExp = new RegExp(sanitiseRegExp(query));
         let searchOutcome = searchIn.search(regExp);
 
         if (searchOutcome == -1) {
@@ -91,8 +98,9 @@ function searchForContext(targetNode, selection) {
         }
         else {return searchOutcome}
     }
-    
-    if (newSearch(fullText, selection) == "failed") {        
+
+    //if it couldnt be found then move up a layer and repeat
+    if (newSearch(fullText, selection) == "failed") {     
         fullText = getParentNode(targetNode);
     }
 
@@ -174,10 +182,9 @@ function autoCompSelection() {
     //console.log("selectionObj: ", selectionObj);
     
     if (!selectionObj.isCollapsed) {
-        //console.log("IS NOT COLLAPSED");
         let range = selectionObj.getRangeAt(0);
-        //console.log("range: ", range);
 
+        //if selection stays within the same node
         if (selectionObj.anchorNode == selectionObj.focusNode || testRange(range) == true) {
             autoCompOutcome = completeFirstWord(selectionObj.anchorNode, completeLastWord(selectionObj.anchorNode, selection));
         }
@@ -203,19 +210,20 @@ function autoCompSelection() {
             
             //console.log("selectionList: ", selectionList);
             //console.log("staticNodeArray: ", staticNodeArray);
-            //console.log("selectionObj: ", selectionObj);
-
         }           
     }
     //console.log("======================OUTCOME======================");
     //console.log(autoCompOutcome);
     //console.log("***************************************************");
+    //console.log("selectionObj: ", selectionObj);
     return autoCompOutcome;
 }
 
+//function for easily applying styles to shadowDOM
 function styleShadowDom(root, selector, properties) {
     let newDeclaration = undefined;
 
+    //multiple types of selectors can be used
     let checkDataType = function(thisSelector) {
         if (typeof thisSelector === "number") {
             if (thisSelector > 0 && thisSelector < root.styleSheets[0].cssRules.length-1) {newDeclaration = root.styleSheets[0].cssRules[thisSelector].style}
@@ -255,6 +263,7 @@ function styleShadowDom(root, selector, properties) {
         }
     }
 
+    //if an array of selectors then styles must be applied for all items
     if (Array.isArray(selector)) {
         for (let j=0; j<selector.length; j++) {
             checkDataType(selector[j]);
@@ -303,6 +312,7 @@ function confirmChoices() {
     let isArgNatureValid = false;
     let isSourceValid = false;
 
+    //validates that radios are ticked before progressing
     for(let i=0; i<argumentNatureVals.length; i++) {
         if (argumentNatureVals[i].checked) {
             isArgNatureValid = true;
@@ -317,6 +327,7 @@ function confirmChoices() {
         }
     }
 
+    //triggers a series of animations to progress to the next screen
     if (isArgNatureValid && isSourceValid) {
         let elemList = [radioButtons, radioLabels];
         isConfirmed = true;
@@ -343,9 +354,18 @@ function confirmChoices() {
             }
 
             anotationContainer.classList.add("fadein-anim");
+            //anotationText.classList.add("fadein-anim");
+            //publishButton.classList.add("fadein-anim");
+
             setTimeout(function() {
-                anotationContainer.classList.remove("hidden");
+                styleShadowDom(shadowRoot, ["#user-anotation-container"], [["display", "inline"]])
                 anotationContainer.classList.remove("fadein-anim");
+                /*
+                anotationText.classList.remove("hidden");
+                anotationText.classList.remove("fadein-anim");
+                publishButton.classList.remove("hidden");
+                publishButton.classList.remove("fadein-anim");
+                */
             }, 150)
         }, 550);
     }
@@ -353,7 +373,9 @@ function confirmChoices() {
 }
 
 function begunSelecting() {
+    //only need to run this set up code the first time a selection is made
     if (!isClicked) {
+        //custom font added parent document for use in shadowDOM
         let fontRule = document.createElement("style");
         fontRule.innerText = `
             @font-face {
@@ -364,6 +386,7 @@ function begunSelecting() {
 
         $(fontRule).appendTo("body");
 
+        //creating, styling and appending shadowDOM to document
         let hostElement = document.createElement("div");
         hostElement.id = "host-element"
         $(hostElement).appendTo("body");
@@ -429,53 +452,43 @@ function begunSelecting() {
                 border-radius: 2.5px 10px 10px 10px;
                 z-index: 9999
             }
-
             #exit-button {
                 float: right;
                 margin-top: 4.5px;
                 margin-right: 5px
             }
-
             #exit-button:hover {
                 cursor: pointer
             }
-
             .selection-menu-output {
                 text-align: center
             }
-
             #selection-quotes {
                 margin-top: 4px;
                 font-weight: bold;
                 font-size: 32px;
                 font-family: 'Revalia', cursive;
             }
-
             #selection-made {
                 font-weight: normal;
                 font-size: 14px;
                 font-family: Arial
             }
-
             .selection-menu-radios {
                 margin-left: 40px
             }
-
             #argument-nature-container {
                 text-align: left;
                 margin-left: 20px
             }
-
             #source-container {
                 text-align: left;
                 margin-left: 20px
             }
-
             #confirm-choices {
                 margin-left: 10px;
                 margin-top: 10px;
             }
-
             #user-anotation-container {
                 margin-top: 0px;
             }
@@ -487,25 +500,20 @@ function begunSelecting() {
                 width: 70%;
                 resize: none
             }
-
             #publish-anotation {
                 margin-left: 15%;
             }
-
             .char-count {
                 text-align: center
             }
-
             .char-count-text {
                 margin-top: 0px;
                 font-family: calibri, sans-serif;
                 font-size: 20px
             }
-
             .hidden {
                 display: none
             }
-
             .quotes-font {
                 font-family: 'Revalia', Verdana
             }
@@ -514,7 +522,6 @@ function begunSelecting() {
                 animation-name: shake;
                 animation-duration: 0.3s
             }
-
             @keyframes shake {
                 0% {transform: translateX(-20px)}
                 20% {transform: translateX(20px)}
@@ -523,13 +530,11 @@ function begunSelecting() {
                 80% {transform: translateX(-20px)}
                 100% {transform: translateX(20px)}
             }
-
             .expand-anim {
                 animation-name: expand;
                 animation-duration: 0.6s;
                 animation-fill-mode: forwards       
             }
-
             @keyframes expand {
                 0% {
                     height: 2%;
@@ -537,62 +542,54 @@ function begunSelecting() {
                 }
                 100% {
                     height: 20%;
-                    width: 30%
+                    width: 30%;
                 }
             }
-
             .fadein-anim {
                 animation-name: fade-in;
                 animation-duration: 0.1s;
                 animation-fill-mode: forwards        
             }
-
             @keyframes fade-in {
                 0% {opacity: 0}
                 100% {opacity: 1}
             }
-
             .fadeout-anim {
                 animation-name: fade-out;
                 animation-duration: 0.1s;
                 animation-fill-mode: forwards         
             }
-
             @keyframes fade-out {
                 0% {opacity: 1}
                 100% {opacity: 0}
             }
-
             .slide-right-anim {
                 animation-name: slide-right;
                 animation-duration: 1.5s;
                 animation-fill-mode: forwards
             }
-
             @keyframes slide-right {
                 0% {
                     opacity: 1;
                     margin-left: 20px
                 }
-                50% {opacity: 0}
+                40% {opacity: 0}
                 100% {
                     margin-left: 400px;
                     opacity: 0
                 }
             }
-
             .slide-right-offset-anim {
                 animation-name: slide-right-offset;
                 animation-duration: 1.5s;
                 animation-fill-mode: forwards
             }
-
             @keyframes slide-right-offset {
                 0% {
                     opacity: 1;
                     margin-left: 40px
                 }
-                50% {opacity: 0}
+                40% {opacity: 0}
                 100% {
                     margin-left: 400px;
                     opacity: 0
@@ -604,6 +601,7 @@ function begunSelecting() {
         shadowRoot.appendChild(shadowDomStyles);
         shadowRoot.appendChild(container);
 
+        //saves repeating querySelector + readability
         contextMenuContainer = shadowRoot.querySelector("#context-menu-container");
         charCountText = shadowRoot.querySelector(".char-count-text");
         selectionMenu = shadowRoot.querySelector("#selection-menu");
@@ -626,10 +624,11 @@ function begunSelecting() {
         
         console.log("shadowRoot: ", shadowRoot);
         console.log("document: ", document);
-        console.log("container: ", container);    
-        console.log("classList: ", contextMenuContainer.classList.value);
+        //console.log("container: ", container);    
+        //console.log("classList: ", contextMenuContainer.classList.value);
     }
     else {
+        //if already clicked once, just need to hide/unhide elements rather than creating them every time
         whenNotHovering(contextMenuContainer, function() {
             if (isExpanded) {
                 styleShadowDom(shadowRoot, ["#selection-quotes", "#exit-button", "#argument-nature-container", "#source-container"], [["display", "none"]]);    
@@ -646,6 +645,12 @@ function begunSelecting() {
         })
     }
 
+    
+    whenHovering(contextMenuContainer, function() {
+        isFocussed = true;
+    });
+
+    //checks to see whether mouse events lead to a selection being made or just normal click
     checkSelectMade = setInterval(function() {
         whenNotHovering(contextMenuContainer, function() {
             let initSelection = window.getSelection().toString();
@@ -660,6 +665,7 @@ function begunSelecting() {
         })
     }, 50);
 
+    //displays the current character count of selection being made
     updateCharCount = setInterval(function() {
         if (isSelectMade) {
             let countLimit = 100; 
@@ -681,10 +687,15 @@ function begunSelecting() {
             }
 
             styleShadowDom(shadowRoot, "#context-menu-container", [["background-color", rgb]]);
-            whenNotHovering(contextMenuContainer, function() {window.addEventListener("mousemove", setToMousePos)});
+            whenNotHovering(contextMenuContainer, function() {
+                if (!isFocussed) {
+                    window.addEventListener("mousemove", setToMousePos)
+                }
+            });
         }
     }, 100);
 
+    //allows user to 'click out' of context menu
     whenNotHovering(contextMenuContainer, function() {
         styleShadowDom(shadowRoot, "#context-menu-container", [
             ["left", event.clientX + 75 + "px"],
@@ -693,8 +704,8 @@ function begunSelecting() {
     })
         
     isClicked = true;
-    console.log("isSelectMade: ", isSelectMade);
-    console.log("shadowRoot: ", shadowRoot);
+    //console.log("isSelectMade: ", isSelectMade);
+    //console.log("shadowRoot: ", shadowRoot);
 }
 
 //selection callback function
@@ -704,6 +715,7 @@ function doneSelecting() {
     clearInterval(checkSelectMade);
     clearInterval(updateCharCount);
 
+    //if selection more than 100 chars, then appropriate animation displayed
     if (isOverLimit) {
         contextMenuContainer.classList.add("shake-anim");
 
@@ -720,6 +732,7 @@ function doneSelecting() {
     }
     else {
         if (isSelectMade) {
+            //triple clicks cause weird bugs
             whenNotHovering(contextMenuContainer, function() {if (event.detail === 3) {contextMenuContainer.classList.add("hidden")}});
 
             let finalSelection = autoCompSelection();
@@ -736,11 +749,14 @@ function doneSelecting() {
 
                 setTimeout(function() {
                     whenNotHovering(contextMenuContainer, function() {
-                        if (finalSelection.length > 50) {selectionMade.innerText = finalSelection.substr(0, 50) + "...";}
-                        else {selectionMade.innerText = finalSelection}
-                        radioContainer.classList.remove("hidden");
-                        styleShadowDom(shadowRoot, ["#selection-quotes", "#exit-button", "#argument-nature-container", "#source-container"], [["display", "inline"]]);
-                        exitButton.addEventListener("mouseover", exitButtonActive);
+                        if (!isFocussed) {
+                            //displays first 50 chars of selection to save space
+                            if (finalSelection.length > 50) {selectionMade.innerText = finalSelection.substr(0, 50) + "...";}
+                            else {selectionMade.innerText = finalSelection}
+                            radioContainer.classList.remove("hidden");
+                            styleShadowDom(shadowRoot, ["#selection-quotes", "#exit-button", "#argument-nature-container", "#source-container"], [["display", "inline"]]);
+                            exitButton.addEventListener("mouseover", exitButtonActive);
+                        }
                     });
                     selectionMenu.classList.remove("hidden");   
                 }, 150)
@@ -763,5 +779,3 @@ function doneSelecting() {
 chrome.runtime.onMessage.addListener(handleContentRequests);
 window.addEventListener("mousedown", begunSelecting);
 window.addEventListener("mouseup", doneSelecting);
-
-

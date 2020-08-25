@@ -33,6 +33,7 @@
 	"web_accessible_resources": [
 		"images/exit-button.png",
 		"images/exit-button-active.png",
+		"images/loading.png",
 		"fonts/Revalia-Regular.ttf",
 		"fonts/Oswald-Regular.ttf"
 	]

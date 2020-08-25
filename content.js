@@ -6,6 +6,8 @@ let validTags = ["H1", "H2", "H3", "H4", "H5", "H6", "P", "SPAN", "LI", "A", "ST
 let checkSelectMade = undefined;
 let updateCharCount = undefined;
 let contextMenuContainer = undefined;
+let loadingIcon = undefined;
+let charCountContainer = undefined;
 let charCountText = undefined;
 let selectionMenu = undefined;
 let selectionMade = undefined;
@@ -398,7 +400,10 @@ function begunSelecting() {
         container.id = "context-menu-container";
         container.className = "hidden";
         container.innerHTML = `
-            <div class="char-count">
+            <div id="loading">
+                <img id="loading-icon" class="hidden" src="` + chrome.runtime.getURL("images/loading.png") + `" alt="loading" height="35" width="35">
+            </div>
+            <div id="char-count">
                 <p class="char-count-text"><span id="char-count-value" class="char-count-text"></span>/100</p>
             </div>
             <div id="selection-menu" class="hidden">
@@ -433,8 +438,8 @@ function begunSelecting() {
                 </div>
                 
                 <div id="user-anotation-container" class="hidden">
-                    <textarea id="user-anotation-input" name="user-anotation" rows="6">Your thoughts...
-                    </textarea>
+                    <textarea id="user-anotation-input" name="user-anotation" rows="4">Your thoughts</textarea>
+                    <input type="text" id="source-input" name="source" value=" Source">
                     <br>
                     <input id="publish-anotation" type="submit" value="Publish">
                 </div>
@@ -452,68 +457,94 @@ function begunSelecting() {
                 border-radius: 2.5px 10px 10px 10px;
                 z-index: 9999
             }
+
             #exit-button {
                 float: right;
                 margin-top: 4.5px;
                 margin-right: 5px
             }
+
             #exit-button:hover {
                 cursor: pointer
             }
+            
             .selection-menu-output {
                 text-align: center
             }
+
             #selection-quotes {
                 margin-top: 4px;
                 font-weight: bold;
                 font-size: 32px;
                 font-family: 'Revalia', cursive;
             }
+
             #selection-made {
                 font-weight: normal;
                 font-size: 14px;
                 font-family: Arial
             }
+
             .selection-menu-radios {
                 margin-left: 40px
             }
+            
             #argument-nature-container {
                 text-align: left;
                 margin-left: 20px
             }
+            
             #source-container {
                 text-align: left;
                 margin-left: 20px
             }
+
             #confirm-choices {
                 margin-left: 10px;
                 margin-top: 10px;
             }
+
             #user-anotation-container {
                 margin-top: 0px;
             }
             
-            #user-anotation-input {
+            #user-anotation-input, #source-input {
+                border: none;
+                border-radius: 2.5px 20px 20px 20px;
                 margin-top: 10px;
                 margin-left: 15%;
                 margin-right: 15%;
                 width: 70%;
                 resize: none
             }
+
+            #user-anotation-input:focus, #source-input:focus {
+                outline: none;
+            }
+
+            #source-input {
+                height: 25px
+            }
+
             #publish-anotation {
                 margin-left: 15%;
+                margin-top: 20px
             }
-            .char-count {
+
+            #char-count {
                 text-align: center
             }
+
             .char-count-text {
                 margin-top: 0px;
                 font-family: calibri, sans-serif;
                 font-size: 20px
             }
+
             .hidden {
                 display: none
             }
+
             .quotes-font {
                 font-family: 'Revalia', Verdana
             }
@@ -522,6 +553,7 @@ function begunSelecting() {
                 animation-name: shake;
                 animation-duration: 0.3s
             }
+
             @keyframes shake {
                 0% {transform: translateX(-20px)}
                 20% {transform: translateX(20px)}
@@ -530,6 +562,7 @@ function begunSelecting() {
                 80% {transform: translateX(-20px)}
                 100% {transform: translateX(20px)}
             }
+
             .expand-anim {
                 animation-name: expand;
                 animation-duration: 0.6s;
@@ -545,29 +578,35 @@ function begunSelecting() {
                     width: 30%;
                 }
             }
+
             .fadein-anim {
                 animation-name: fade-in;
                 animation-duration: 0.1s;
                 animation-fill-mode: forwards        
             }
+
             @keyframes fade-in {
                 0% {opacity: 0}
                 100% {opacity: 1}
             }
+
             .fadeout-anim {
                 animation-name: fade-out;
                 animation-duration: 0.1s;
                 animation-fill-mode: forwards         
             }
+
             @keyframes fade-out {
                 0% {opacity: 1}
                 100% {opacity: 0}
             }
+
             .slide-right-anim {
                 animation-name: slide-right;
                 animation-duration: 1.5s;
                 animation-fill-mode: forwards
             }
+
             @keyframes slide-right {
                 0% {
                     opacity: 1;
@@ -579,11 +618,13 @@ function begunSelecting() {
                     opacity: 0
                 }
             }
+
             .slide-right-offset-anim {
                 animation-name: slide-right-offset;
                 animation-duration: 1.5s;
                 animation-fill-mode: forwards
             }
+            
             @keyframes slide-right-offset {
                 0% {
                     opacity: 1;
@@ -603,6 +644,8 @@ function begunSelecting() {
 
         //saves repeating querySelector + readability
         contextMenuContainer = shadowRoot.querySelector("#context-menu-container");
+        loadingIcon = shadowRoot.querySelector("#loading-icon");
+        charCountContainer = shadowRoot.querySelector("#char-count");
         charCountText = shadowRoot.querySelector(".char-count-text");
         selectionMenu = shadowRoot.querySelector("#selection-menu");
         selectionMade = shadowRoot.querySelector("#selection-made");
@@ -621,6 +664,12 @@ function begunSelecting() {
         anotationContainer = shadowRoot.querySelector("#user-anotation-container");
         anotationText = shadowRoot.querySelector("#user-anotation-input");
         publishButton = shadowRoot.querySelector("#publish-anotation");
+
+        if (document.readyState === "loading" || document.readyState === "interactive") {
+            charCountContainer.classList.add("hidden")
+            loadingIcon.classList.remove("hidden")
+            console.log("success");
+        }
         
         console.log("shadowRoot: ", shadowRoot);
         console.log("document: ", document);
@@ -630,6 +679,7 @@ function begunSelecting() {
     else {
         //if already clicked once, just need to hide/unhide elements rather than creating them every time
         whenNotHovering(contextMenuContainer, function() {
+            isFocussed = false;
             if (isExpanded) {
                 styleShadowDom(shadowRoot, ["#selection-quotes", "#exit-button", "#argument-nature-container", "#source-container"], [["display", "none"]]);    
                 if (isConfirmed) {styleShadowDom(shadowRoot, ["#user-anotation-container"], [["display", "none"]])}
@@ -644,7 +694,6 @@ function begunSelecting() {
             }
         })
     }
-
     
     whenHovering(contextMenuContainer, function() {
         isFocussed = true;
@@ -769,7 +818,6 @@ function doneSelecting() {
 
     selectionList = [];
     autoCompOutcome = "";
-    //isSelectMade = false;
     
     window.addEventListener("mousedown", begunSelecting);
     window.addEventListener("mouseup", doneSelecting);

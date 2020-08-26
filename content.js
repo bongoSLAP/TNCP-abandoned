@@ -1,11 +1,12 @@
 let selectionList = [];
 let autoCompOutcome = "";
+let emptyVal = ""
 let validTags = ["H1", "H2", "H3", "H4", "H5", "H6", "P", "SPAN", "LI", "A", "STRONG", "B", "CITE", "DFN", "EM", "I", "KBD", "LABEL", "Q", "SMALL", "BIG", "SUB", "SUP", "TIME", "VAR"];
 let currentSubmission = {
-    "argumentNature" : "",
-    "isSource" : false,
-    "submissionText" : "",
-    "sourceLink" : ""
+    argumentNature: "",
+    isSource: false,
+    submissionText: "",
+    sourceLink: undefined
 };
 
 //shadow DOM elements
@@ -26,8 +27,8 @@ let radioLabels = undefined;
 let argumentNatureVals = undefined;
 let sourceVals = undefined;
 let anotationContainer = undefined;
-let anotationText = undefined;
-let sourceText = undefined;
+let anotationInput = undefined;
+let sourceInput = undefined;
 let publishButton = undefined;
 
 let isClicked = false;
@@ -42,10 +43,6 @@ function handleContentRequests(message, sender, sendResponse) {
     if (message.request === "update>headline") {
         let headlineList = document.getElementsByTagName("h1");
         sendResponse({headerValue: headlineList[0].innerText})
-    }
-    else if (message.request == "reset>selection") {
-        selectionList = [];
-        autoCompOutcome = "";
     }
 }
 
@@ -227,7 +224,7 @@ function autoCompSelection() {
     return autoCompOutcome;
 }
 
-//function for easily applying styles to shadowDOM
+//function for easily applying multiple styles to shadowDOM
 function styleShadowDom(root, selector, properties) {
     let newDeclaration = undefined;
 
@@ -271,7 +268,6 @@ function styleShadowDom(root, selector, properties) {
         }
     }
 
-    //if an array of selectors then styles must be applied for all items
     if (Array.isArray(selector)) {
         for (let j=0; j<selector.length; j++) {
             checkDataType(selector[j]);
@@ -319,12 +315,12 @@ function exitContextMenu() {
 function confirmChoices() {
     let isArgNatureValid = false;
     let isSourceValid = false;
-    let selectedValues = [];
+    let selectedVals = [];
 
     //validates that radios are ticked before progressing
     for(let i=0; i<argumentNatureVals.length; i++) {
         if (argumentNatureVals[i].checked) {
-            selectedValues.push(argumentNatureVals[i].value)
+            selectedVals.push(argumentNatureVals[i].value)
             isArgNatureValid = true;
             break;
         }
@@ -332,7 +328,7 @@ function confirmChoices() {
 
     for(let i=0; i<sourceVals.length; i++) {
         if (sourceVals[i].checked) {
-            selectedValues.push(sourceVals[i].value)
+            selectedVals.push(sourceVals[i].value)
             isSourceValid = true;
             break;
         }
@@ -340,9 +336,9 @@ function confirmChoices() {
 
     //triggers a series of animations to progress to the next screen
     if (isArgNatureValid && isSourceValid) {
-        currentSubmission.argumentNature = selectedValues[0];
+        currentSubmission.argumentNature = selectedVals[0];
         
-        if (selectedValues[1] == "yes") {currentSubmission.isSource = true}
+        if (selectedVals[1] == "yes") {currentSubmission.isSource = true}
         else {currentSubmission.isSource = false}
 
         let elemList = [radioButtons, radioLabels];
@@ -372,7 +368,9 @@ function confirmChoices() {
             anotationContainer.classList.add("fadein-anim");
 
             setTimeout(function() {
-                styleShadowDom(shadowRoot, ["#user-anotation-container"], [["display", "inline"]])
+                if (!currentSubmission.isSource) {sourceInput.classList.add("hidden");}
+
+                styleShadowDom(shadowRoot, ["#user-anotation-container"], [["display", "inline"]]);
                 anotationContainer.classList.remove("fadein-anim");
             }, 150)
         }, 550);
@@ -380,26 +378,50 @@ function confirmChoices() {
     else {alert("You did not confirm all of your choices")}
 }
 
-/*
-function validateSubmission(submissionText, sourceLink) {
-    //validate that fields are populated, validate text for bad words etc, check safety of URL (library)
-    return true or false
-}
-*/
-
 function publishSubmission() {
-    //validateSubmission(anotationText.value, sourceText.value);
+    //sends preliminarily validated data to background script for more in depth validation
+    let sendSubmission = function(submission) {
+        chrome.runtime.sendMessage({request: "validate>submission", data: submission}, function(response) {
+            console.log("sent submission for validation, data received: ", response.dataReceived);
+        });
+    }
 
-    //if valid
-    currentSubmission.submissionText = anotationText.value;
+    //checks to see if url given is in correct format
+    let validateUrlFormat = function(string) {
+        let url;
+      
+        try {
+            url = new URL(string);
+        } 
+        catch (_) {
+            return false;  
+        }
+    
+        return url.protocol === "http:" || url.protocol === "https:";
+    }
 
-    //if source given
-    currentSubmission.sourceLink = sourceText.value;
-    console.log("currentSubmission: ", currentSubmission);
+    //if not empty or whitespace
+    if (anotationInput.value != "" && anotationInput.value.trim() != "" && anotationInput.value != emptyVal) {
+        currentSubmission.submissionText = anotationInput.value;
+
+        if (currentSubmission.isSource) {
+            if (validateUrlFormat(sourceInput.value) != false) {
+                currentSubmission.sourceLink = sourceInput.value;
+                sendSubmission(currentSubmission);
+            }
+            else {alert("Enter a valid HTTP Link (http://, https://)")}
+        }
+        else {
+            currentSubmission.sourceLink = null;
+            sendSubmission(currentSubmission)
+        }
+    }
+    else {alert("Enter a valid submission")}
 }
 
 function begunSelecting() {
     window.removeEventListener("mouseup", doneSelecting);
+
     //only need to run this set up code the first time a selection is made
     if (!isClicked) {
         //custom font added parent document for use in shadowDOM
@@ -464,7 +486,7 @@ function begunSelecting() {
                 
                 <div id="user-anotation-container" class="hidden">
                     <textarea id="user-anotation-input" name="user-anotation" rows="4">Your thoughts</textarea>
-                    <input type="text" id="source-input" name="source" value=" Source">
+                    <input type="text" id="source-input" name="source" value="Link">
                     <br>
                     <input id="publish-anotation" type="submit" value="Publish">
                 </div>
@@ -689,8 +711,10 @@ function begunSelecting() {
         argumentNatureVals = shadowRoot.querySelectorAll(".argument-nature-radios");
         sourceVals = shadowRoot.querySelectorAll(".source-radios");
         anotationContainer = shadowRoot.querySelector("#user-anotation-container");
-        anotationText = shadowRoot.querySelector("#user-anotation-input");
-        sourceText = shadowRoot.querySelector("#source-input");
+        anotationInput = shadowRoot.querySelector("#user-anotation-input");
+        sourceInput = shadowRoot.querySelector("#source-input");
+
+        emptyVal = anotationInput.value;
 
         console.log("shadowRoot: ", shadowRoot);
         console.log("document: ", document);
@@ -703,7 +727,10 @@ function begunSelecting() {
             isFocussed = false;
             if (isExpanded) {
                 styleShadowDom(shadowRoot, ["#selection-quotes", "#exit-button", "#argument-nature-container", "#source-container"], [["display", "none"]]);    
-                if (isConfirmed) {styleShadowDom(shadowRoot, ["#user-anotation-container"], [["display", "none"]])}
+                if (isConfirmed) {
+                    if (!currentSubmission.isSource) {sourceInput.classList.remove("hidden");}
+                    styleShadowDom(shadowRoot, ["#user-anotation-container"], [["display", "none"]])
+                }
 
                 contextMenuContainer.classList.remove("expand-anim");
                 charCountText.classList.add("fadein-anim");

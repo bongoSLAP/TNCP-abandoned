@@ -1,6 +1,12 @@
 let selectionList = [];
 let autoCompOutcome = "";
 let validTags = ["H1", "H2", "H3", "H4", "H5", "H6", "P", "SPAN", "LI", "A", "STRONG", "B", "CITE", "DFN", "EM", "I", "KBD", "LABEL", "Q", "SMALL", "BIG", "SUB", "SUP", "TIME", "VAR"];
+let currentSubmission = {
+    "argumentNature" : "",
+    "isSource" : false,
+    "submissionText" : "",
+    "sourceLink" : ""
+};
 
 //shadow DOM elements
 let checkSelectMade = undefined;
@@ -21,6 +27,7 @@ let argumentNatureVals = undefined;
 let sourceVals = undefined;
 let anotationContainer = undefined;
 let anotationText = undefined;
+let sourceText = undefined;
 let publishButton = undefined;
 
 let isClicked = false;
@@ -29,7 +36,6 @@ let isOverLimit = false;
 let isExpanded = false;
 let isConfirmed = false;
 let isFocussed = false;
-
 
 //messaging callback to send data between .js files
 function handleContentRequests(message, sender, sendResponse) {
@@ -313,10 +319,12 @@ function exitContextMenu() {
 function confirmChoices() {
     let isArgNatureValid = false;
     let isSourceValid = false;
+    let selectedValues = [];
 
     //validates that radios are ticked before progressing
     for(let i=0; i<argumentNatureVals.length; i++) {
         if (argumentNatureVals[i].checked) {
+            selectedValues.push(argumentNatureVals[i].value)
             isArgNatureValid = true;
             break;
         }
@@ -324,6 +332,7 @@ function confirmChoices() {
 
     for(let i=0; i<sourceVals.length; i++) {
         if (sourceVals[i].checked) {
+            selectedValues.push(sourceVals[i].value)
             isSourceValid = true;
             break;
         }
@@ -331,6 +340,11 @@ function confirmChoices() {
 
     //triggers a series of animations to progress to the next screen
     if (isArgNatureValid && isSourceValid) {
+        currentSubmission.argumentNature = selectedValues[0];
+        
+        if (selectedValues[1] == "yes") {currentSubmission.isSource = true}
+        else {currentSubmission.isSource = false}
+
         let elemList = [radioButtons, radioLabels];
         isConfirmed = true;
         for (let i=0; i<radioHeaders.length; i++) {
@@ -356,25 +370,36 @@ function confirmChoices() {
             }
 
             anotationContainer.classList.add("fadein-anim");
-            //anotationText.classList.add("fadein-anim");
-            //publishButton.classList.add("fadein-anim");
 
             setTimeout(function() {
                 styleShadowDom(shadowRoot, ["#user-anotation-container"], [["display", "inline"]])
                 anotationContainer.classList.remove("fadein-anim");
-                /*
-                anotationText.classList.remove("hidden");
-                anotationText.classList.remove("fadein-anim");
-                publishButton.classList.remove("hidden");
-                publishButton.classList.remove("fadein-anim");
-                */
             }, 150)
         }, 550);
     }
     else {alert("You did not confirm all of your choices")}
 }
 
+/*
+function validateSubmission(submissionText, sourceLink) {
+    //validate that fields are populated, validate text for bad words etc, check safety of URL (library)
+    return true or false
+}
+*/
+
+function publishSubmission() {
+    //validateSubmission(anotationText.value, sourceText.value);
+
+    //if valid
+    currentSubmission.submissionText = anotationText.value;
+
+    //if source given
+    currentSubmission.sourceLink = sourceText.value;
+    console.log("currentSubmission: ", currentSubmission);
+}
+
 function begunSelecting() {
+    window.removeEventListener("mouseup", doneSelecting);
     //only need to run this set up code the first time a selection is made
     if (!isClicked) {
         //custom font added parent document for use in shadowDOM
@@ -657,20 +682,16 @@ function begunSelecting() {
         exitButton.addEventListener("click", exitContextMenu);
         confirmButton = shadowRoot.querySelector("#confirm-choices");
         confirmButton.addEventListener("click", confirmChoices);
+        publishButton = shadowRoot.querySelector("#publish-anotation");
+        publishButton.addEventListener("click", publishSubmission);
         argNatureContainer = shadowRoot.querySelector("#argument-nature-container")
         sourceContainer = shadowRoot.querySelector("#source-container")
         argumentNatureVals = shadowRoot.querySelectorAll(".argument-nature-radios");
         sourceVals = shadowRoot.querySelectorAll(".source-radios");
         anotationContainer = shadowRoot.querySelector("#user-anotation-container");
         anotationText = shadowRoot.querySelector("#user-anotation-input");
-        publishButton = shadowRoot.querySelector("#publish-anotation");
+        sourceText = shadowRoot.querySelector("#source-input");
 
-        if (document.readyState === "loading" || document.readyState === "interactive") {
-            charCountContainer.classList.add("hidden")
-            loadingIcon.classList.remove("hidden")
-            console.log("success");
-        }
-        
         console.log("shadowRoot: ", shadowRoot);
         console.log("document: ", document);
         //console.log("container: ", container);    
@@ -692,7 +713,7 @@ function begunSelecting() {
                     charCountText.classList.remove("fadein-anim");
                 }, 150);
             }
-        })
+        });
     }
     
     whenHovering(contextMenuContainer, function() {
@@ -755,6 +776,7 @@ function begunSelecting() {
     isClicked = true;
     //console.log("isSelectMade: ", isSelectMade);
     //console.log("shadowRoot: ", shadowRoot);
+    window.addEventListener("mouseup", doneSelecting);
 }
 
 //selection callback function
@@ -820,10 +842,12 @@ function doneSelecting() {
     autoCompOutcome = "";
     
     window.addEventListener("mousedown", begunSelecting);
-    window.addEventListener("mouseup", doneSelecting);
 }
 
 //event listeners
 chrome.runtime.onMessage.addListener(handleContentRequests);
-window.addEventListener("mousedown", begunSelecting);
-window.addEventListener("mouseup", doneSelecting);
+
+window.addEventListener("load", function() {
+    window.addEventListener("mousedown", begunSelecting);
+});
+

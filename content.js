@@ -3,6 +3,8 @@ let autoCompOutcome = "";
 let emptyVal = ""
 let validTags = ["H1", "H2", "H3", "H4", "H5", "H6", "P", "SPAN", "LI", "A", "STRONG", "B", "CITE", "DFN", "EM", "I", "KBD", "LABEL", "Q", "SMALL", "BIG", "SUB", "SUP", "TIME", "VAR"];
 let currentSubmission = {
+    urlOfArticle: "",
+    textAnotated: "",
     argumentNature: "",
     isSource: false,
     submissionText: "",
@@ -196,7 +198,6 @@ function autoCompSelection() {
         else if (selectionObj.anchorNode != selectionObj.focusNode) {
             let liveNodeList = range.cloneContents().querySelectorAll('*');
             let staticNodeArray = filterSelectedNodes(liveNodeList);
-            //console.log("staticNodeArray: ", staticNodeArray);
 
             //if selection went up the page from starting point or down the page from starting point
             if (selectionObj.anchorNode.wholeText.search(staticNodeArray[staticNodeArray.length-1].innerText) == -1) {
@@ -217,10 +218,6 @@ function autoCompSelection() {
             //console.log("staticNodeArray: ", staticNodeArray);
         }           
     }
-    //console.log("======================OUTCOME======================");
-    //console.log(autoCompOutcome);
-    //console.log("***************************************************");
-    //console.log("selectionObj: ", selectionObj);
     return autoCompOutcome;
 }
 
@@ -830,10 +827,21 @@ function doneSelecting() {
     }
     else {
         if (isSelectMade) {
-            //triple clicks cause weird bugs
-            whenNotHovering(contextMenuContainer, function() {if (event.detail === 3) {contextMenuContainer.classList.add("hidden")}});
+            let finalSelection = "";
+            currentSubmission.urlOfArticle = window.location.href;
 
-            let finalSelection = autoCompSelection();
+            whenNotHovering(contextMenuContainer, function() {
+                //triple clicks cause weird bugs
+                if (event.detail === 3) {contextMenuContainer.classList.add("hidden")}
+
+                if (!isFocussed) {
+                    finalSelection = autoCompSelection();
+                    currentSubmission.textAnotated = finalSelection;
+                }
+            });
+
+            //console.log(currentSubmission.textAnotated);
+            
             styleShadowDom(shadowRoot, "#context-menu-container", [["background-color", "rgb(230, 230, 230)"]]);
             charCountText.classList.add("fadeout-anim");
             contextMenuContainer.classList.add("expand-anim");

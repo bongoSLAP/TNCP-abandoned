@@ -2,9 +2,21 @@ let selectionList = [];
 let autoCompOutcome = "";
 let emptyVal = ""
 let validTags = ["H1", "H2", "H3", "H4", "H5", "H6", "P", "SPAN", "LI", "A", "STRONG", "B", "CITE", "DFN", "EM", "I", "KBD", "LABEL", "Q", "SMALL", "BIG", "SUB", "SUP", "TIME", "VAR"];
-let currentSubmission = {
-    urlOfArticle: "",
+
+//need to assign these values.
+let currentAnotation = {
+    anotationId: "",
     textAnotated: "",
+    anchor: undefined,
+    focus: undefined,
+    nodeList: [],
+    submissionsMade: []
+};
+
+let currentSubmission = {
+    submissionId: "",
+    assignedTo: ""/*currentAnotation.anotationId*/, 
+    urlOfArticle: "",
     argumentNature: "",
     isSource: false,
     submissionText: "",
@@ -836,11 +848,9 @@ function doneSelecting() {
 
                 if (!isFocussed) {
                     finalSelection = autoCompSelection();
-                    currentSubmission.textAnotated = finalSelection;
+                    currentAnotation.textAnotated = finalSelection;
                 }
             });
-
-            //console.log(currentSubmission.textAnotated);
             
             styleShadowDom(shadowRoot, "#context-menu-container", [["background-color", "rgb(230, 230, 230)"]]);
             charCountText.classList.add("fadeout-anim");

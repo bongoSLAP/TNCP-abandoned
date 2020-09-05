@@ -31,9 +31,30 @@ function validateSubmission(submissionText, sourceLink) {
     //further validate data + url
 }
 
+let test = {
+    hello: "world"
+}
+
 function handleBackgroundRequests(message, sender, sendResponse) {
-    if (message.request === "validate>submission") {
+    if (message.request === 'validate>submission') {
         sendResponse({dataReceived: message.data})
+
+        console.log(fetch('https://localhost:44376/api/Submissions', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(message.data)
+        }).then(function (response) {
+            if (response.ok) {
+                return response
+            }
+            return Promise.reject(response);
+        }).then(function (data) {
+            console.log(data);
+        }).catch(function (error) {
+            console.warn('Something went wrong.', error);
+        }));
     }
 }
 

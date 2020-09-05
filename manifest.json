@@ -4,26 +4,30 @@
 	"version": "1.0",
 	"description": "The News Critic Platform",
 	"permissions": [
+        "https://localhost:44376/",
 		"declarativeContent", 
 		"storage",
 		"activeTab"
 	],
 	"content_scripts": [
 		{
-		  "matches": ["<all_urls>"],
-		  "js": [
-			  "content.js",
-			  "jquery.js"
+		    "matches": ["<all_urls>"],
+		    "js": [
+			    "content.js",
+			    "jquery.js"
 			]
 		}
 	  ],
     "background": {
-      "scripts": ["background.js"],
-      "persistent": false
+        "scripts": [
+            "background.js",
+            "jquery.js"
+        ],
+        "persistent": false
 	},
 	"page_action": {
 		"default_popup": "popup.html"
-	},
+    },
 	"icons": {
 		"16": "images/icon16.png",
 		"32": "images/icon32.png",

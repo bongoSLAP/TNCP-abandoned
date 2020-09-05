@@ -7,15 +7,15 @@ let validTags = ['H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'P', 'SPAN', 'LI', 'A', 'ST
 let currentAnotation = {
     anotationId: '',
     textAnotated: '',
-    anchor: undefined,
-    focus: undefined,
+    anchor: {},
+    focus: {},
     nodeList: [],
-    submissionsMade: []
+    submissionsMade: {}
 };
 
 let currentSubmission = {
     submissionId: '',
-    assignedTo: ''/*currentAnotation.anotationId*/, 
+    assignedTo: '', 
     urlOfArticle: '',
     argumentNature: '',
     submissionText: '',
@@ -41,7 +41,7 @@ let radioLabels = undefined;
 let argumentNatureVals = undefined;
 let sourceVals = undefined;
 let anotationContainer = undefined;
-let anotationInput = undefined;
+let submissionInput = undefined;
 let sourceInput = undefined;
 let publishButton = undefined;
 
@@ -410,8 +410,10 @@ function confirmChoices() {
 
 function publishSubmission() {
     //sends preliminarily validated data to background script for more in depth validation
-    let sendSubmission = function(submission) {
-        chrome.runtime.sendMessage({request: 'validate>submission', data: submission}, function(response) {
+    let sendData = function(anotation, submission) {
+        submission.assignedTo = anotation.anotationId;
+        anotation.submissionsMade[submission.submissionId] = submission;
+        chrome.runtime.sendMessage({request: 'validate>submission', data: anotation}, function(response) {
             console.log('sent submission for validation, data received: ', response.dataReceived);
         });
     }
@@ -431,26 +433,29 @@ function publishSubmission() {
     }
 
     //if not empty or whitespace
-    if (anotationInput.value != '' && anotationInput.value.trim() != '' && anotationInput.value != emptyVal) {
-        currentSubmission.submissionText = anotationInput.value;
+    if (submissionInput.value != '' && submissionInput.value.trim() != '' && submissionInput.value != emptyVal) {
+        currentSubmission.submissionText = submissionInput.value;
 
         if (currentSubmission.isSource) {
             if (validateUrlFormat(sourceInput.value) != false) {
                 currentSubmission.sourceLink = sourceInput.value;
-                sendSubmission(currentSubmission);
+                currentSubmission.submissionId = generateId('submission');
+                console.log("current in publish: ", currentAnotation);
+                sendData(currentAnotation, currentSubmission);
             }
             else {alert('Enter a valid HTTP Link (http://, https://)')}
         }
         else {
             currentSubmission.sourceLink = null;
-            sendSubmission(currentSubmission)
+            currentSubmission.submissionId = generateId('submission');
+            console.log("current in publish: ", currentAnotation);
+            sendData(currentAnotation, currentSubmission);
         }
     }
     else {alert('Enter a valid submission')}
 }
 
 function begunSelecting() {
-    console.log('id: ', generateId('anotation'));
     window.removeEventListener('mouseup', doneSelecting);
 
     //only need to run this set up code the first time a selection is made
@@ -516,7 +521,7 @@ function begunSelecting() {
                 </div>
                 
                 <div id='user-anotation-container' class='hidden'>
-                    <textarea id='user-anotation-input' name='user-anotation' rows='4'>Your thoughts</textarea>
+                    <textarea id='submission-input' name='user-anotation' rows='4'>Your thoughts</textarea>
                     <input type='text' id='source-input' name='source' value='Link'>
                     <br>
                     <input id='publish-anotation' type='submit' value='Publish'>
@@ -579,7 +584,7 @@ function begunSelecting() {
                 margin-top: 0px;
             }
             
-            #user-anotation-input, #source-input {
+            #submission-input, #source-input {
                 border: none;
                 border-radius: 2.5px 20px 20px 20px;
                 margin-top: 10px;
@@ -588,7 +593,7 @@ function begunSelecting() {
                 width: 70%;
                 resize: none
             }
-            #user-anotation-input:focus, #source-input:focus {
+            #submission-input:focus, #source-input:focus {
                 outline: none;
             }
             #source-input {
@@ -719,10 +724,10 @@ function begunSelecting() {
         argumentNatureVals = shadowRoot.querySelectorAll('.argument-nature-radios');
         sourceVals = shadowRoot.querySelectorAll('.source-radios');
         anotationContainer = shadowRoot.querySelector('#user-anotation-container');
-        anotationInput = shadowRoot.querySelector('#user-anotation-input');
+        submissionInput = shadowRoot.querySelector('#submission-input');
         sourceInput = shadowRoot.querySelector('#source-input');
 
-        emptyVal = anotationInput.value;
+        emptyVal = submissionInput.value;
 
         console.log('shadowRoot: ', shadowRoot);
         console.log('document: ', document);
@@ -851,9 +856,20 @@ function doneSelecting() {
 
                     finalSelection = autoCompOutcome;
                     currentAnotation.textAnotated = finalSelection;
-                    currentAnotation.anchor = selectionObj.anchorNode;
-                    currentAnotation.focus = selectionObj.focusNode;
+
+                    currentAnotation.anchor["nodeName"] = selectionObj.anchorNode.nodeName;
+                    currentAnotation.anchor["wholeText"] = selectionObj.anchorNode.wholeText;
+                    currentAnotation.anchor["previousElementSibling"] = selectionObj.anchorNode.previousElementSibling;
+                    currentAnotation.anchor["nextElementSibling"] = selectionObj.anchorNode.nextElementSibling;
+                
+                    currentAnotation.focus["nodeName"] = selectionObj.focusNode.nodeName;
+                    currentAnotation.focus["wholeText"] = selectionObj.focusNode.wholeText;
+                    currentAnotation.focus["previousElementSibling"] = selectionObj.focusNode.previousElementSibling;
+                    currentAnotation.focus["nextElementSibling"] = selectionObj.focusNode.nextElementSibling;
+
                     currentAnotation.nodeList = getAllNodes(selectionObj);
+                    currentAnotation.anotationId = generateId('anotation');
+                    console.log("currentAnotation: ", currentAnotation);
                 }
             });
             

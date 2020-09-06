@@ -250,7 +250,6 @@ function autoCompSelection() {
             //console.log('staticNodeArray: ', staticNodeArray);
         }           
     }
-    console.log('outcome: ', autoCompOutcome);
     return autoCompOutcome;
 }
 
@@ -348,7 +347,7 @@ function confirmChoices() {
     let selectedVals = [];
 
     //validates that radios are ticked before progressing
-    for(let i=0; i<argumentNatureVals.length; i++) {
+    for (let i=0; i<argumentNatureVals.length; i++) {
         if (argumentNatureVals[i].checked) {
             selectedVals.push(argumentNatureVals[i].value)
             isArgNatureValid = true;
@@ -356,7 +355,7 @@ function confirmChoices() {
         }
     }
 
-    for(let i=0; i<sourceVals.length; i++) {
+    for (let i=0; i<sourceVals.length; i++) {
         if (sourceVals[i].checked) {
             selectedVals.push(sourceVals[i].value)
             isSourceValid = true;
@@ -378,7 +377,7 @@ function confirmChoices() {
         }
 
         for (let i=0; i<elemList.length; i++) {
-            for(let j=0; j<elemList[i].length; j++) {
+            for (let j=0; j<elemList[i].length; j++) {
                 elemList[i][j].classList.add('slide-right-offset-anim');
             }
         }
@@ -390,7 +389,7 @@ function confirmChoices() {
             }
     
             for (let i=0; i<elemList.length; i++) {
-                for(let j=0; j<elemList[i].length; j++) {
+                for (let j=0; j<elemList[i].length; j++) {
                     elemList[i][j].classList.remove('slide-right-offset-anim');
                 }
             }
@@ -851,7 +850,6 @@ function doneSelecting() {
                 if (event.detail === 3) {contextMenuContainer.classList.add('hidden')}
 
                 if (!isFocussed) {
-                    //console.log('currentSelectionObj: ', window.getSelection());
                     let selectionObj = window.getSelection();
 
                     finalSelection = autoCompOutcome;
@@ -859,17 +857,24 @@ function doneSelecting() {
 
                     currentAnotation.anchor["nodeName"] = selectionObj.anchorNode.nodeName;
                     currentAnotation.anchor["wholeText"] = selectionObj.anchorNode.wholeText;
-                    currentAnotation.anchor["previousElementSibling"] = selectionObj.anchorNode.previousElementSibling;
-                    currentAnotation.anchor["nextElementSibling"] = selectionObj.anchorNode.nextElementSibling;
                 
                     currentAnotation.focus["nodeName"] = selectionObj.focusNode.nodeName;
                     currentAnotation.focus["wholeText"] = selectionObj.focusNode.wholeText;
-                    currentAnotation.focus["previousElementSibling"] = selectionObj.focusNode.previousElementSibling;
-                    currentAnotation.focus["nextElementSibling"] = selectionObj.focusNode.nextElementSibling;
 
-                    currentAnotation.nodeList = getAllNodes(selectionObj);
+                    let nodeList = getAllNodes(selectionObj)
+
+                    if (nodeList.length != 0) {
+                        for (let i=0; i<nodeList.length; i++) {
+                            let node = {
+                                nodeName: nodeList[i].nodeName,
+                                innerHTML: nodeList[i].innerHTML,
+                                innerText: nodeList[i].innerText
+                            }
+                            currentAnotation.nodeList.push(node);
+                        }
+                    }
+
                     currentAnotation.anotationId = generateId('anotation');
-                    console.log("currentAnotation: ", currentAnotation);
                 }
             });
             
@@ -915,4 +920,31 @@ chrome.runtime.onMessage.addListener(handleContentRequests);
 
 window.addEventListener('load', function() {
     window.addEventListener('mousedown', begunSelecting);
+
+    let testData = {
+        anchor: {
+            nodeName: "#text",
+            wholeText: "his former defense secretary, Jim Mattis, a retired four-star general, as “not tough enough” and “overrated.”"
+        },
+        anotationId: "ANTbnqpx2nv1",
+        focus: {
+            nodeName: "#text",
+            wholeText: "Despite a long history of revering generals, the president has "
+        },
+        nodeList: [],
+        submissionsMade: {
+            SUBm3gp479mz: {
+                argumentNature: "for",
+                assignedTo: "ANTbnqpx2nv1",
+                isSource: false,
+                sourceLink: null,
+                submissionId: "SUBm3gp479mz",
+                submissionText: "typical orange man bad witch hunting.",
+                urlOfArticle: "https://www.washingtonpost.com/nation/2020/09/04/trump-veterans-atlantic-military-losers/"
+            }
+        },
+        textAnotated: "the president has criticized his former defense secretary, Jim Mattis,"
+    }
+
+    
 });

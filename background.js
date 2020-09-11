@@ -31,10 +31,6 @@ function validateSubmission(submissionText, sourceLink) {
     //further validate data + url
 }
 
-let test = {
-    hello: "world"
-}
-
 function handleBackgroundRequests(message, sender, sendResponse) {
     if (message.request === 'validate>submission') {
         sendResponse({dataReceived: message.data})

@@ -4,16 +4,17 @@ let emptyVal = ''
 let validTags = ['H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'P', 'SPAN', 'LI', 'A', 'STRONG', 'B', 'CITE', 'DFN', 'EM', 'I', 'KBD', 'LABEL', 'Q', 'SMALL', 'BIG', 'SUB', 'SUP', 'TIME', 'VAR'];
 
 //need to assign these values.
-let currentAnotation = {
+let anotation = {
     anotationId: '',
     textAnotated: '',
+    isUnified: true,
     anchor: {},
     focus: {},
     nodeList: [],
     submissionsMade: {}
-};
+}
 
-let currentSubmission = {
+let submission = {
     submissionId: '',
     assignedTo: '', 
     urlOfArticle: '',
@@ -21,7 +22,7 @@ let currentSubmission = {
     submissionText: '',
     isSource: false,
     sourceLink: undefined
-};
+}
 
 //shadow DOM elements
 let checkSelectMade = undefined;
@@ -86,6 +87,17 @@ function generateId(type) {
 
 }
 
+//looks to find the point in which the selected text begins in the 'this' whole text
+function newSearch(searchIn, query) {
+    let regExp = new RegExp(sanitiseRegExp(query));
+    let searchOutcome = searchIn.search(regExp);
+
+    if (searchOutcome == -1) {
+        return 'failed';
+    }
+    else {return searchOutcome}
+}
+
 //need to find the entirety of the text in nodes selected in order to calculate a start point carry out autocomplete function
 function searchForContext(targetNode, selection) {
     let fullText = targetNode.wholeText;
@@ -116,23 +128,12 @@ function searchForContext(targetNode, selection) {
                     console.log('ERROR: tag not accepted');
                 }
             }
-        };
+        }
 
         getNextParent(targetNode);
         
         if (newWholeText == undefined) {console.log('ERROR: conditions not met at getNextParent')}
         return newWholeText; 
-    }
-
-    //looks to find the point in which the selected text begins in the 'current' whole text
-    let newSearch = function(searchIn, query) {
-        let regExp = new RegExp(sanitiseRegExp(query));
-        let searchOutcome = searchIn.search(regExp);
-
-        if (searchOutcome == -1) {
-            return 'failed';
-        }
-        else {return searchOutcome}
     }
 
     //if it couldnt be found then move up a layer and repeat
@@ -163,12 +164,12 @@ function testRange(range) {
 function completeFirstWord(targetNode, selection) {
     let context = searchForContext(targetNode, selection);
     fullText = context[0];
-    let startChar = context[1];
+    let startPoint = context[1];
 
-    if (fullText.charAt(startChar-1) != ' ' && startChar != 0) {
-        while (fullText.charAt(startChar-1) != ' ' && startChar > 0) {
-            selection = fullText.charAt(startChar-1).concat(selection);
-            startChar--;
+    if (fullText.charAt(startPoint-1) != ' ' && startPoint != 0) {
+        while (fullText.charAt(startPoint-1) != ' ' && startPoint > 0) {
+            selection = fullText.charAt(startPoint-1).concat(selection);
+            startPoint--;
         }
     }
     
@@ -178,17 +179,25 @@ function completeFirstWord(targetNode, selection) {
 function completeLastWord(targetNode, selection) {
     let context = searchForContext(targetNode, selection);
     fullText = context[0];
-    let startChar = context[1];
-    let endChar = startChar + selection.length;
+    let startPoint = context[1];
+    let endPoint = startPoint + selection.length;
 
-    if (fullText.charAt(endChar) != ' ') {
-        while (fullText.charAt(endChar) != ' ' && endChar < fullText.length) {
-            selection = selection.concat(fullText.charAt(endChar));
-            endChar++;
+    if (fullText.charAt(endPoint) != ' ') {
+        while (fullText.charAt(endPoint) != ' ' && endPoint < fullText.length) {
+            selection = selection.concat(fullText.charAt(endPoint));
+            endPoint++;
         }
     }
 
     return selection;
+}
+
+function pushFilteredNodes(staticArray) {
+    if (staticArray.length > 2) {
+        for (let i=1; i<staticArray.length-1; i++) {
+            selectionList.push(staticArray[i].innerText);
+        }
+    }
 }
 
 function filterSelectedNodes(liveList) {
@@ -204,43 +213,33 @@ function filterSelectedNodes(liveList) {
     return staticArray;
 }
 
-function pushFilteredNodes(staticArray) {
-    if (staticArray.length > 2) {
-        for (let i=1; i<staticArray.length-1; i++) {
-            selectionList.push(staticArray[i].innerText);
-        }
-    }
-}
-
 function getAllNodes(object) {
     let liveNodeList = object.getRangeAt(0).cloneContents().querySelectorAll('*');
     return filterSelectedNodes(liveNodeList);
 }
 
 function autoCompSelection() {
-    let currentSelectionObj = window.getSelection();
-    let selection = currentSelectionObj.toString();
-
-    //console.log('currentSelectionObj: ', currentSelectionObj);
+    let thisSelectionObj = window.getSelection();
+    let selection = thisSelectionObj.toString();
     
-    if (!currentSelectionObj.isCollapsed) {
+    if (!thisSelectionObj.isCollapsed) {
         //if selection stays within the same node
-        if (currentSelectionObj.anchorNode == currentSelectionObj.focusNode || testRange(currentSelectionObj.getRangeAt(0)) == true) {
-            autoCompOutcome = completeFirstWord(currentSelectionObj.anchorNode, completeLastWord(currentSelectionObj.anchorNode, selection));
+        if (thisSelectionObj.anchorNode == thisSelectionObj.focusNode || testRange(thisSelectionObj.getRangeAt(0)) == true) {
+            autoCompOutcome = completeFirstWord(thisSelectionObj.anchorNode, completeLastWord(thisSelectionObj.anchorNode, selection));
         }
-        else if (currentSelectionObj.anchorNode != currentSelectionObj.focusNode) {
-            let staticNodeArray = getAllNodes(currentSelectionObj);
+        else if (thisSelectionObj.anchorNode != thisSelectionObj.focusNode) {
+            let staticNodeArray = getAllNodes(thisSelectionObj);
 
             //if selection went up the page from starting point or down the page from starting point
-            if (currentSelectionObj.anchorNode.wholeText.search(staticNodeArray[staticNodeArray.length-1].innerText) == -1) {
-                selectionList.push(completeFirstWord(currentSelectionObj.anchorNode, staticNodeArray[0].innerText));
+            if (thisSelectionObj.anchorNode.wholeText.search(staticNodeArray[staticNodeArray.length-1].innerText) == -1) {
+                selectionList.push(completeFirstWord(thisSelectionObj.anchorNode, staticNodeArray[0].innerText));
                 pushFilteredNodes(staticNodeArray);
-                selectionList.push(completeLastWord(currentSelectionObj.focusNode, staticNodeArray[staticNodeArray.length-1].innerText));
+                selectionList.push(completeLastWord(thisSelectionObj.focusNode, staticNodeArray[staticNodeArray.length-1].innerText));
             }
             else {
-                selectionList.push(completeFirstWord(currentSelectionObj.focusNode, staticNodeArray[0].innerText));
+                selectionList.push(completeFirstWord(thisSelectionObj.focusNode, staticNodeArray[0].innerText));
                 pushFilteredNodes(staticNodeArray);
-                selectionList.push(completeLastWord(currentSelectionObj.anchorNode, staticNodeArray[staticNodeArray.length-1].innerText));
+                selectionList.push(completeLastWord(thisSelectionObj.anchorNode, staticNodeArray[staticNodeArray.length-1].innerText));
             }  
             
             //concatenating text values of filtered selected elements
@@ -365,10 +364,10 @@ function confirmChoices() {
 
     //triggers a series of animations to progress to the next screen
     if (isArgNatureValid && isSourceValid) {
-        currentSubmission.argumentNature = selectedVals[0];
+        submission.argumentNature = selectedVals[0];
         
-        if (selectedVals[1] == 'yes') {currentSubmission.isSource = true}
-        else {currentSubmission.isSource = false}
+        if (selectedVals[1] == 'yes') {submission.isSource = true}
+        else {submission.isSource = false}
 
         let elemList = [radioButtons, radioLabels];
         isConfirmed = true;
@@ -397,7 +396,7 @@ function confirmChoices() {
             anotationContainer.classList.add('fadein-anim');
 
             setTimeout(function() {
-                if (!currentSubmission.isSource) {sourceInput.classList.add('hidden');}
+                if (!submission.isSource) {sourceInput.classList.add('hidden');}
 
                 styleShadowDom(shadowRoot, ['#user-anotation-container'], [['display', 'inline']]);
                 anotationContainer.classList.remove('fadein-anim');
@@ -433,25 +432,153 @@ function publishSubmission() {
 
     //if not empty or whitespace
     if (submissionInput.value != '' && submissionInput.value.trim() != '' && submissionInput.value != emptyVal) {
-        currentSubmission.submissionText = submissionInput.value;
+        submission.submissionText = submissionInput.value;
 
-        if (currentSubmission.isSource) {
+        if (submission.isSource) {
             if (validateUrlFormat(sourceInput.value) != false) {
-                currentSubmission.sourceLink = sourceInput.value;
-                currentSubmission.submissionId = generateId('submission');
-                console.log("current in publish: ", currentAnotation);
-                sendData(currentAnotation, currentSubmission);
+                submission.sourceLink = sourceInput.value;
+                submission.submissionId = generateId('submission');
+                console.log('this in publish: ', anotation);
+                sendData(anotation, submission);
             }
             else {alert('Enter a valid HTTP Link (http://, https://)')}
         }
         else {
-            currentSubmission.sourceLink = null;
-            currentSubmission.submissionId = generateId('submission');
-            console.log("current in publish: ", currentAnotation);
-            sendData(currentAnotation, currentSubmission);
+            submission.sourceLink = null;
+            submission.submissionId = generateId('submission');
+            console.log('this in publish: ', anotation);
+            sendData(anotation, submission);
         }
     }
     else {alert('Enter a valid submission')}
+}
+
+function resetAnotation() {
+    anotation = {
+        anotationId: '',
+        textAnotated: '',
+        isUnified: true,
+        anchor: {},
+        focus: {},
+        nodeList: [],
+        submissionsMade: {}
+    }
+}
+
+function initAnotation(object, selection) {
+    console.log('object in initAnotation: ', object);
+    anotation.textAnotated = selection;
+    anotation.anchor = {
+        nodeName: object.anchorNode.nodeName,
+        nodeType: object.anchorNode.nodeType,
+        wholeText: object.anchorNode.wholeText,
+        parentNode: null
+    }
+
+    if (object.anchorNode.parentNode.nodeName != 'BODY') {
+        anotation.anchor.parentNode = {
+            nodeName: object.anchorNode.parentNode.nodeName,
+            nodeType: object.anchorNode.parentNode.nodeType,
+            parentWholeText: object.anchorNode.parentNode.innerText
+        }
+    }
+
+    if (object.anchorNode != object.focusNode/* || testRange(object.getRangeAt(0)) != true*/) {
+        anotation.isUnified = false;
+        anotation.focus = {
+            nodeName: object.focusNode.nodeName,
+            nodeType: object.focusNode.nodeType,
+            wholeText: object.focusNode.wholeText,
+            parentNode: null
+        }
+
+        if (object.focusNode.parentNode.nodeName != 'BODY') {
+            anotation.focus.parentNode = {
+                nodeName: object.focusNode.parentNode.nodeName,
+                nodeType: object.focusNode.parentNode.nodeType,
+                parentWholeText: object.focusNode.parentNode.innerText
+            }
+        }
+    }
+    else {delete anotation.focus}
+
+    let nodeList = getAllNodes(object);
+
+    if (nodeList.length != 0) {
+        for (let i=0; i<nodeList.length; i++) {
+            let node = {
+                nodeName: nodeList[i].nodeName,
+                innerHTML: nodeList[i].innerHTML,
+                innerText: nodeList[i].innerText
+            }
+
+            anotation.nodeList.push(node);
+        }
+    }
+    else {delete anotation.nodeList}
+
+    anotation.anotationId = generateId('anotation');
+}
+
+//inserts strings into a target string at multiple different places.
+String.prototype.insertTextAtIndices = function(text) {
+    return this.replace(/./g, function(character, index) {
+        return text[index] ? text[index] + character : character;
+    });
+};
+
+function findAnotationInPage(object, type) {
+    let searchArea = [];
+    let wholeText = undefined;
+    let node = undefined;
+    let nodeInDoc = undefined;
+
+    if (type == 'anchor') {node = object.anchor}
+    else if (type == 'middle') {
+        for (let i=1; i<object.nodeList.length-1; i++) {
+            object.nodeList[i].classList.add(object.anotationId);
+            object.nodeList[i].classList.add('highlight-anotation');
+            object.nodeList[i].style['background-color'] = 'rgb(230, 230, 230)';
+        }
+    }
+    else if (type == 'focus') {node = object.focus}
+    else {
+        console.log("ERROR: invalid type: ", type);
+        return;
+    }
+    
+    if (node.nodeType != 1) {
+        searchArea = document.querySelectorAll(node.parentNode.nodeName.toLowerCase());
+        wholeText = node.parentNode.parentWholeText;
+    }
+    else {
+        searchArea = document.querySelectorAll(node.nodeName.toLowerCase());
+        wholeText = node.wholeText;
+    }
+
+    for (let i=0; i<searchArea.length; i++) {
+        if (searchArea[i].innerText == wholeText) {
+            nodeInDoc = searchArea[i];
+        }
+    }
+
+    if (nodeInDoc == undefined) {
+        console.log('ERROR: could not find anotation: ', object.textAnotated)
+    }
+
+    let startPoint = undefined;
+    let endPoint = undefined;
+    let insertions = {};
+
+    startPoint = newSearch(wholeText, object.textAnotated);
+    endPoint = startPoint + object.textAnotated.length;
+    console.log('points: ', startPoint, endPoint);
+
+    insertions[startPoint] = `<span class='` + object.anotationId + ` highlight-anotation' style='background-color: rgb(230, 230, 230)'>`;
+    insertions[endPoint] = '</span>';
+
+    let highlighted = nodeInDoc.innerHTML.insertTextAtIndices(insertions)
+    nodeInDoc.innerHTML = highlighted;
 }
 
 function begunSelecting() {
@@ -737,10 +864,11 @@ function begunSelecting() {
         //if already clicked once, just need to hide/unhide elements rather than creating them every time
         whenNotHovering(contextMenuContainer, function() {
             isFocussed = false;
+            resetAnotation();
             if (isExpanded) {
                 styleShadowDom(shadowRoot, ['#selection-quotes', '#exit-button', '#argument-nature-container', '#source-container'], [['display', 'none']]);    
                 if (isConfirmed) {
-                    if (!currentSubmission.isSource) {sourceInput.classList.remove('hidden');}
+                    if (!submission.isSource) {sourceInput.classList.remove('hidden');}
                     styleShadowDom(shadowRoot, ['#user-anotation-container'], [['display', 'none']])
                 }
 
@@ -762,9 +890,9 @@ function begunSelecting() {
     //checks to see whether mouse events lead to a selection being made or just normal click
     checkSelectMade = setInterval(function() {
         whenNotHovering(contextMenuContainer, function() {
-            let initSelection = window.getSelection().toString();
+            let initialSelection = window.getSelection().toString();
 
-            if (initSelection.length > 0) {
+            if (initialSelection.length > 0) {
                 isSelectMade = true;
                 contextMenuContainer.classList.remove('hidden');
             }
@@ -774,15 +902,15 @@ function begunSelecting() {
         })
     }, 50);
 
-    //displays the current character count of selection being made
+    //displays the this character count of selection being made
     updateCharCount = setInterval(function() {
         if (isSelectMade) {
             let countLimit = 100; 
             let rgb = '';
             selectionList = [];
 
-            let currentSelection = autoCompSelection();
-            charCount = currentSelection.length;
+            let thisSelection = autoCompSelection();
+            charCount = thisSelection.length;
             
             shadowRoot.querySelector('#char-count-value').innerText = charCount;
 
@@ -843,7 +971,7 @@ function doneSelecting() {
     else {
         if (isSelectMade) {
             let finalSelection = '';
-            currentSubmission.urlOfArticle = window.location.href;
+            submission.urlOfArticle = window.location.href;
 
             whenNotHovering(contextMenuContainer, function() {
                 //triple clicks cause weird bugs
@@ -851,30 +979,10 @@ function doneSelecting() {
 
                 if (!isFocussed) {
                     let selectionObj = window.getSelection();
+                    console.log('selectionObj: ', selectionObj);
 
                     finalSelection = autoCompOutcome;
-                    currentAnotation.textAnotated = finalSelection;
-
-                    currentAnotation.anchor["nodeName"] = selectionObj.anchorNode.nodeName;
-                    currentAnotation.anchor["wholeText"] = selectionObj.anchorNode.wholeText;
-                
-                    currentAnotation.focus["nodeName"] = selectionObj.focusNode.nodeName;
-                    currentAnotation.focus["wholeText"] = selectionObj.focusNode.wholeText;
-
-                    let nodeList = getAllNodes(selectionObj)
-
-                    if (nodeList.length != 0) {
-                        for (let i=0; i<nodeList.length; i++) {
-                            let node = {
-                                nodeName: nodeList[i].nodeName,
-                                innerHTML: nodeList[i].innerHTML,
-                                innerText: nodeList[i].innerText
-                            }
-                            currentAnotation.nodeList.push(node);
-                        }
-                    }
-
-                    currentAnotation.anotationId = generateId('anotation');
+                    initAnotation(selectionObj, finalSelection);
                 }
             });
             
@@ -923,28 +1031,37 @@ window.addEventListener('load', function() {
 
     let testData = {
         anchor: {
-            nodeName: "#text",
-            wholeText: "his former defense secretary, Jim Mattis, a retired four-star general, as “not tough enough” and “overrated.”"
+            nodeName: '#text',
+            nodeType: 3,
+            parentNode: {
+                nodeName: 'P',
+                nodeType: 1,
+                parentWholeText: 'Weissman’s online call to arms underscored the outpouring of anger that erupted from military veterans and their families overnight against Trump, following a bombshell article in the Atlantic that Trump and several top aides have vehemently denied.',
+            },
+            wholeText: 'Weissman’s online call to arms underscored the outpouring of anger that erupted from military veterans and their families overnight against Trump, following ',
         },
-        anotationId: "ANTbnqpx2nv1",
-        focus: {
-            nodeName: "#text",
-            wholeText: "Despite a long history of revering generals, the president has "
-        },
-        nodeList: [],
+        anotationId: 'ANT55wiagl17',
+        isUnified: true,
         submissionsMade: {
-            SUBm3gp479mz: {
-                argumentNature: "for",
-                assignedTo: "ANTbnqpx2nv1",
+            SUBtq7gzzo20: {
+                argumentNature: 'against',
+                assignedTo: 'ANT55wiagl17',
                 isSource: false,
                 sourceLink: null,
-                submissionId: "SUBm3gp479mz",
-                submissionText: "typical orange man bad witch hunting.",
-                urlOfArticle: "https://www.washingtonpost.com/nation/2020/09/04/trump-veterans-atlantic-military-losers/"
+                submissionId: 'SUBtq7gzzo20',
+                submissionText: 'Your thoureghts',
+                urlOfArticle: 'https://www.washingtonpost.com/nation/2020/09/04/trump-veterans-atlantic-military-losers/',
             }
         },
-        textAnotated: "the president has criticized his former defense secretary, Jim Mattis,"
+        textAnotated: 'underscored the outpouring'
     }
 
-    
+    findAnotationInPage(testData, "anchor");
+
+    if (!testData.isUnified) {
+        if (testData.nodeList.length > 2) {
+            findAnotationInPage(testData, "middle");
+        }
+        findAnotationInPage(testData, "focus");
+    }
 });

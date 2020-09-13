@@ -1,7 +1,7 @@
 let selectionList = [];
 let autoCompOutcome = '';
 let emptyVal = ''
-let validTags = ['H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'P', 'SPAN', 'LI', 'A', 'STRONG', 'B', 'CITE', 'DFN', 'EM', 'I', 'KBD', 'LABEL', 'Q', 'SMALL', 'BIG', 'SUB', 'SUP', 'TIME', 'VAR'];
+let validTags = ['H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'P', 'SPAN', 'UL', 'LI', 'A', 'STRONG', 'B', 'CITE', 'DFN', 'EM', 'I', 'KBD', 'LABEL', 'Q', 'SMALL', 'BIG', 'SUB', 'SUP', 'TIME', 'VAR'];
 
 //need to assign these values.
 let anotation = {
@@ -89,7 +89,8 @@ function generateId(type) {
 
 //looks to find the point in which the selected text begins in the 'this' whole text
 function newSearch(searchIn, query) {
-    let regExp = new RegExp(sanitiseRegExp(query));
+    //may find bugs here in future
+    let regExp = new RegExp(sanitiseRegExp(query.trim()));
     let searchOutcome = searchIn.search(regExp);
 
     if (searchOutcome == -1) {
@@ -172,7 +173,6 @@ function completeFirstWord(targetNode, selection) {
             startPoint--;
         }
     }
-    
     return selection;
 }
 
@@ -412,7 +412,7 @@ function publishSubmission() {
         submission.assignedTo = anotation.anotationId;
         anotation.submissionsMade[submission.submissionId] = submission;
         chrome.runtime.sendMessage({request: 'validate>submission', data: anotation}, function(response) {
-            console.log('sent submission for validation, data received: ', response.dataReceived);
+            console.log('sent submission for validation, data received: ', JSON.stringify(response.dataReceived, null, 4));
         });
     }
 
@@ -508,8 +508,8 @@ function initAnotation(object, selection) {
         for (let i=0; i<nodeList.length; i++) {
             let node = {
                 nodeName: nodeList[i].nodeName,
-                innerHTML: nodeList[i].innerHTML,
-                innerText: nodeList[i].innerText
+                nodeType: nodeList[i].nodeType,
+                wholeText: nodeList[i].innerText
             }
 
             anotation.nodeList.push(node);
@@ -528,57 +528,63 @@ String.prototype.insertTextAtIndices = function(text) {
 };
 
 function findAnotationInPage(object, type) {
-    let searchArea = [];
-    let wholeText = undefined;
-    let node = undefined;
-    let nodeInDoc = undefined;
+    console.log("type: ", type);
+    let findNode = function(targetNode) {
+        let searchArea = [];
+        let wholeText = undefined; 
+        let nodeInDoc = undefined;
 
-    if (type == 'anchor') {node = object.anchor}
+        if (targetNode.nodeType != 1) {
+            searchArea = document.querySelectorAll(targetNode.parentNode.nodeName.toLowerCase());
+            wholeText = targetNode.parentNode.parentWholeText;
+        }
+        else {
+            searchArea = document.querySelectorAll(targetNode.nodeName.toLowerCase());
+            wholeText = targetNode.wholeText;
+        }
+
+        for (let i=0; i<searchArea.length; i++) {
+            if (searchArea[i].innerText == wholeText) {
+                nodeInDoc = searchArea[i];
+            }
+        }
+
+        if (nodeInDoc == undefined) {
+            console.log('ERROR: could not find anotation: ', object.textAnotated)
+        }
+
+        let startPoint = undefined;
+        let endPoint = undefined;
+        let insertions = {};
+
+        startPoint = newSearch(wholeText, object.textAnotated);
+        endPoint = startPoint + object.textAnotated.length;
+        console.log('points: ', startPoint, endPoint);
+
+        insertions[startPoint] = `<span class='` + object.anotationId + ` highlight-anotation' style='background-color: rgb(230, 230, 230)'>`;
+        insertions[endPoint] = '</span>';
+
+        let highlighted = nodeInDoc.innerHTML.insertTextAtIndices(insertions)
+        nodeInDoc.innerHTML = highlighted;
+    };
+
+    if (type == 'anchor') {
+        let node = object.anchor;
+        findNode(node);
+    }
     else if (type == 'middle') {
         for (let i=1; i<object.nodeList.length-1; i++) {
-            object.nodeList[i].classList.add(object.anotationId);
-            object.nodeList[i].classList.add('highlight-anotation');
-            object.nodeList[i].style['background-color'] = 'rgb(230, 230, 230)';
+            findNode(object.nodeList[i]);
         }
     }
-    else if (type == 'focus') {node = object.focus}
+    else if (type == 'focus') {
+        let node = object.focus;
+        findNode(node);
+    }
     else {
         console.log("ERROR: invalid type: ", type);
         return;
     }
-    
-    if (node.nodeType != 1) {
-        searchArea = document.querySelectorAll(node.parentNode.nodeName.toLowerCase());
-        wholeText = node.parentNode.parentWholeText;
-    }
-    else {
-        searchArea = document.querySelectorAll(node.nodeName.toLowerCase());
-        wholeText = node.wholeText;
-    }
-
-    for (let i=0; i<searchArea.length; i++) {
-        if (searchArea[i].innerText == wholeText) {
-            nodeInDoc = searchArea[i];
-        }
-    }
-
-    if (nodeInDoc == undefined) {
-        console.log('ERROR: could not find anotation: ', object.textAnotated)
-    }
-
-    let startPoint = undefined;
-    let endPoint = undefined;
-    let insertions = {};
-
-    startPoint = newSearch(wholeText, object.textAnotated);
-    endPoint = startPoint + object.textAnotated.length;
-    console.log('points: ', startPoint, endPoint);
-
-    insertions[startPoint] = `<span class='` + object.anotationId + ` highlight-anotation' style='background-color: rgb(230, 230, 230)'>`;
-    insertions[endPoint] = '</span>';
-
-    let highlighted = nodeInDoc.innerHTML.insertTextAtIndices(insertions)
-    nodeInDoc.innerHTML = highlighted;
 }
 
 function begunSelecting() {
@@ -1029,6 +1035,7 @@ chrome.runtime.onMessage.addListener(handleContentRequests);
 window.addEventListener('load', function() {
     window.addEventListener('mousedown', begunSelecting);
 
+    /*
     let testData = {
         anchor: {
             nodeName: '#text',
@@ -1055,12 +1062,50 @@ window.addEventListener('load', function() {
         },
         textAnotated: 'underscored the outpouring'
     }
+    */
+
+    let testData = {
+        "anotationId": "ANT5g84gj3kn",
+        "textAnotated": "Birmingham will become the latest area to bring in new restrictions after a spike",
+        "isUnified": false,
+        "anchor": {
+            "nodeName": "#text",
+            "nodeType": 3,
+            "wholeText": "Meanwhile, Birmingham will become the latest ",
+            "parentNode": {
+                "nodeName": "P",
+                "nodeType": 1,
+                "parentWholeText": "Meanwhile, Birmingham will become the latest area to bring in new restrictions after a spike in cases."
+            }
+        },
+        "focus": {
+            "nodeName": "#text",
+            "nodeType": 3,
+            "wholeText": "bring in new restrictions after a spike",
+            "parentNode": {
+                "nodeName": "SPAN",
+                "nodeType": 1,
+                "parentWholeText": "bring in new restrictions after a spike"
+            }
+        },
+        "submissionsMade": {
+            "SUBbd7ezlc4r": {
+                "submissionId": "SUBbd7ezlc4r",
+                "assignedTo": "ANT5g84gj3kn",
+                "urlOfArticle": "https://www.bbc.co.uk/news/health-54116939",
+                "argumentNature": "other",
+                "submissionText": "Your thdoughts",
+                "isSource": false,
+                "sourceLink": null
+            }
+        }
+    }
 
     findAnotationInPage(testData, "anchor");
 
     if (!testData.isUnified) {
-        if (testData.nodeList.length > 2) {
-            findAnotationInPage(testData, "middle");
+        if ('nodeList' in testData) {
+            if(testData.nodeList.length > 2) {findAnotationInPage(testData, "middle")}
         }
         findAnotationInPage(testData, "focus");
     }

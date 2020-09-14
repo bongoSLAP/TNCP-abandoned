@@ -229,6 +229,7 @@ function autoCompSelection() {
         }
         else if (thisSelectionObj.anchorNode != thisSelectionObj.focusNode) {
             let staticNodeArray = getAllNodes(thisSelectionObj);
+            console.log("staticNodeArray: ", staticNodeArray);
 
             //if selection went up the page from starting point or down the page from starting point
             if (thisSelectionObj.anchorNode.wholeText.search(staticNodeArray[staticNodeArray.length-1].innerText) == -1) {
@@ -483,7 +484,7 @@ function initAnotation(object, selection) {
         }
     }
 
-    if (object.anchorNode != object.focusNode/* || testRange(object.getRangeAt(0)) != true*/) {
+    if (object.anchorNode != object.focusNode) {
         anotation.isUnified = false;
         anotation.focus = {
             nodeName: object.focusNode.nodeName,
@@ -503,6 +504,7 @@ function initAnotation(object, selection) {
     else {delete anotation.focus}
 
     let nodeList = getAllNodes(object);
+    console.log("nodeList: ", nodeList);
 
     if (nodeList.length != 0) {
         for (let i=0; i<nodeList.length; i++) {
@@ -528,24 +530,32 @@ String.prototype.insertTextAtIndices = function(text) {
 };
 
 function findAnotationInPage(object, type) {
+    let wordList = object.textAnotated.split(" ");
+    let boundaryWord = undefined;
     console.log("type: ", type);
+
     let findNode = function(targetNode) {
+        console.log("boundaryWord: ", boundaryWord);
         let searchArea = [];
         let wholeText = undefined; 
         let nodeInDoc = undefined;
 
         if (targetNode.nodeType != 1) {
             searchArea = document.querySelectorAll(targetNode.parentNode.nodeName.toLowerCase());
-            wholeText = targetNode.parentNode.parentWholeText;
         }
         else {
             searchArea = document.querySelectorAll(targetNode.nodeName.toLowerCase());
-            wholeText = targetNode.wholeText;
         }
 
+        wholeText = targetNode.wholeText;
+
+        console.log("wholeText: ", wholeText);
+
         for (let i=0; i<searchArea.length; i++) {
-            if (searchArea[i].innerText == wholeText) {
+            //if (newSearch(searchArea[i].innerText, wholeText) != "failed") {
+            if (searchArea[i].innerText == targetNode.parentNode.parentWholeText) {
                 nodeInDoc = searchArea[i];
+                console.log("nodeInDoc: ", nodeInDoc);
             }
         }
 
@@ -557,11 +567,18 @@ function findAnotationInPage(object, type) {
         let endPoint = undefined;
         let insertions = {};
 
-        startPoint = newSearch(wholeText, object.textAnotated);
-        endPoint = startPoint + object.textAnotated.length;
+        console.log('wholeText: ', wholeText);
+        if (type == "anchor") {
+            startPoint = newSearch(wholeText, boundaryWord);
+            endPoint = startPoint + wholeText.substr(startPoint).length;
+        }
+        else if (type == "focus") {
+            startPoint = 0;
+            endPoint = newSearch(wholeText, boundaryWord) + boundaryWord.length;
+        }
         console.log('points: ', startPoint, endPoint);
 
-        insertions[startPoint] = `<span class='` + object.anotationId + ` highlight-anotation' style='background-color: rgb(230, 230, 230)'>`;
+        insertions[startPoint] = `<span class='` + object.anotationId + ` highlight-anotation' style='background-color: rgb(200, 200, 200)'>`;
         insertions[endPoint] = '</span>';
 
         let highlighted = nodeInDoc.innerHTML.insertTextAtIndices(insertions)
@@ -570,15 +587,18 @@ function findAnotationInPage(object, type) {
 
     if (type == 'anchor') {
         let node = object.anchor;
+        boundaryWord = wordList[0];
         findNode(node);
     }
     else if (type == 'middle') {
         for (let i=1; i<object.nodeList.length-1; i++) {
+            //maybe have a diff function altogether so that it just adds span tags it at first and last char
             findNode(object.nodeList[i]);
         }
     }
     else if (type == 'focus') {
         let node = object.focus;
+        boundaryWord = wordList[wordList.length-1];
         findNode(node);
     }
     else {
@@ -1035,37 +1055,8 @@ chrome.runtime.onMessage.addListener(handleContentRequests);
 window.addEventListener('load', function() {
     window.addEventListener('mousedown', begunSelecting);
 
-    /*
     let testData = {
-        anchor: {
-            nodeName: '#text',
-            nodeType: 3,
-            parentNode: {
-                nodeName: 'P',
-                nodeType: 1,
-                parentWholeText: 'Weissman’s online call to arms underscored the outpouring of anger that erupted from military veterans and their families overnight against Trump, following a bombshell article in the Atlantic that Trump and several top aides have vehemently denied.',
-            },
-            wholeText: 'Weissman’s online call to arms underscored the outpouring of anger that erupted from military veterans and their families overnight against Trump, following ',
-        },
-        anotationId: 'ANT55wiagl17',
-        isUnified: true,
-        submissionsMade: {
-            SUBtq7gzzo20: {
-                argumentNature: 'against',
-                assignedTo: 'ANT55wiagl17',
-                isSource: false,
-                sourceLink: null,
-                submissionId: 'SUBtq7gzzo20',
-                submissionText: 'Your thoureghts',
-                urlOfArticle: 'https://www.washingtonpost.com/nation/2020/09/04/trump-veterans-atlantic-military-losers/',
-            }
-        },
-        textAnotated: 'underscored the outpouring'
-    }
-    */
-
-    let testData = {
-        "anotationId": "ANT5g84gj3kn",
+        "anotationId": "ANTwne4s6dsr",
         "textAnotated": "Birmingham will become the latest area to bring in new restrictions after a spike",
         "isUnified": false,
         "anchor": {
@@ -1081,20 +1072,20 @@ window.addEventListener('load', function() {
         "focus": {
             "nodeName": "#text",
             "nodeType": 3,
-            "wholeText": "bring in new restrictions after a spike",
+            "wholeText": "area to bring in new restrictions after a spike in cases",
             "parentNode": {
-                "nodeName": "SPAN",
+                "nodeName": "A",
                 "nodeType": 1,
-                "parentWholeText": "bring in new restrictions after a spike"
+                "parentWholeText": "area to bring in new restrictions after a spike in cases"
             }
         },
         "submissionsMade": {
-            "SUBbd7ezlc4r": {
-                "submissionId": "SUBbd7ezlc4r",
-                "assignedTo": "ANT5g84gj3kn",
+            "SUBc977w769c": {
+                "submissionId": "SUBc977w769c",
+                "assignedTo": "ANTwne4s6dsr",
                 "urlOfArticle": "https://www.bbc.co.uk/news/health-54116939",
-                "argumentNature": "other",
-                "submissionText": "Your thdoughts",
+                "argumentNature": "against",
+                "submissionText": "Your thoughtsf",
                 "isSource": false,
                 "sourceLink": null
             }

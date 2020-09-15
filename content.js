@@ -229,7 +229,6 @@ function autoCompSelection() {
         }
         else if (thisSelectionObj.anchorNode != thisSelectionObj.focusNode) {
             let staticNodeArray = getAllNodes(thisSelectionObj);
-            console.log("staticNodeArray: ", staticNodeArray);
 
             //if selection went up the page from starting point or down the page from starting point
             if (thisSelectionObj.anchorNode.wholeText.search(staticNodeArray[staticNodeArray.length-1].innerText) == -1) {
@@ -415,6 +414,15 @@ function publishSubmission() {
         chrome.runtime.sendMessage({request: 'validate>submission', data: anotation}, function(response) {
             console.log('sent submission for validation, data received: ', JSON.stringify(response.dataReceived, null, 4));
         });
+
+        findAnotationInPage(anotation, "anchor");
+
+        if (!anotation.isUnified) {
+            if ('nodeList' in anotation) {
+                if(anotation.nodeList.length > 2) {findAnotationInPage(anotation, "middle")}
+            }
+            findAnotationInPage(anotation, "focus");
+        }
     }
 
     //checks to see if url given is in correct format
@@ -522,24 +530,15 @@ function initAnotation(object, selection) {
     anotation.anotationId = generateId('anotation');
 }
 
-//inserts strings into a target string at multiple different places.
-String.prototype.insertTextAtIndices = function(text) {
-    return this.replace(/./g, function(character, index) {
-        return text[index] ? text[index] + character : character;
-    });
-};
-
 function findAnotationInPage(object, type) {
     let wordList = object.textAnotated.split(" ");
-    let boundaryWord = undefined;
+    let wholeText = undefined;
+    
     console.log("type: ", type);
 
     let findNode = function(targetNode) {
-        console.log("boundaryWord: ", boundaryWord);
         let searchArea = [];
-        let wholeText = undefined; 
-        let nodeInDoc = undefined;
-
+        let found = false;
         if (targetNode.nodeType != 1) {
             searchArea = document.querySelectorAll(targetNode.parentNode.nodeName.toLowerCase());
         }
@@ -554,27 +553,54 @@ function findAnotationInPage(object, type) {
         for (let i=0; i<searchArea.length; i++) {
             //if (newSearch(searchArea[i].innerText, wholeText) != "failed") {
             if (searchArea[i].innerText == targetNode.parentNode.parentWholeText) {
-                nodeInDoc = searchArea[i];
-                console.log("nodeInDoc: ", nodeInDoc);
+                found = true;
+                return searchArea[i];
             }
         }
 
-        if (nodeInDoc == undefined) {
+        if (!found) {
             console.log('ERROR: could not find anotation: ', object.textAnotated)
+            return;
         }
+    }
 
+    //inserts strings into a target string at multiple different places.
+    String.prototype.insertTextAtIndices = function(text) {
+        return this.replace(/./g, function(character, index) {
+            return text[index] ? text[index] + character : character;
+        });
+    };
+
+    let countDuplicates = function(keyword) {
+        let regexp = new RegExp(keyword, "g");
+        let count = (wholeText.match(regexp) || []).length;
+
+        if (count > 0) {
+            return count;
+        } 
+        else {
+            console.log(keyword + "not found in" + wholeText);
+            return false;
+        }
+    }
+
+    let highlightAnotation = function(node) {
+        let nodeInDoc = findNode(node)
         let startPoint = undefined;
         let endPoint = undefined;
         let insertions = {};
-
-        console.log('wholeText: ', wholeText);
-        if (type == "anchor") {
-            startPoint = newSearch(wholeText, boundaryWord);
+        
+        if (type == "anchor" && !object.isUnified) {
+            startPoint = newSearch(wholeText, wordList[0]);
             endPoint = startPoint + wholeText.substr(startPoint).length;
+        }
+        else if (type == 'anchor' && object.isUnified) {
+            startPoint = newSearch(wholeText, wordList[0]);
+            endPoint = newSearch(wholeText, wordList[wordList.length-1]) + wordList[wordList.length-1].length;
         }
         else if (type == "focus") {
             startPoint = 0;
-            endPoint = newSearch(wholeText, boundaryWord) + boundaryWord.length;
+            endPoint = newSearch(wholeText, wordList[wordList.length-1]) + wordList[wordList.length-1].length;
         }
         console.log('points: ', startPoint, endPoint);
 
@@ -586,20 +612,16 @@ function findAnotationInPage(object, type) {
     };
 
     if (type == 'anchor') {
-        let node = object.anchor;
-        boundaryWord = wordList[0];
-        findNode(node);
+        highlightAnotation(object.anchor);
     }
     else if (type == 'middle') {
         for (let i=1; i<object.nodeList.length-1; i++) {
             //maybe have a diff function altogether so that it just adds span tags it at first and last char
-            findNode(object.nodeList[i]);
+            highlightAnotation(object.nodeList[i]);
         }
     }
     else if (type == 'focus') {
-        let node = object.focus;
-        boundaryWord = wordList[wordList.length-1];
-        findNode(node);
+        highlightAnotation(object.focus);
     }
     else {
         console.log("ERROR: invalid type: ", type);
@@ -1056,42 +1078,33 @@ window.addEventListener('load', function() {
     window.addEventListener('mousedown', begunSelecting);
 
     let testData = {
-        "anotationId": "ANTwne4s6dsr",
-        "textAnotated": "Birmingham will become the latest area to bring in new restrictions after a spike",
-        "isUnified": false,
+        "anotationId": "ANTi0rjdn6x6",
+        "textAnotated": "surprised that I am a tiny minority. I think that",
+        "isUnified": true,
         "anchor": {
             "nodeName": "#text",
             "nodeType": 3,
-            "wholeText": "Meanwhile, Birmingham will become the latest ",
+            "wholeText": "\"I'm not remotely surprised that I am a tiny minority. I think that may change next Tuesday,\" he added.",
             "parentNode": {
                 "nodeName": "P",
                 "nodeType": 1,
-                "parentWholeText": "Meanwhile, Birmingham will become the latest area to bring in new restrictions after a spike in cases."
-            }
-        },
-        "focus": {
-            "nodeName": "#text",
-            "nodeType": 3,
-            "wholeText": "area to bring in new restrictions after a spike in cases",
-            "parentNode": {
-                "nodeName": "A",
-                "nodeType": 1,
-                "parentWholeText": "area to bring in new restrictions after a spike in cases"
+                "parentWholeText": "\"I'm not remotely surprised that I am a tiny minority. I think that may change next Tuesday,\" he added."
             }
         },
         "submissionsMade": {
-            "SUBc977w769c": {
-                "submissionId": "SUBc977w769c",
-                "assignedTo": "ANTwne4s6dsr",
-                "urlOfArticle": "https://www.bbc.co.uk/news/health-54116939",
-                "argumentNature": "against",
-                "submissionText": "Your thoughtsf",
+            "SUBlc0ix81cc": {
+                "submissionId": "SUBlc0ix81cc",
+                "assignedTo": "ANTi0rjdn6x6",
+                "urlOfArticle": "https://www.bbc.co.uk/news/uk-politics-54156419",
+                "argumentNature": "for",
+                "submissionText": "Your thou5ghts",
                 "isSource": false,
                 "sourceLink": null
             }
         }
     }
 
+    
     findAnotationInPage(testData, "anchor");
 
     if (!testData.isUnified) {
@@ -1100,4 +1113,5 @@ window.addEventListener('load', function() {
         }
         findAnotationInPage(testData, "focus");
     }
+    
 });

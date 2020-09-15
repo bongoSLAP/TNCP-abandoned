@@ -415,13 +415,13 @@ function publishSubmission() {
             console.log('sent submission for validation, data received: ', JSON.stringify(response.dataReceived, null, 4));
         });
 
-        findAnotationInPage(anotation, "anchor");
+        findAnotationInPage(anotation, 'anchor');
 
         if (!anotation.isUnified) {
             if ('nodeList' in anotation) {
-                if(anotation.nodeList.length > 2) {findAnotationInPage(anotation, "middle")}
+                if(anotation.nodeList.length > 2) {findAnotationInPage(anotation, 'middle')}
             }
-            findAnotationInPage(anotation, "focus");
+            findAnotationInPage(anotation, 'focus');
         }
     }
 
@@ -512,7 +512,7 @@ function initAnotation(object, selection) {
     else {delete anotation.focus}
 
     let nodeList = getAllNodes(object);
-    console.log("nodeList: ", nodeList);
+    console.log('nodeList: ', nodeList);
 
     if (nodeList.length != 0) {
         for (let i=0; i<nodeList.length; i++) {
@@ -531,10 +531,10 @@ function initAnotation(object, selection) {
 }
 
 function findAnotationInPage(object, type) {
-    let wordList = object.textAnotated.split(" ");
+    let wordList = object.textAnotated.split(' ');
     let wholeText = undefined;
     
-    console.log("type: ", type);
+    console.log('type: ', type);
 
     let findNode = function(targetNode) {
         let searchArea = [];
@@ -547,11 +547,10 @@ function findAnotationInPage(object, type) {
         }
 
         wholeText = targetNode.wholeText;
-
-        console.log("wholeText: ", wholeText);
+        console.log('wholeText: ', wholeText);
 
         for (let i=0; i<searchArea.length; i++) {
-            //if (newSearch(searchArea[i].innerText, wholeText) != "failed") {
+            //if (newSearch(searchArea[i].innerText, wholeText) != 'failed') {
             if (searchArea[i].innerText == targetNode.parentNode.parentWholeText) {
                 found = true;
                 return searchArea[i];
@@ -572,14 +571,14 @@ function findAnotationInPage(object, type) {
     };
 
     let countDuplicates = function(keyword) {
-        let regexp = new RegExp(keyword, "g");
+        let regexp = new RegExp(keyword, 'g');
         let count = (wholeText.match(regexp) || []).length;
 
         if (count > 0) {
             return count;
         } 
         else {
-            console.log(keyword + "not found in" + wholeText);
+            console.log(keyword + 'not found in' + wholeText);
             return false;
         }
     }
@@ -589,26 +588,42 @@ function findAnotationInPage(object, type) {
         let startPoint = undefined;
         let endPoint = undefined;
         let insertions = {};
+
+        console.log('nodeInDoc: ', nodeInDoc);
+
+        test = nodeInDoc.innerHTML.split(/(<([^>]+)>)/g);
+
+        for (let i=0; i<test.length; i++) {
+            if(test[i].match(/(<([^>]+)>)/g, '') != null) {
+                test.splice(i, 2);
+            }
+        }
+
+        console.log(test);
         
-        if (type == "anchor" && !object.isUnified) {
-            startPoint = newSearch(wholeText, wordList[0]);
+
+        if (type == 'anchor' && !object.isUnified) {
+            console.log("wholeText: ", wholeText, "test[0]", test[0]);
+            startPoint = newSearch(wholeText, test[0]);
             endPoint = startPoint + wholeText.substr(startPoint).length;
         }
         else if (type == 'anchor' && object.isUnified) {
-            startPoint = newSearch(wholeText, wordList[0]);
-            endPoint = newSearch(wholeText, wordList[wordList.length-1]) + wordList[wordList.length-1].length;
+            startPoint = newSearch(wholeText, object.textAnotated);
+            endPoint = startPoint + object.textAnotated.length
         }
-        else if (type == "focus") {
+        else if (type == 'focus') {
+            console.log("wholeText: ", wholeText, "test[test.length-1]", test[test.length-1]);
             startPoint = 0;
-            endPoint = newSearch(wholeText, wordList[wordList.length-1]) + wordList[wordList.length-1].length;
+            endPoint = newSearch(wholeText, test[test.length-1]) + test[test.length-1].length;
         }
+
         console.log('points: ', startPoint, endPoint);
 
         insertions[startPoint] = `<span class='` + object.anotationId + ` highlight-anotation' style='background-color: rgb(200, 200, 200)'>`;
         insertions[endPoint] = '</span>';
 
-        let highlighted = nodeInDoc.innerHTML.insertTextAtIndices(insertions)
-        nodeInDoc.innerHTML = highlighted;
+        //let highlighted = nodeInDoc.innerHTML.insertTextAtIndices(insertions)
+        //nodeInDoc.innerHTML = highlighted;
     };
 
     if (type == 'anchor') {
@@ -624,7 +639,7 @@ function findAnotationInPage(object, type) {
         highlightAnotation(object.focus);
     }
     else {
-        console.log("ERROR: invalid type: ", type);
+        console.log('ERROR: invalid type: ', type);
         return;
     }
 }
@@ -1077,41 +1092,52 @@ chrome.runtime.onMessage.addListener(handleContentRequests);
 window.addEventListener('load', function() {
     window.addEventListener('mousedown', begunSelecting);
 
+    
     let testData = {
-        "anotationId": "ANTi0rjdn6x6",
-        "textAnotated": "surprised that I am a tiny minority. I think that",
-        "isUnified": true,
+        "anotationId": "ANTiogasm5yn",
+        "textAnotated": "people being directed to test sites hundreds of miles from their",
+        "isUnified": false,
         "anchor": {
             "nodeName": "#text",
             "nodeType": 3,
-            "wholeText": "\"I'm not remotely surprised that I am a tiny minority. I think that may change next Tuesday,\" he added.",
+            "wholeText": "An increase in demand for coronavirus tests has led to local shortages - with some people being ",
             "parentNode": {
                 "nodeName": "P",
                 "nodeType": 1,
-                "parentWholeText": "\"I'm not remotely surprised that I am a tiny minority. I think that may change next Tuesday,\" he added."
+                "parentWholeText": "An increase in demand for coronavirus tests has led to local shortages - with some people being directed to test sites hundreds of miles from their homes."
+            }
+        },
+        "focus": {
+            "nodeName": "#text",
+            "nodeType": 3,
+            "wholeText": " from their homes.",
+            "parentNode": {
+                "nodeName": "P",
+                "nodeType": 1,
+                "parentWholeText": "An increase in demand for coronavirus tests has led to local shortages - with some people being directed to test sites hundreds of miles from their homes."
             }
         },
         "submissionsMade": {
-            "SUBlc0ix81cc": {
-                "submissionId": "SUBlc0ix81cc",
-                "assignedTo": "ANTi0rjdn6x6",
-                "urlOfArticle": "https://www.bbc.co.uk/news/uk-politics-54156419",
+            "SUBetqkfb8f6": {
+                "submissionId": "SUBetqkfb8f6",
+                "assignedTo": "ANTiogasm5yn",
+                "urlOfArticle": "https://www.bbc.co.uk/news/uk-54156889",
                 "argumentNature": "for",
-                "submissionText": "Your thou5ghts",
+                "submissionText": "Your thn, oughts",
                 "isSource": false,
                 "sourceLink": null
             }
         }
     }
-
     
-    findAnotationInPage(testData, "anchor");
+    
+    findAnotationInPage(testData, 'anchor');
 
     if (!testData.isUnified) {
         if ('nodeList' in testData) {
-            if(testData.nodeList.length > 2) {findAnotationInPage(testData, "middle")}
+            if(testData.nodeList.length > 2) {findAnotationInPage(testData, 'middle')}
         }
-        findAnotationInPage(testData, "focus");
+        findAnotationInPage(testData, 'focus');
     }
     
 });

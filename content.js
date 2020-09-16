@@ -570,24 +570,13 @@ function findAnotationInPage(object, type) {
         });
     };
 
-    let countDuplicates = function(keyword) {
-        let regexp = new RegExp(keyword, 'g');
-        let count = (wholeText.match(regexp) || []).length;
-
-        if (count > 0) {
-            return count;
-        } 
-        else {
-            console.log(keyword + 'not found in' + wholeText);
-            return false;
-        }
-    }
-
     let highlightAnotation = function(node) {
         let nodeInDoc = findNode(node)
         let startPoint = undefined;
         let endPoint = undefined;
         let insertions = {};
+        let searchString = undefined;
+        let found = false;
 
         console.log('nodeInDoc: ', nodeInDoc);
 
@@ -600,11 +589,39 @@ function findAnotationInPage(object, type) {
         }
 
         console.log(test);
+    
+        let temp = "";
+        
+        for (let i=test[0].length-1; i>=0; i--) {
+            let currentChar = test[0][i];
+            temp = currentChar + temp;
+            searchString = object.textAnotated.substr(0, temp.length)
+            console.log("temp: ", temp, "searchString: ", searchString);
+
+            if (temp == searchString) {
+                found = true;
+                break;
+            }
+        }
+
+        if (!found) {
+            console.log('ERROR: could not find anotation: ', object.textAnotated)
+        }
+
+        /*
+        for (let j=wholeText.length; j>=0; j--) {
+            currentWholeTextChar = wholeText[j];
+            console.log("wholeTextChar: ", currentWholeTextChar);
+        }
+        */
+        
+
+        console.log(test);
         
 
         if (type == 'anchor' && !object.isUnified) {
             console.log("wholeText: ", wholeText, "test[0]", test[0]);
-            startPoint = newSearch(wholeText, test[0]);
+            startPoint = newSearch(wholeText, searchString);
             endPoint = startPoint + wholeText.substr(startPoint).length;
         }
         else if (type == 'anchor' && object.isUnified) {
@@ -1139,5 +1156,4 @@ window.addEventListener('load', function() {
         }
         findAnotationInPage(testData, 'focus');
     }
-    
 });

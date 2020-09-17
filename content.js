@@ -1170,5 +1170,8 @@ window.addEventListener('load', function() {
             if(testData.nodeList.length > 2) {findAnotationInPage(testData, 'middle')}
         }
         findAnotationInPage(testData, 'focus');
+        
+        console.log('insertions: ', insertions, "nodeInDoc: ", nodeInDoc);
+        highlightAnotation(insertions, nodeInDoc);
     }
 });

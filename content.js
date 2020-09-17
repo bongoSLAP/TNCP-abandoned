@@ -2,8 +2,9 @@ let selectionList = [];
 let autoCompOutcome = '';
 let emptyVal = ''
 let validTags = ['H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'P', 'SPAN', 'UL', 'LI', 'A', 'STRONG', 'B', 'CITE', 'DFN', 'EM', 'I', 'KBD', 'LABEL', 'Q', 'SMALL', 'BIG', 'SUB', 'SUP', 'TIME', 'VAR'];
+let insertions = {};
+let nodeInDoc = undefined;
 
-//need to assign these values.
 let anotation = {
     anotationId: '',
     textAnotated: '',
@@ -24,9 +25,11 @@ let submission = {
     sourceLink: undefined
 }
 
-//shadow DOM elements
+//intervals
 let checkSelectMade = undefined;
 let updateCharCount = undefined;
+
+//shadow DOM elements
 let contextMenuContainer = undefined;
 let loadingIcon = undefined;
 let charCountContainer = undefined;
@@ -423,6 +426,9 @@ function publishSubmission() {
             }
             findAnotationInPage(anotation, 'focus');
         }
+
+        console.log('insertions: ', insertions, "nodeInDoc: ", nodeInDoc);
+        highlightAnotation(insertions, nodeInDoc);
     }
 
     //checks to see if url given is in correct format
@@ -530,6 +536,17 @@ function initAnotation(object, selection) {
     anotation.anotationId = generateId('anotation');
 }
 
+function highlightAnotation(object, node) {
+    String.prototype.insertTextAtIndices = function(text) {
+        return this.replace(/./g, function(character, index) {
+            return text[index] ? text[index] + character : character;
+        });
+    };
+
+    let highlighted = node.innerHTML.insertTextAtIndices(object);
+    node.innerHTML = highlighted;
+}
+
 function findAnotationInPage(object, type) {
     let wordList = object.textAnotated.split(' ');
     let wholeText = undefined;
@@ -563,64 +580,65 @@ function findAnotationInPage(object, type) {
         }
     }
 
-    //inserts strings into a target string at multiple different places.
-    String.prototype.insertTextAtIndices = function(text) {
-        return this.replace(/./g, function(character, index) {
-            return text[index] ? text[index] + character : character;
-        });
-    };
-
-    let highlightAnotation = function(node) {
-        let nodeInDoc = findNode(node)
+    let detectBoundaries = function(node) {
         let startPoint = undefined;
         let endPoint = undefined;
-        let insertions = {};
         let searchString = undefined;
-        let found = false;
+        nodeInDoc = findNode(node)
 
         console.log('nodeInDoc: ', nodeInDoc);
 
-        test = nodeInDoc.innerHTML.split(/(<([^>]+)>)/g);
+        nodeChunks = nodeInDoc.innerHTML.split(/(<([^>]+)>)/g);
 
-        for (let i=0; i<test.length; i++) {
-            if(test[i].match(/(<([^>]+)>)/g, '') != null) {
-                test.splice(i, 2);
+        for (let i=0; i<nodeChunks.length; i++) {
+            if(nodeChunks[i].match(/(<([^>]+)>)/g, '') != null) {
+                nodeChunks.splice(i, 2);
             }
         }
 
-        console.log(test);
+        console.log(nodeChunks);
     
-        let temp = "";
-        
-        for (let i=test[0].length-1; i>=0; i--) {
-            let currentChar = test[0][i];
-            temp = currentChar + temp;
-            searchString = object.textAnotated.substr(0, temp.length)
-            console.log("temp: ", temp, "searchString: ", searchString);
+        let temp = '';
 
-            if (temp == searchString) {
-                found = true;
-                break;
+        if (type == 'anchor') {
+            let found = false;
+            for (let i=nodeChunks[0].length-1; i>=0; i--) {
+                temp = nodeChunks[0][i] + temp;
+                searchString = object.textAnotated.substr(0, temp.length)
+                console.log('anchor|', 'temp: ', temp, 'searchString: ', searchString);
+    
+                if (temp == searchString) {
+                    found = true;
+                    break;
+                }
+            }                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      
+    
+            if (!found) {
+                console.log('ERROR: could not find anotation: ', object.textAnotated)
+            }
+        }
+        else if (type == 'focus') {
+            let found = false;
+            for (let j=0; j<nodeChunks[nodeChunks.length-1].length; j++) {
+                temp = temp + nodeChunks[nodeChunks.length-1][j];
+                searchString = object.textAnotated.substr(object.textAnotated.length - temp.length, temp.length);
+                console.log('focus|', 'temp: ', temp, 'searchString: ', searchString);
+    
+                if (temp == searchString) {
+                    found = true;
+                    break;
+                }
+            }                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      
+    
+            if (!found) {
+                console.log('ERROR: could not find anotation: ', object.textAnotated)
             }
         }
 
-        if (!found) {
-            console.log('ERROR: could not find anotation: ', object.textAnotated)
-        }
-
-        /*
-        for (let j=wholeText.length; j>=0; j--) {
-            currentWholeTextChar = wholeText[j];
-            console.log("wholeTextChar: ", currentWholeTextChar);
-        }
-        */
-        
-
-        console.log(test);
-        
+        console.log(nodeChunks);
 
         if (type == 'anchor' && !object.isUnified) {
-            console.log("wholeText: ", wholeText, "test[0]", test[0]);
+            console.log('wholeText: ', wholeText, 'nodeChunks[0]', nodeChunks[0]);
             startPoint = newSearch(wholeText, searchString);
             endPoint = startPoint + wholeText.substr(startPoint).length;
         }
@@ -629,31 +647,28 @@ function findAnotationInPage(object, type) {
             endPoint = startPoint + object.textAnotated.length
         }
         else if (type == 'focus') {
-            console.log("wholeText: ", wholeText, "test[test.length-1]", test[test.length-1]);
             startPoint = 0;
-            endPoint = newSearch(wholeText, test[test.length-1]) + test[test.length-1].length;
+            endPoint = newSearch(wholeText, searchString) + searchString.length - 1;
         }
 
         console.log('points: ', startPoint, endPoint);
 
         insertions[startPoint] = `<span class='` + object.anotationId + ` highlight-anotation' style='background-color: rgb(200, 200, 200)'>`;
         insertions[endPoint] = '</span>';
-
-        //let highlighted = nodeInDoc.innerHTML.insertTextAtIndices(insertions)
-        //nodeInDoc.innerHTML = highlighted;
+        console.log('insertions: ', insertions);
     };
 
     if (type == 'anchor') {
-        highlightAnotation(object.anchor);
+        detectBoundaries(object.anchor);
     }
     else if (type == 'middle') {
         for (let i=1; i<object.nodeList.length-1; i++) {
             //maybe have a diff function altogether so that it just adds span tags it at first and last char
-            highlightAnotation(object.nodeList[i]);
+            detectBoundaries(object.nodeList[i]);
         }
     }
     else if (type == 'focus') {
-        highlightAnotation(object.focus);
+        detectBoundaries(object.focus);
     }
     else {
         console.log('ERROR: invalid type: ', type);
@@ -1111,17 +1126,17 @@ window.addEventListener('load', function() {
 
     
     let testData = {
-        "anotationId": "ANTiogasm5yn",
-        "textAnotated": "people being directed to test sites hundreds of miles from their",
+        "anotationId": "ANTkaj83shxx",
+        "textAnotated": "people being directed to test sites hundreds of miles from their homes.",
         "isUnified": false,
         "anchor": {
             "nodeName": "#text",
             "nodeType": 3,
-            "wholeText": "An increase in demand for coronavirus tests has led to local shortages - with some people being ",
+            "wholeText": "An increase in demand for coronavirus tests has led to local shortages, with some people being ",
             "parentNode": {
                 "nodeName": "P",
                 "nodeType": 1,
-                "parentWholeText": "An increase in demand for coronavirus tests has led to local shortages - with some people being directed to test sites hundreds of miles from their homes."
+                "parentWholeText": "An increase in demand for coronavirus tests has led to local shortages, with some people being directed to test sites hundreds of miles from their homes."
             }
         },
         "focus": {
@@ -1131,16 +1146,16 @@ window.addEventListener('load', function() {
             "parentNode": {
                 "nodeName": "P",
                 "nodeType": 1,
-                "parentWholeText": "An increase in demand for coronavirus tests has led to local shortages - with some people being directed to test sites hundreds of miles from their homes."
+                "parentWholeText": "An increase in demand for coronavirus tests has led to local shortages, with some people being directed to test sites hundreds of miles from their homes."
             }
         },
         "submissionsMade": {
-            "SUBetqkfb8f6": {
-                "submissionId": "SUBetqkfb8f6",
-                "assignedTo": "ANTiogasm5yn",
+            "SUBquhedb9ds": {
+                "submissionId": "SUBquhedb9ds",
+                "assignedTo": "ANTkaj83shxx",
                 "urlOfArticle": "https://www.bbc.co.uk/news/uk-54156889",
                 "argumentNature": "for",
-                "submissionText": "Your thn, oughts",
+                "submissionText": "Your thoewffughts",
                 "isSource": false,
                 "sourceLink": null
             }

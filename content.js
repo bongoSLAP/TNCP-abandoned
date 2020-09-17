@@ -649,6 +649,7 @@ function findAnotationInPage(object, type) {
         else if (type == 'focus') {
             startPoint = 0;
             endPoint = newSearch(wholeText, searchString) + searchString.length - 1;
+            //BUG HERE I THINK, I THINK IT SHOULDNT START FROM 0, IT SHOULD START FROM THE END OF THE NODE CHUNK BEFORE LAST. NOT TO DO WITH SPANS OVERFLOWING INNERHTML
         }
 
         console.log('points: ', startPoint, endPoint);
@@ -1170,7 +1171,7 @@ window.addEventListener('load', function() {
             if(testData.nodeList.length > 2) {findAnotationInPage(testData, 'middle')}
         }
         findAnotationInPage(testData, 'focus');
-        
+
         console.log('insertions: ', insertions, "nodeInDoc: ", nodeInDoc);
         highlightAnotation(insertions, nodeInDoc);
     }

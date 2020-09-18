@@ -102,43 +102,44 @@ function newSearch(searchIn, query) {
     else {return searchOutcome}
 }
 
+function getParentNode(targetNode) {
+    let newWholeText = undefined;
+
+    //recursive function to move up the tree of nodes starting from the selected node
+    let getNextParent = function(child) {
+        let isFinished = false;
+
+        for (let i=0; i<validTags.length; i++) {
+            if (child.parentNode.nodeName == validTags[i]) {
+                if (child.parentNode.nodeName == '#text') {
+                    newWholeText = child.parentNode.wholeText;
+                }
+                else {
+                    newWholeText = child.parentNode.innerText;
+                    getNextParent(child.parentNode);
+                }
+
+                isFinished = true;
+            }
+
+            if (isFinished) {
+                return
+            }
+            else if (!isFinished && i == validTags.length) {
+                console.log('ERROR: tag not accepted');
+            }
+        }
+    }
+
+    getNextParent(targetNode);
+    
+    if (newWholeText == undefined) {console.log('ERROR: conditions not met at getNextParent')}
+    return newWholeText; 
+}
+
 //need to find the entirety of the text in nodes selected in order to calculate a start point carry out autocomplete function
 function searchForContext(targetNode, selection) {
     let fullText = targetNode.wholeText;
-    let getParentNode = function(targetNode) {
-        let newWholeText = undefined;
-
-        //recursive function to move up the tree of nodes starting from the selected node
-        let getNextParent = function(child) {
-            let isFinished = false;
-
-            for (let i=0; i<validTags.length; i++) {
-                if (child.parentNode.nodeName == validTags[i]) {
-                    if (child.parentNode.nodeName == '#text') {
-                        newWholeText = child.parentNode.wholeText;
-                    }
-                    else {
-                        newWholeText = child.parentNode.innerText;
-                        getNextParent(child.parentNode);
-                    }
-
-                    isFinished = true;
-                }
-
-                if (isFinished) {
-                    return
-                }
-                else if (!isFinished && i == validTags.length) {
-                    console.log('ERROR: tag not accepted');
-                }
-            }
-        }
-
-        getNextParent(targetNode);
-        
-        if (newWholeText == undefined) {console.log('ERROR: conditions not met at getNextParent')}
-        return newWholeText; 
-    }
 
     //if it couldnt be found then move up a layer and repeat
     if (newSearch(fullText, selection) == 'failed') {     
@@ -422,7 +423,7 @@ function publishSubmission() {
 
         if (!anotation.isUnified) {
             if ('nodeList' in anotation) {
-                if(anotation.nodeList.length > 2) {findAnotationInPage(anotation, 'middle')}
+                //if(anotation.nodeList.length > 2) {findAnotationInPage(anotation, 'middle')}
             }
             findAnotationInPage(anotation, 'focus');
         }
@@ -614,7 +615,7 @@ function findAnotationInPage(object, type) {
                     found = true;
                     break;
                 }
-            }                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      
+            }                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         
     
             if (!found) {
                 console.log('ERROR: could not find anotation: ', object.textAnotated)
@@ -641,7 +642,7 @@ function findAnotationInPage(object, type) {
         console.log(nodeChunks);
 
         if (type == 'anchor' && !object.isUnified) {
-            console.log('nodeInDoc.innerText: ', nodeInDoc.innerText, 'searchString', searchString);
+            console.log('nodeInDoc.innerHTML: ', nodeInDoc.innerHTML, 'searchString', searchString);
             startPoint = newSearch(nodeInDoc.innerHTML, searchString);
             endPoint = startPoint + wholeText.substr(startPoint).length;
         }
@@ -650,7 +651,7 @@ function findAnotationInPage(object, type) {
             endPoint = startPoint + object.textAnotated.length;
         }
         else if (type == 'focus') {
-            console.log('nodeInDoc.innerText: ', nodeInDoc.innerText, 'searchString', searchString);
+            console.log('nodeInDoc.innerHTML: ', nodeInDoc.innerHTML, 'searchString', searchString);
             startPoint = newSearch(nodeInDoc.innerHTML, searchString);
             endPoint = startPoint + searchString.length;
             //BUG HERE I THINK, I THINK IT SHOULDNT START FROM 0, IT SHOULD START FROM THE END OF THE NODE CHUNK BEFORE LAST. NOT TO DO WITH SPANS OVERFLOWING INNERHTML
@@ -1131,36 +1132,36 @@ window.addEventListener('load', function() {
 
     
     let testData = {
-        "anotationId": "ANTkaj83shxx",
-        "textAnotated": "people being directed to test sites hundreds of miles from their homes.",
+        "anotationId": "ANTankwjo6r1",
+        "textAnotated": "widespread reports of people struggling",
         "isUnified": false,
         "anchor": {
             "nodeName": "#text",
             "nodeType": 3,
-            "wholeText": "An increase in demand for coronavirus tests has led to local shortages, with some people being ",
+            "wholeText": "It comes after widespread reports of ",
             "parentNode": {
                 "nodeName": "P",
                 "nodeType": 1,
-                "parentWholeText": "An increase in demand for coronavirus tests has led to local shortages, with some people being directed to test sites hundreds of miles from their homes."
+                "parentWholeText": "It comes after widespread reports of people struggling to get tested."
             }
         },
         "focus": {
             "nodeName": "#text",
             "nodeType": 3,
-            "wholeText": " from their homes.",
+            "wholeText": "people struggling to get tested.",
             "parentNode": {
-                "nodeName": "P",
+                "nodeName": "A",
                 "nodeType": 1,
-                "parentWholeText": "An increase in demand for coronavirus tests has led to local shortages, with some people being directed to test sites hundreds of miles from their homes."
+                "parentWholeText": "people struggling to get tested."
             }
         },
         "submissionsMade": {
-            "SUBquhedb9ds": {
-                "submissionId": "SUBquhedb9ds",
-                "assignedTo": "ANTkaj83shxx",
+            "SUBjv2vv574r": {
+                "submissionId": "SUBjv2vv574r",
+                "assignedTo": "ANTankwjo6r1",
                 "urlOfArticle": "https://www.bbc.co.uk/news/uk-54156889",
                 "argumentNature": "for",
-                "submissionText": "Your thoewffughts",
+                "submissionText": "Your tx zhoughts",
                 "isSource": false,
                 "sourceLink": null
             }
@@ -1173,12 +1174,13 @@ window.addEventListener('load', function() {
 
     if (!testData.isUnified) {
         if ('nodeList' in testData) {
-            if(testData.nodeList.length > 2) {findAnotationInPage(testData, 'middle')}
+            //if(testData.nodeList.length > 2) {findAnotationInPage(testData, 'middle')}
         }
         findAnotationInPage(testData, 'focus');
 
         console.log('insertions: ', insertions, "nodeInDoc: ", nodeInDoc);
         highlightAnotation(insertions, nodeInDoc);
+        
 
         nodeInDoc = undefined;
         insertions = {}

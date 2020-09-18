@@ -429,6 +429,9 @@ function publishSubmission() {
 
         console.log('insertions: ', insertions, "nodeInDoc: ", nodeInDoc);
         highlightAnotation(insertions, nodeInDoc);
+
+        nodeInDoc = undefined;
+        insertions = {}
     }
 
     //checks to see if url given is in correct format
@@ -638,17 +641,18 @@ function findAnotationInPage(object, type) {
         console.log(nodeChunks);
 
         if (type == 'anchor' && !object.isUnified) {
-            console.log('wholeText: ', wholeText, 'nodeChunks[0]', nodeChunks[0]);
-            startPoint = newSearch(wholeText, searchString);
+            console.log('nodeInDoc.innerText: ', nodeInDoc.innerText, 'searchString', searchString);
+            startPoint = newSearch(nodeInDoc.innerHTML, searchString);
             endPoint = startPoint + wholeText.substr(startPoint).length;
         }
         else if (type == 'anchor' && object.isUnified) {
             startPoint = newSearch(wholeText, object.textAnotated);
-            endPoint = startPoint + object.textAnotated.length
+            endPoint = startPoint + object.textAnotated.length;
         }
         else if (type == 'focus') {
-            startPoint = 0;
-            endPoint = newSearch(wholeText, searchString) + searchString.length - 1;
+            console.log('nodeInDoc.innerText: ', nodeInDoc.innerText, 'searchString', searchString);
+            startPoint = newSearch(nodeInDoc.innerHTML, searchString);
+            endPoint = startPoint + searchString.length;
             //BUG HERE I THINK, I THINK IT SHOULDNT START FROM 0, IT SHOULD START FROM THE END OF THE NODE CHUNK BEFORE LAST. NOT TO DO WITH SPANS OVERFLOWING INNERHTML
         }
 
@@ -663,8 +667,8 @@ function findAnotationInPage(object, type) {
         detectBoundaries(object.anchor);
     }
     else if (type == 'middle') {
+        console.log('success')
         for (let i=1; i<object.nodeList.length-1; i++) {
-            //maybe have a diff function altogether so that it just adds span tags it at first and last char
             detectBoundaries(object.nodeList[i]);
         }
     }
@@ -1164,6 +1168,7 @@ window.addEventListener('load', function() {
     }
     
     
+    
     findAnotationInPage(testData, 'anchor');
 
     if (!testData.isUnified) {
@@ -1174,5 +1179,8 @@ window.addEventListener('load', function() {
 
         console.log('insertions: ', insertions, "nodeInDoc: ", nodeInDoc);
         highlightAnotation(insertions, nodeInDoc);
+
+        nodeInDoc = undefined;
+        insertions = {}
     }
 });

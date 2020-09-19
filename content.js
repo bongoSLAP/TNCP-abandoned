@@ -103,22 +103,19 @@ function newSearch(searchIn, query) {
 }
 
 function getParentNode(targetNode) {
-    let newWholeText = undefined;
+    let parent = undefined;
 
     //recursive function to move up the tree of nodes starting from the selected node
     let getNextParent = function(child) {
         let isFinished = false;
+        console.log('child: ', child)
 
         for (let i=0; i<validTags.length; i++) {
+            console.log('child.parentNode.nodeName', child.parentNode.nodeName)
             if (child.parentNode.nodeName == validTags[i]) {
-                if (child.parentNode.nodeName == '#text') {
-                    newWholeText = child.parentNode.wholeText;
-                }
-                else {
-                    newWholeText = child.parentNode.innerText;
-                    getNextParent(child.parentNode);
-                }
-
+                parent = child.parentNode;
+                getNextParent(parent);
+                
                 isFinished = true;
             }
 
@@ -133,17 +130,18 @@ function getParentNode(targetNode) {
 
     getNextParent(targetNode);
     
-    if (newWholeText == undefined) {console.log('ERROR: conditions not met at getNextParent')}
-    return newWholeText; 
+    if (parent == undefined) {console.log('ERROR: conditions not met at getNextParent')}
+    console.log('parent: ', parent);
+    return parent; 
 }
 
 //need to find the entirety of the text in nodes selected in order to calculate a start point carry out autocomplete function
 function searchForContext(targetNode, selection) {
     let fullText = targetNode.wholeText;
 
-    //if it couldnt be found then move up a layer and repeat
+    //if it couldnt be found then use parent
     if (newSearch(fullText, selection) == 'failed') {     
-        fullText = getParentNode(targetNode);
+        fullText = getParentNode(targetNode).innerText;
     }
 
     let indexFound = newSearch(fullText, selection);
@@ -428,7 +426,7 @@ function publishSubmission() {
             findAnotationInPage(anotation, 'focus');
         }
 
-        console.log('insertions: ', insertions, "nodeInDoc: ", nodeInDoc);
+        console.log('insertions: ', insertions, 'nodeInDoc: ', nodeInDoc);
         highlightAnotation(insertions, nodeInDoc);
 
         nodeInDoc = undefined;
@@ -457,7 +455,6 @@ function publishSubmission() {
             if (validateUrlFormat(sourceInput.value) != false) {
                 submission.sourceLink = sourceInput.value;
                 submission.submissionId = generateId('submission');
-                console.log('this in publish: ', anotation);
                 sendData(anotation, submission);
             }
             else {alert('Enter a valid HTTP Link (http://, https://)')}
@@ -465,7 +462,6 @@ function publishSubmission() {
         else {
             submission.sourceLink = null;
             submission.submissionId = generateId('submission');
-            console.log('this in publish: ', anotation);
             sendData(anotation, submission);
         }
     }
@@ -522,7 +518,7 @@ function initAnotation(object, selection) {
     else {delete anotation.focus}
 
     let nodeList = getAllNodes(object);
-    console.log('nodeList: ', nodeList);
+    //console.log('nodeList: ', nodeList);
 
     if (nodeList.length != 0) {
         for (let i=0; i<nodeList.length; i++) {
@@ -556,6 +552,7 @@ function findAnotationInPage(object, type) {
     let wholeText = undefined;
     
     console.log('type: ', type);
+    console.log('**************');
 
     let findNode = function(targetNode) {
         let searchArea = [];
@@ -567,9 +564,6 @@ function findAnotationInPage(object, type) {
             searchArea = document.querySelectorAll(targetNode.nodeName.toLowerCase());
         }
 
-        wholeText = targetNode.wholeText;
-        console.log('wholeText: ', wholeText);
-
         for (let i=0; i<searchArea.length; i++) {
             //if (newSearch(searchArea[i].innerText, wholeText) != 'failed') {
             if (searchArea[i].innerText == targetNode.parentNode.parentWholeText) {
@@ -579,7 +573,7 @@ function findAnotationInPage(object, type) {
         }
 
         if (!found) {
-            console.log('ERROR: could not find anotation: ', object.textAnotated)
+            console.log('findNode()| ERROR: could not find anotation: ', object.textAnotated)
             return;
         }
     }
@@ -588,62 +582,92 @@ function findAnotationInPage(object, type) {
         let startPoint = undefined;
         let endPoint = undefined;
         let searchString = undefined;
-        nodeInDoc = findNode(node)
+        let wholeText = node.wholeText;
+        nodeInDoc = findNode(node);
 
-        console.log('nodeInDoc: ', nodeInDoc);
+        for (let i=0; i<validTags.length; i++) {
+            if (nodeInDoc.parentNode.nodeName == validTags[i]) {
+                nodeInDoc = getParentNode(findNode(node));
+                break;
+            }
+        }
+
+        console.log("nodeInDoc: ", nodeInDoc)
 
         nodeChunks = nodeInDoc.innerHTML.split(/(<([^>]+)>)/g);
 
         for (let i=0; i<nodeChunks.length; i++) {
-            if(nodeChunks[i].match(/(<([^>]+)>)/g, '') != null) {
+            if (nodeChunks[i].match(/(<([^>]+)>)/g, '') != null) {
                 nodeChunks.splice(i, 2);
             }
-        }
 
-        console.log(nodeChunks);
-    
-        let temp = '';
-
-        if (type == 'anchor') {
-            let found = false;
-            for (let i=nodeChunks[0].length-1; i>=0; i--) {
-                temp = nodeChunks[0][i] + temp;
-                searchString = object.textAnotated.substr(0, temp.length)
-                console.log('anchor|', 'temp: ', temp, 'searchString: ', searchString);
-    
-                if (temp == searchString) {
-                    found = true;
-                    break;
-                }
-            }                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         
-    
-            if (!found) {
-                console.log('ERROR: could not find anotation: ', object.textAnotated)
-            }
-        }
-        else if (type == 'focus') {
-            let found = false;
-            for (let j=0; j<nodeChunks[nodeChunks.length-1].length; j++) {
-                temp = temp + nodeChunks[nodeChunks.length-1][j];
-                searchString = object.textAnotated.substr(object.textAnotated.length - temp.length, temp.length);
-                console.log('focus|', 'temp: ', temp, 'searchString: ', searchString);
-    
-                if (temp == searchString) {
-                    found = true;
-                    break;
-                }
-            }                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      
-    
-            if (!found) {
-                console.log('ERROR: could not find anotation: ', object.textAnotated)
+            if (nodeChunks[i] == '') {
+                nodeChunks.splice(i);
             }
         }
 
-        console.log(nodeChunks);
+        console.log('nodeChunks: ', nodeChunks);
+
+        let detectOverlap = function() {
+            let temp = '';
+            let indexInNodeChunks = undefined;
+
+            console.log("node.wholeText: ", node.wholeText, "nodeChunks ", nodeChunks);
+            for (let i=0; i<nodeChunks.length; i++) {
+                if (node.wholeText == nodeChunks[i]) {
+                    indexInNodeChunks = i;
+                }
+            }
+
+            if (type == 'anchor') {
+                let found = false;
+                for (let i=nodeChunks[indexInNodeChunks].length-1; i>=0; i--) {
+                    temp = nodeChunks[indexInNodeChunks][i] + temp;
+                    searchString = object.textAnotated.substr(0, temp.length);
+                    console.log('anchor|', 'temp: ', temp, 'searchString: ', searchString);
+        
+                    if (temp == searchString) {
+                        found = true;
+                        break;
+                    }
+                }                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        
+        
+                if (!found) {
+                    console.log('detectBoundaries()| ERROR: could not find anotation: ', object.textAnotated)
+                }
+            }
+            else if (type == 'focus') {
+                let found = false;
+                for (let j=0; j<nodeChunks[indexInNodeChunks].length; j++) {
+                    temp = temp + nodeChunks[indexInNodeChunks][j];
+                    searchString = object.textAnotated.substr(object.textAnotated.length - temp.length, temp.length);
+                    console.log('focus|', 'temp: ', temp, 'searchString: ', searchString);
+        
+                    if (temp == searchString) {
+                        found = true;
+                        break;
+                    }
+                }                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      
+        
+                if (!found) {
+                    console.log('detectBoundaries()| ERROR: could not find anotation: ', object.textAnotated)
+                }
+            }
+        }
+    
+        detectOverlap();
+
+        console.log('searchString: ', searchString);
+
+        let fullText = undefined;
+        if (newSearch(nodeInDoc.innerHTML, searchString) == 'failed') {
+            fullText = nodeInDoc.innerText;
+        }
+        else {fullText = nodeInDoc.innerHTML}
 
         if (type == 'anchor' && !object.isUnified) {
-            console.log('nodeInDoc.innerHTML: ', nodeInDoc.innerHTML, 'searchString', searchString);
-            startPoint = newSearch(nodeInDoc.innerHTML, searchString);
+            console.log('fullText: ', fullText, 'searchString', searchString);
+            startPoint = newSearch(fullText, searchString);
             endPoint = startPoint + wholeText.substr(startPoint).length;
         }
         else if (type == 'anchor' && object.isUnified) {
@@ -651,17 +675,16 @@ function findAnotationInPage(object, type) {
             endPoint = startPoint + object.textAnotated.length;
         }
         else if (type == 'focus') {
-            console.log('nodeInDoc.innerHTML: ', nodeInDoc.innerHTML, 'searchString', searchString);
-            startPoint = newSearch(nodeInDoc.innerHTML, searchString);
+            console.log('fullText: ', fullText, 'searchString', searchString);
+            startPoint = newSearch(fullText, searchString);
             endPoint = startPoint + searchString.length;
-            //BUG HERE I THINK, I THINK IT SHOULDNT START FROM 0, IT SHOULD START FROM THE END OF THE NODE CHUNK BEFORE LAST. NOT TO DO WITH SPANS OVERFLOWING INNERHTML
         }
 
         console.log('points: ', startPoint, endPoint);
+        console.log('**************')
 
         insertions[startPoint] = `<span class='` + object.anotationId + ` highlight-anotation' style='background-color: rgb(200, 200, 200)'>`;
         insertions[endPoint] = '</span>';
-        console.log('insertions: ', insertions);
     };
 
     if (type == 'anchor') {
@@ -687,16 +710,6 @@ function begunSelecting() {
 
     //only need to run this set up code the first time a selection is made
     if (!isClicked) {
-        //custom font added parent document for use in shadowDOM
-        let fontRule = document.createElement('style');
-        fontRule.innerText = `
-            @font-face {
-                font-family: 'Revalia';
-                src: url(` + chrome.runtime.getURL('fonts/Revalia-Regular.ttf') + `) format('truetype');
-            }
-        `;
-
-        $(fontRule).appendTo('body');
 
         //creating, styling and appending shadowDOM to document
         let hostElement = document.createElement('div');
@@ -1128,40 +1141,51 @@ function doneSelecting() {
 chrome.runtime.onMessage.addListener(handleContentRequests);
 
 window.addEventListener('load', function() {
+    //custom font added parent document for use in shadowDOM
+    let fontRule = document.createElement('style');
+    fontRule.innerText = `
+        @font-face {
+            font-family: 'Revalia';
+            src: url(` + chrome.runtime.getURL('fonts/Revalia-Regular.ttf') + `) format('truetype');
+        }
+    `;
+
+    $(fontRule).appendTo('body');
+
     window.addEventListener('mousedown', begunSelecting);
 
     
     let testData = {
-        "anotationId": "ANTankwjo6r1",
-        "textAnotated": "widespread reports of people struggling",
+        "anotationId": "ANTyw7o0tk9l",
+        "textAnotated": "Johnson promised would",
         "isUnified": false,
         "anchor": {
             "nodeName": "#text",
             "nodeType": 3,
-            "wholeText": "It comes after widespread reports of ",
+            "wholeText": "The government's testing system - part of its test, track and trace operation which Prime Minister Boris Johnson ",
             "parentNode": {
                 "nodeName": "P",
                 "nodeType": 1,
-                "parentWholeText": "It comes after widespread reports of people struggling to get tested."
+                "parentWholeText": "The government's testing system - part of its test, track and trace operation which Prime Minister Boris Johnson promised would be \"world-beating\" - has faced criticism in recent weeks."
             }
         },
         "focus": {
             "nodeName": "#text",
             "nodeType": 3,
-            "wholeText": "people struggling to get tested.",
+            "wholeText": "promised would be \"world-beating\"",
             "parentNode": {
                 "nodeName": "A",
                 "nodeType": 1,
-                "parentWholeText": "people struggling to get tested."
+                "parentWholeText": "promised would be \"world-beating\""
             }
         },
         "submissionsMade": {
-            "SUBjv2vv574r": {
-                "submissionId": "SUBjv2vv574r",
-                "assignedTo": "ANTankwjo6r1",
+            "SUBw4y8wqw19": {
+                "submissionId": "SUBw4y8wqw19",
+                "assignedTo": "ANTyw7o0tk9l",
                 "urlOfArticle": "https://www.bbc.co.uk/news/uk-54156889",
                 "argumentNature": "for",
-                "submissionText": "Your tx zhoughts",
+                "submissionText": "Your thoughtts",
                 "isSource": false,
                 "sourceLink": null
             }
@@ -1178,7 +1202,7 @@ window.addEventListener('load', function() {
         }
         findAnotationInPage(testData, 'focus');
 
-        console.log('insertions: ', insertions, "nodeInDoc: ", nodeInDoc);
+        console.log('insertions: ', insertions, 'nodeInDoc: ', nodeInDoc);
         highlightAnotation(insertions, nodeInDoc);
         
 

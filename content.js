@@ -548,9 +548,6 @@ function highlightAnotation(object, node) {
 }
 
 function findAnotationInPage(object, type) {
-    let wordList = object.textAnotated.split(' ');
-    let wholeText = undefined;
-    
     console.log('type: ', type);
     console.log('**************');
 
@@ -608,54 +605,50 @@ function findAnotationInPage(object, type) {
 
         console.log('nodeChunks: ', nodeChunks);
 
-        let detectOverlap = function() {
-            let temp = '';
-            let indexInNodeChunks = undefined;
+        let temp = '';
+        let indexInNodeChunks = undefined;
 
-            console.log("node.wholeText: ", node.wholeText, "nodeChunks ", nodeChunks);
-            for (let i=0; i<nodeChunks.length; i++) {
-                if (node.wholeText == nodeChunks[i]) {
-                    indexInNodeChunks = i;
-                }
-            }
-
-            if (type == 'anchor') {
-                let found = false;
-                for (let i=nodeChunks[indexInNodeChunks].length-1; i>=0; i--) {
-                    temp = nodeChunks[indexInNodeChunks][i] + temp;
-                    searchString = object.textAnotated.substr(0, temp.length);
-                    console.log('anchor|', 'temp: ', temp, 'searchString: ', searchString);
-        
-                    if (temp == searchString) {
-                        found = true;
-                        break;
-                    }
-                }                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        
-        
-                if (!found) {
-                    console.log('detectBoundaries()| ERROR: could not find anotation: ', object.textAnotated)
-                }
-            }
-            else if (type == 'focus') {
-                let found = false;
-                for (let j=0; j<nodeChunks[indexInNodeChunks].length; j++) {
-                    temp = temp + nodeChunks[indexInNodeChunks][j];
-                    searchString = object.textAnotated.substr(object.textAnotated.length - temp.length, temp.length);
-                    console.log('focus|', 'temp: ', temp, 'searchString: ', searchString);
-        
-                    if (temp == searchString) {
-                        found = true;
-                        break;
-                    }
-                }                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      
-        
-                if (!found) {
-                    console.log('detectBoundaries()| ERROR: could not find anotation: ', object.textAnotated)
-                }
+        console.log("node.wholeText: ", node.wholeText, "nodeChunks ", nodeChunks);
+        for (let i=0; i<nodeChunks.length; i++) {
+            if (node.wholeText == nodeChunks[i]) {
+                indexInNodeChunks = i;
             }
         }
-    
-        detectOverlap();
+
+        if (type == 'anchor') {
+            let found = false;
+            for (let i=nodeChunks[indexInNodeChunks].length-1; i>=0; i--) {
+                temp = nodeChunks[indexInNodeChunks][i] + temp;
+                searchString = object.textAnotated.substr(0, temp.length);
+                console.log('anchor|', 'temp: ', temp, 'searchString: ', searchString);
+        
+                if (temp == searchString) {
+                    found = true;
+                    break;
+                }
+            }                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        
+        
+            if (!found) {
+                console.log('detectBoundaries()| ERROR: could not find anotation: ', object.textAnotated)
+            }
+        }
+        else if (type == 'focus') {
+            let found = false;
+            for (let j=0; j<nodeChunks[indexInNodeChunks].length; j++) {
+                temp = temp + nodeChunks[indexInNodeChunks][j];
+                searchString = object.textAnotated.substr(object.textAnotated.length - temp.length, temp.length);
+                console.log('focus|', 'temp: ', temp, 'searchString: ', searchString);
+        
+                if (temp == searchString) {
+                    found = true;
+                    break;
+                }
+            }                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      
+        
+            if (!found) {
+                console.log('detectBoundaries()| ERROR: could not find anotation: ', object.textAnotated)
+            }
+        }
 
         console.log('searchString: ', searchString);
 
@@ -668,7 +661,10 @@ function findAnotationInPage(object, type) {
         if (type == 'anchor' && !object.isUnified) {
             console.log('fullText: ', fullText, 'searchString', searchString);
             startPoint = newSearch(fullText, searchString);
+            console.log("wholeText.substr(startPoint)", wholeText.substr(startPoint));
             endPoint = startPoint + wholeText.substr(startPoint).length;
+            //endpoint value is wrong for the current conditions at testData, changing wholeText.substr to fullText.substr fixes this but breaks for other conditions
+            //find when you need to use fulltext and when to use wholeText.
         }
         else if (type == 'anchor' && object.isUnified) {
             startPoint = newSearch(wholeText, object.textAnotated);
@@ -1154,46 +1150,88 @@ window.addEventListener('load', function() {
 
     window.addEventListener('mousedown', begunSelecting);
 
-    
+    //example of limitation of finding overlap method of getting searchString, both temp and searchstring are equal to 's', so 's' is used as the search query
+    //this makes the startPoint start at the first instance of s
+    //to tackle this you need to set searchString as the last correct match of the temp and searchString values instead of the first correct match
+
+    //this can also be a problem for one letter words (a and I)
+    //to tackle this you would need to find the whitespaces either side of the word and include them in the search
+    /*
     let testData = {
-        "anotationId": "ANTyw7o0tk9l",
-        "textAnotated": "Johnson promised would",
+        "anotationId": "ANTbvfdciz8j",
+        "textAnotated": "sites hundreds of miles from their",
         "isUnified": false,
         "anchor": {
             "nodeName": "#text",
             "nodeType": 3,
-            "wholeText": "The government's testing system - part of its test, track and trace operation which Prime Minister Boris Johnson ",
+            "wholeText": "directed to test sites hundreds of miles",
             "parentNode": {
-                "nodeName": "P",
+                "nodeName": "A",
                 "nodeType": 1,
-                "parentWholeText": "The government's testing system - part of its test, track and trace operation which Prime Minister Boris Johnson promised would be \"world-beating\" - has faced criticism in recent weeks."
+                "parentWholeText": "directed to test sites hundreds of miles"
             }
         },
         "focus": {
             "nodeName": "#text",
             "nodeType": 3,
-            "wholeText": "promised would be \"world-beating\"",
+            "wholeText": " from their homes.",
             "parentNode": {
-                "nodeName": "A",
+                "nodeName": "P",
                 "nodeType": 1,
-                "parentWholeText": "promised would be \"world-beating\""
+                "parentWholeText": "An increase in demand for coronavirus tests has led to local shortages, with some people being directed to test sites hundreds of miles from their homes."
             }
         },
         "submissionsMade": {
-            "SUBw4y8wqw19": {
-                "submissionId": "SUBw4y8wqw19",
-                "assignedTo": "ANTyw7o0tk9l",
+            "SUB1fpwhj0ri": {
+                "submissionId": "SUB1fpwhj0ri",
+                "assignedTo": "ANTbvfdciz8j",
                 "urlOfArticle": "https://www.bbc.co.uk/news/uk-54156889",
                 "argumentNature": "for",
-                "submissionText": "Your thoughtts",
+                "submissionText": "Your Wthoughts",
                 "isSource": false,
                 "sourceLink": null
             }
         }
     }
-    
-    
-    
+    */
+
+    let testData = {
+        "anotationId": "ANTeb09u0akq",
+        "textAnotated": "hundreds of miles from their",
+        "isUnified": false,
+        "anchor": {
+            "nodeName": "#text",
+            "nodeType": 3,
+            "wholeText": "directed to test sites hundreds of miles",
+            "parentNode": {
+                "nodeName": "A",
+                "nodeType": 1,
+                "parentWholeText": "directed to test sites hundreds of miles"
+            }
+        },
+        "focus": {
+            "nodeName": "#text",
+            "nodeType": 3,
+            "wholeText": " from their homes.",
+            "parentNode": {
+                "nodeName": "P",
+                "nodeType": 1,
+                "parentWholeText": "An increase in demand for coronavirus tests has led to local shortages, with some people being directed to test sites hundreds of miles from their homes."
+            }
+        },
+        "submissionsMade": {
+            "SUBbvlwmiv87": {
+                "submissionId": "SUBbvlwmiv87",
+                "assignedTo": "ANTeb09u0akq",
+                "urlOfArticle": "https://www.bbc.co.uk/news/uk-54156889",
+                "argumentNature": "for",
+                "submissionText": "Your tshoughts",
+                "isSource": false,
+                "sourceLink": null
+            }
+        }
+    }
+      
     findAnotationInPage(testData, 'anchor');
 
     if (!testData.isUnified) {

@@ -4,10 +4,12 @@ let emptyVal = ''
 let validTags = ['H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'P', 'SPAN', 'UL', 'LI', 'A', 'STRONG', 'B', 'CITE', 'DFN', 'EM', 'I', 'KBD', 'LABEL', 'Q', 'SMALL', 'BIG', 'SUB', 'SUP', 'TIME', 'VAR'];
 let insertions = {};
 let nodeInDoc = undefined;
+let nodeChunks = undefined
 
-let anotation = {
-    anotationId: '',
-    textAnotated: '',
+//user data objects
+let annotation = {
+    annotationId: '',
+    textAnnotated: '',
     isUnified: true,
     anchor: {},
     focus: {},
@@ -44,11 +46,12 @@ let radioButtons = undefined;
 let radioLabels = undefined;
 let argumentNatureVals = undefined;
 let sourceVals = undefined;
-let anotationContainer = undefined;
+let annotationContainer = undefined;
 let submissionInput = undefined;
 let sourceInput = undefined;
 let publishButton = undefined;
 
+//bools
 let isClicked = false;
 let isSelectMade = false;
 let isOverLimit = false;
@@ -78,7 +81,7 @@ function generateId(type) {
     let id = Math.random().toString(36).substr(2, 9);
     //need to check is id already in database? if no then:
 
-    if (type == 'anotation') {
+    if (type == 'annotation') {
         return 'ANT' + id
     }
     else if (type == 'submission') {
@@ -92,8 +95,7 @@ function generateId(type) {
 
 //looks to find the point in which the selected text begins in the 'this' whole text
 function newSearch(searchIn, query) {
-    //may find bugs here in future
-    let regExp = new RegExp(sanitiseRegExp(query.trim()));
+    let regExp = new RegExp(sanitiseRegExp(query));
     let searchOutcome = searchIn.search(regExp);
 
     if (searchOutcome == -1) {
@@ -102,16 +104,15 @@ function newSearch(searchIn, query) {
     else {return searchOutcome}
 }
 
+//recursive function to move up the tree of nodes starting from the selected node
 function getParentNode(targetNode) {
     let parent = undefined;
 
-    //recursive function to move up the tree of nodes starting from the selected node
+    //recursion
     let getNextParent = function(child) {
         let isFinished = false;
-        console.log('child: ', child)
 
         for (let i=0; i<validTags.length; i++) {
-            console.log('child.parentNode.nodeName', child.parentNode.nodeName)
             if (child.parentNode.nodeName == validTags[i]) {
                 parent = child.parentNode;
                 getNextParent(parent);
@@ -131,7 +132,7 @@ function getParentNode(targetNode) {
     getNextParent(targetNode);
     
     if (parent == undefined) {console.log('ERROR: conditions not met at getNextParent')}
-    console.log('parent: ', parent);
+    //console.log('parent: ', parent);
     return parent; 
 }
 
@@ -140,14 +141,15 @@ function searchForContext(targetNode, selection) {
     let fullText = targetNode.wholeText;
 
     //if it couldnt be found then use parent
-    if (newSearch(fullText, selection) == 'failed') {     
+    if (newSearch(fullText, selection.trim()) == 'failed') {     
         fullText = getParentNode(targetNode).innerText;
     }
 
-    let indexFound = newSearch(fullText, selection);
+    let indexFound = newSearch(fullText, selection.trim());
     return [fullText, indexFound];
 }
 
+//is the furthest element in the tree where the anchor and focus nodes are both contained in a text element
 function testRange(range) {
     let isFinished = false;
     for (let i=0; i<validTags.length; i++) {
@@ -164,6 +166,7 @@ function testRange(range) {
     }
 }
 
+//autocompletes the first and last words of the selection
 function completeFirstWord(targetNode, selection) {
     let context = searchForContext(targetNode, selection);
     fullText = context[0];
@@ -194,6 +197,7 @@ function completeLastWord(targetNode, selection) {
     return selection;
 }
 
+//pushes the nodes inbetween the anchor and focus to the selectionList array
 function pushFilteredNodes(staticArray) {
     if (staticArray.length > 2) {
         for (let i=1; i<staticArray.length-1; i++) {
@@ -202,6 +206,7 @@ function pushFilteredNodes(staticArray) {
     }
 }
 
+//filters out non block level tags
 function filterSelectedNodes(liveList) {
     let staticArray = [];
     let blockTextTags = ['H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'P', 'LI'];
@@ -215,17 +220,19 @@ function filterSelectedNodes(liveList) {
     return staticArray;
 }
 
+//gets a live list of nodes that make up the selection
 function getAllNodes(object) {
     let liveNodeList = object.getRangeAt(0).cloneContents().querySelectorAll('*');
     return filterSelectedNodes(liveNodeList);
 }
 
+//autocompletes boundary words (anchor + focus), and concatenates each node into a single string
 function autoCompSelection() {
     let thisSelectionObj = window.getSelection();
     let selection = thisSelectionObj.toString();
     
     if (!thisSelectionObj.isCollapsed) {
-        //if selection stays within the same node
+        //if selection stays within the same node or not
         if (thisSelectionObj.anchorNode == thisSelectionObj.focusNode || testRange(thisSelectionObj.getRangeAt(0)) == true) {
             autoCompOutcome = completeFirstWord(thisSelectionObj.anchorNode, completeLastWord(thisSelectionObj.anchorNode, selection));
         }
@@ -247,14 +254,12 @@ function autoCompSelection() {
             //concatenating text values of filtered selected elements
             autoCompOutcome = selectionList.join(' ');
             
-            //console.log('selectionList: ', selectionList);
-            //console.log('staticNodeArray: ', staticNodeArray);
         }           
     }
     return autoCompOutcome;
 }
 
-//function for easily applying multiple styles to shadowDOM
+//for easily applying multiple styles to shadowDOM
 function styleShadowDom(root, selector, properties) {
     let newDeclaration = undefined;
 
@@ -286,6 +291,7 @@ function styleShadowDom(root, selector, properties) {
         }
     }
 
+    //the individual properties are set here
     let applyChanges = function() {
         if (properties.length == 0) {console.log('ERROR: empty property array given')}
         else if (properties.length == 1) {
@@ -298,6 +304,7 @@ function styleShadowDom(root, selector, properties) {
         }
     }
 
+    //allows for multiple selectors to be used
     if (Array.isArray(selector)) {
         for (let j=0; j<selector.length; j++) {
             checkDataType(selector[j]);
@@ -338,10 +345,12 @@ function exitButtonActive() {
     exitButton.addEventListener('mouseout', exitButtonInactive);
 }
 
+//exit button click function
 function exitContextMenu() {
     contextMenuContainer.classList.add('hidden');
 }
 
+//confirm button click function
 function confirmChoices() {
     let isArgNatureValid = false;
     let isSourceValid = false;
@@ -395,41 +404,41 @@ function confirmChoices() {
                 }
             }
 
-            anotationContainer.classList.add('fadein-anim');
+            annotationContainer.classList.add('fadein-anim');
 
             setTimeout(function() {
                 if (!submission.isSource) {sourceInput.classList.add('hidden');}
 
-                styleShadowDom(shadowRoot, ['#user-anotation-container'], [['display', 'inline']]);
-                anotationContainer.classList.remove('fadein-anim');
+                styleShadowDom(shadowRoot, ['#user-annotation-container'], [['display', 'inline']]);
+                annotationContainer.classList.remove('fadein-anim');
             }, 150)
         }, 550);
     }
     else {alert('You did not confirm all of your choices')}
 }
 
+//publish button click function
 function publishSubmission() {
     //sends preliminarily validated data to background script for more in depth validation
-    let sendData = function(anotation, submission) {
-        submission.assignedTo = anotation.anotationId;
-        anotation.submissionsMade[submission.submissionId] = submission;
-        chrome.runtime.sendMessage({request: 'validate>submission', data: anotation}, function(response) {
+    let sendData = function(annotation, submission) {
+        submission.assignedTo = annotation.annotationId;
+        annotation.submissionsMade[submission.submissionId] = submission;
+        chrome.runtime.sendMessage({request: 'validate>submission', data: annotation}, function(response) {
             console.log('sent submission for validation, data received: ', JSON.stringify(response.dataReceived, null, 4));
         });
 
-        findAnotationInPage(anotation, 'anchor');
+        findAnnotationInPage(annotation, 'anchor');
 
-        if (!anotation.isUnified) {
-            if ('nodeList' in anotation) {
-                //if(anotation.nodeList.length > 2) {findAnotationInPage(anotation, 'middle')}
-            }
-            findAnotationInPage(anotation, 'focus');
+        if (!annotation.isUnified) {
+            findAnnotationInPage(annotation, 'middle');
+            findAnnotationInPage(annotation, 'focus');
         }
 
         console.log('insertions: ', insertions, 'nodeInDoc: ', nodeInDoc);
-        highlightAnotation(insertions, nodeInDoc);
-
+        highlightAnnotation(insertions, nodeInDoc);
+        
         nodeInDoc = undefined;
+        nodeChunks = undefined;
         insertions = {}
     }
 
@@ -447,7 +456,7 @@ function publishSubmission() {
         return url.protocol === 'http:' || url.protocol === 'https:';
     }
 
-    //if not empty or whitespace
+    //validates if input is unchanged or whitespace and other data, then set values to the submission object
     if (submissionInput.value != '' && submissionInput.value.trim() != '' && submissionInput.value != emptyVal) {
         submission.submissionText = submissionInput.value;
 
@@ -455,23 +464,23 @@ function publishSubmission() {
             if (validateUrlFormat(sourceInput.value) != false) {
                 submission.sourceLink = sourceInput.value;
                 submission.submissionId = generateId('submission');
-                sendData(anotation, submission);
+                sendData(annotation, submission);
             }
             else {alert('Enter a valid HTTP Link (http://, https://)')}
         }
         else {
             submission.sourceLink = null;
             submission.submissionId = generateId('submission');
-            sendData(anotation, submission);
+            sendData(annotation, submission);
         }
     }
     else {alert('Enter a valid submission')}
 }
 
-function resetAnotation() {
-    anotation = {
-        anotationId: '',
-        textAnotated: '',
+function resetAnnotation() {
+    annotation = {
+        annotationId: '',
+        textAnnotated: '',
         isUnified: true,
         anchor: {},
         focus: {},
@@ -480,10 +489,12 @@ function resetAnotation() {
     }
 }
 
-function initAnotation(object, selection) {
-    console.log('object in initAnotation: ', object);
-    anotation.textAnotated = selection;
-    anotation.anchor = {
+//initialises the annotation object to begin setting values and sent to database
+function initAnnotation(object, selection) {
+    console.log('object in initAnnotation: ', object);
+    annotation.textAnnotated = selection;
+
+    annotation.anchor = {
         nodeName: object.anchorNode.nodeName,
         nodeType: object.anchorNode.nodeType,
         wholeText: object.anchorNode.wholeText,
@@ -491,16 +502,17 @@ function initAnotation(object, selection) {
     }
 
     if (object.anchorNode.parentNode.nodeName != 'BODY') {
-        anotation.anchor.parentNode = {
+        annotation.anchor.parentNode = {
             nodeName: object.anchorNode.parentNode.nodeName,
             nodeType: object.anchorNode.parentNode.nodeType,
             parentWholeText: object.anchorNode.parentNode.innerText
         }
     }
 
+    //if selections spans multiple elements, then capture a snapshot of data for focus node to object
     if (object.anchorNode != object.focusNode) {
-        anotation.isUnified = false;
-        anotation.focus = {
+        annotation.isUnified = false;
+        annotation.focus = {
             nodeName: object.focusNode.nodeName,
             nodeType: object.focusNode.nodeType,
             wholeText: object.focusNode.wholeText,
@@ -508,18 +520,18 @@ function initAnotation(object, selection) {
         }
 
         if (object.focusNode.parentNode.nodeName != 'BODY') {
-            anotation.focus.parentNode = {
+            annotation.focus.parentNode = {
                 nodeName: object.focusNode.parentNode.nodeName,
                 nodeType: object.focusNode.parentNode.nodeType,
                 parentWholeText: object.focusNode.parentNode.innerText
             }
         }
     }
-    else {delete anotation.focus}
+    else {delete annotation.focus}
 
     let nodeList = getAllNodes(object);
-    //console.log('nodeList: ', nodeList);
 
+    //if selection spans multiple block level elemets, then get these elements and capture a snapshot of this data for the object 
     if (nodeList.length != 0) {
         for (let i=0; i<nodeList.length; i++) {
             let node = {
@@ -528,15 +540,16 @@ function initAnotation(object, selection) {
                 wholeText: nodeList[i].innerText
             }
 
-            anotation.nodeList.push(node);
+            annotation.nodeList.push(node);
         }
     }
-    else {delete anotation.nodeList}
+    else {delete annotation.nodeList}
 
-    anotation.anotationId = generateId('anotation');
+    annotation.annotationId = generateId('annotation');
 }
 
-function highlightAnotation(object, node) {
+//inserts text (html tags) at the detected regions in the anchor and focus nodes
+function highlightAnnotation(object, node) {
     String.prototype.insertTextAtIndices = function(text) {
         return this.replace(/./g, function(character, index) {
             return text[index] ? text[index] + character : character;
@@ -547,52 +560,74 @@ function highlightAnotation(object, node) {
     node.innerHTML = highlighted;
 }
 
-function findAnotationInPage(object, type) {
+//finds an annotation in the parent document given a valid annotation object (fetched from database)
+function findAnnotationInPage(object, type) {
     console.log('type: ', type);
     console.log('**************');
 
+    //finds the nodes in the parent docoument using the snapshots of data in the annotation object (cant call methods on the annotation object data as it is just strings and arrays etc not actual nodes)
     let findNode = function(targetNode) {
         let searchArea = [];
         let found = false;
-        if (targetNode.nodeType != 1) {
-            searchArea = document.querySelectorAll(targetNode.parentNode.nodeName.toLowerCase());
-        }
-        else {
-            searchArea = document.querySelectorAll(targetNode.nodeName.toLowerCase());
-        }
 
-        for (let i=0; i<searchArea.length; i++) {
-            //if (newSearch(searchArea[i].innerText, wholeText) != 'failed') {
-            if (searchArea[i].innerText == targetNode.parentNode.parentWholeText) {
-                found = true;
-                return searchArea[i];
+        //if finding the anchor and focus nodes in document, use annotation data to find node, if finding middle nodes, use the nodeInDoc value that was found from the previous findNode() call in findAnnotation(object, 'anchor')
+        if (type != 'middle') {
+            if (targetNode.nodeType != 1) {
+                searchArea = document.querySelectorAll(targetNode.parentNode.nodeName.toLowerCase());
+            }
+            else {
+                searchArea = document.querySelectorAll(targetNode.nodeName.toLowerCase());
+            }
+    
+            for (let i=0; i<searchArea.length; i++) {
+                if (searchArea[i].innerText == targetNode.parentNode.parentWholeText) {
+                    found = true;
+                    return searchArea[i];
+                }
+            }
+    
+            if (!found) {
+                console.log('findNode()| ERROR: could not find annotation: ', object.textAnnotated)
+                return;
             }
         }
-
-        if (!found) {
-            console.log('findNode()| ERROR: could not find anotation: ', object.textAnotated)
-            return;
+        else {
+            //(previous nodeInDoc value)
+            console.log('findNode| nodeInDoc.children: ', nodeInDoc.children);
+            for (let i=0; i<nodeInDoc.children.length; i++) {
+                if (nodeInDoc.children[i].innerText == targetNode) {
+                    return nodeInDoc.children[i];
+                }
+            }
         }
     }
 
+    //finds the boundary words in the anchor and focus node, ie: if the full text in the node is 'hello world! this is text' and the selection is 'this is text', then the start point is 13 charaters in and so forth
     let detectBoundaries = function(node) {
         let startPoint = undefined;
         let endPoint = undefined;
         let searchString = undefined;
+        let fullText = undefined;
+        let temp = '';
+        let indexInNodeChunks = undefined;
         let wholeText = node.wholeText;
+
         nodeInDoc = findNode(node);
 
+        //must find outermost (parent) node in order to get the entirety of the text, this is because if the start and end points are attained from differing full texts, it will break the highlightAnnotation() function
+        //this is because the insertions object is not reset per call of the findAnnotationInPage() function
         for (let i=0; i<validTags.length; i++) {
             if (nodeInDoc.parentNode.nodeName == validTags[i]) {
-                nodeInDoc = getParentNode(findNode(node));
+                nodeInDoc = getParentNode(findNode(node))
                 break;
             }
         }
-
-        console.log("nodeInDoc: ", nodeInDoc)
-
+            
+        console.log('nodeInDoc: ', nodeInDoc);
+    
+        //chunking up the node by its HTML tags and removing the split tags from the array
         nodeChunks = nodeInDoc.innerHTML.split(/(<([^>]+)>)/g);
-
+    
         for (let i=0; i<nodeChunks.length; i++) {
             if (nodeChunks[i].match(/(<([^>]+)>)/g, '') != null) {
                 nodeChunks.splice(i, 2);
@@ -603,23 +638,19 @@ function findAnotationInPage(object, type) {
             }
         }
 
-        console.log('nodeChunks: ', nodeChunks);
+        console.log('node.wholeText: ', node.wholeText, 'nodeChunks ', nodeChunks);
 
-        let temp = '';
-        let indexInNodeChunks = undefined;
-
-        console.log("node.wholeText: ", node.wholeText, "nodeChunks ", nodeChunks);
+        //anchor and focus nodes are not neccesarily the first and last nodes in the parent node found in doc
         for (let i=0; i<nodeChunks.length; i++) {
-            if (node.wholeText == nodeChunks[i]) {
-                indexInNodeChunks = i;
-            }
+            if (node.wholeText == nodeChunks[i]) {indexInNodeChunks = i}
         }
-
-        if (type == 'anchor') {
+    
+        //detects overlap of a given node chunk with the selection that was made, this is because if we simply searched in the node chunk for the whole text selected, it is likely that it would fail becuase it is only a chunk. 
+        if (type == 'anchor' && !object.isUnified) {
             let found = false;
             for (let i=nodeChunks[indexInNodeChunks].length-1; i>=0; i--) {
                 temp = nodeChunks[indexInNodeChunks][i] + temp;
-                searchString = object.textAnotated.substr(0, temp.length);
+                searchString = object.textAnnotated.substr(0, temp.length);
                 console.log('anchor|', 'temp: ', temp, 'searchString: ', searchString);
         
                 if (temp == searchString) {
@@ -627,70 +658,99 @@ function findAnotationInPage(object, type) {
                     break;
                 }
             }                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        
-        
+            
             if (!found) {
-                console.log('detectBoundaries()| ERROR: could not find anotation: ', object.textAnotated)
+                console.log('detectBoundaries()| ERROR: could not find annotation: ', object.textAnnotated)
             }
         }
         else if (type == 'focus') {
             let found = false;
             for (let j=0; j<nodeChunks[indexInNodeChunks].length; j++) {
                 temp = temp + nodeChunks[indexInNodeChunks][j];
-                searchString = object.textAnotated.substr(object.textAnotated.length - temp.length, temp.length);
+                searchString = object.textAnnotated.substr(object.textAnnotated.length - temp.length, temp.length);
                 console.log('focus|', 'temp: ', temp, 'searchString: ', searchString);
-        
+            
                 if (temp == searchString) {
                     found = true;
                     break;
                 }
             }                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      
-        
+            
             if (!found) {
-                console.log('detectBoundaries()| ERROR: could not find anotation: ', object.textAnotated)
+                console.log('detectBoundaries()| ERROR: could not find annotation: ', object.textAnnotated)
             }
         }
-
+    
         console.log('searchString: ', searchString);
-
-        let fullText = undefined;
-        if (newSearch(nodeInDoc.innerHTML, searchString) == 'failed') {
-            fullText = nodeInDoc.innerText;
+    
+        if (!object.isUnified) {
+            //does the searchString span over 2 nodes (html tag between these nodes will cause search to fail, therefore use innerText) however just setting innerText declaratively causes it to break for other cases.
+            if (newSearch(nodeInDoc.innerHTML, searchString) == 'failed') {fullText = nodeInDoc.innerText}
+            else {fullText = nodeInDoc.innerHTML}
+        
+            //does anchor/focus begin/end at the beginning/end of the node in question? if so need to use fulltext instead of wholeText because the fulltext is used for selections that start within a child node and end in the parent.
+            console.log('indexInNodeChunks: ', indexInNodeChunks, 'nodeChunks.length: ', nodeChunks.length);
+            if (indexInNodeChunks != 0 && indexInNodeChunks != nodeChunks.length-1) {substringFrom = fullText}
+            else {substringFrom = wholeText}
         }
-        else {fullText = nodeInDoc.innerHTML}
-
+    
+        //finds start point for the opening tag in the full text using searchString or object.textAnnotated, uses this start point to calculate the end point
         if (type == 'anchor' && !object.isUnified) {
             console.log('fullText: ', fullText, 'searchString', searchString);
             startPoint = newSearch(fullText, searchString);
-            console.log("wholeText.substr(startPoint)", wholeText.substr(startPoint));
-            endPoint = startPoint + wholeText.substr(startPoint).length;
-            //endpoint value is wrong for the current conditions at testData, changing wholeText.substr to fullText.substr fixes this but breaks for other conditions
-            //find when you need to use fulltext and when to use wholeText.
+            endPoint = startPoint + substringFrom.substr(startPoint).length;
         }
         else if (type == 'anchor' && object.isUnified) {
-            startPoint = newSearch(wholeText, object.textAnotated);
-            endPoint = startPoint + object.textAnotated.length;
+            console.log('wholeText: ', wholeText, 'object.textAnnotated: ', object.textAnnotated);
+            startPoint = newSearch(wholeText, object.textAnnotated);
+            endPoint = startPoint + object.textAnnotated.length + 1;
         }
         else if (type == 'focus') {
             console.log('fullText: ', fullText, 'searchString', searchString);
             startPoint = newSearch(fullText, searchString);
             endPoint = startPoint + searchString.length;
         }
-
+    
         console.log('points: ', startPoint, endPoint);
         console.log('**************')
-
-        insertions[startPoint] = `<span class='` + object.anotationId + ` highlight-anotation' style='background-color: rgb(200, 200, 200)'>`;
+    
+        //uses start and end points as object keys with the values set as the <span> open and closing tags
+        insertions[startPoint] = `<span class='` + object.annotationId + ` highlight-annotation' style='background-color: rgb(200, 200, 200)'>`;
         insertions[endPoint] = '</span>';
     };
 
+    //if highlighting middle nodes, dont need to find any boundaries, just highlight the whole element
+    let highlightMidNodes = function(object) {
+        let anchorIndex = undefined;
+        let focusIndex = undefined;
+        for (let i=0; i<nodeChunks.length; i++) {
+            if (object.anchor.wholeText == nodeChunks[i]) {
+                anchorIndex = i;
+            }
+            else if (object.focus.wholeText == nodeChunks[i]) {
+                focusIndex = i;
+            }
+        }
+
+        console.log('indexes: ', anchorIndex, focusIndex);
+
+        for (let i=anchorIndex+1; i<focusIndex; i++) {
+            let childNodeInDoc = findNode(nodeChunks[i]);
+            childNodeInDoc.classList.add(object.annotationId);
+            childNodeInDoc.classList.add('highlight-annotation');
+            childNodeInDoc.style.backgroundColor = 'rgb(200, 200, 200)';
+            console.log('childNodeInDoc.classList: ', childNodeInDoc.classList);
+
+            console.log('middle loop| nodeChunks[i]', nodeChunks[i]); 
+        }
+    }
+
+    //assigning the right arguments for the respective type specified at findInAnnotation()
     if (type == 'anchor') {
         detectBoundaries(object.anchor);
     }
     else if (type == 'middle') {
-        console.log('success')
-        for (let i=1; i<object.nodeList.length-1; i++) {
-            detectBoundaries(object.nodeList[i]);
-        }
+        highlightMidNodes(object);
     }
     else if (type == 'focus') {
         detectBoundaries(object.focus);
@@ -701,238 +761,246 @@ function findAnotationInPage(object, type) {
     }
 }
 
+function shadowDomHabitat(type) {
+    if (type == 'create') {
+
+    }
+
+    //creating, styling and appending shadowDOM to document
+    let hostElement = document.createElement('div');
+    hostElement.id = 'host-element'
+    $(hostElement).appendTo('body');
+
+    let shadowHost = hostElement;
+    shadowRoot = shadowHost.attachShadow({mode: 'open'});
+    
+    let container = document.createElement('div');
+    container.id = 'context-menu-container';
+    container.className = 'hidden';
+    container.innerHTML = `
+        <div id='loading'>
+            <img id='loading-icon' class='hidden' src='` + chrome.runtime.getURL('images/loading.png') + `' alt='loading' height='35' width='35'>
+        </div>
+        <div id='char-count'>
+            <p class='char-count-text'><span id='char-count-value' class='char-count-text'></span>/100</p>
+        </div>
+        <div id='selection-menu' class='hidden'>
+            <div class='selection-menu-output'>
+                <p id='selection-quotes' class='selection-menu-text hidden quotes-font'>‘<span id='selection-made' class='selection-menu-text'></span>’<span><img id='exit-button' class='hidden' src='` + chrome.runtime.getURL('images/exit-button.png') + `' alt='exit' height='15' width='15'></span></p>
+            </div>
+            <br>
+            <div id='radio-container'>
+                <div id='argument-nature-container' class='radio-headers'>Nature of argument
+                    <br>
+                    <input class='selection-menu-radios argument-nature-radios' type='radio' id='for-radio' name='argument-nature' value='for'>
+                    <label class='selection-menu-labels' for='for'>For</label>
+                    <br>
+                    <input class='selection-menu-radios argument-nature-radios' type='radio' id='against-radio' name='argument-nature' value='against'>
+                    <label class='selection-menu-labels' for='against'>Against</label>
+                    <br>
+                    <input class='selection-menu-radios argument-nature-radios' type='radio' id='other-radio' name='argument-nature' value='other'>
+                    <label class='selection-menu-labels' for='other'>Other</label>
+                    <br>
+                </div>
+                <br>
+                <div id='source-container' class='radio-headers'>Have a source?
+                    <br>
+                    <input class='selection-menu-radios source-radios' type='radio' id='yes-source-radio' name='source' value='yes'>
+                    <label class='selection-menu-labels' for='yes'>Yes</label>
+                    <br>
+                    <input class='selection-menu-radios source-radios' type='radio' id='no-source-radio' name='source' value='no'>
+                    <label class='selection-menu-labels' for='no'>No</label>
+                    <br>
+                    <button id='confirm-choices'>Confirm</button>
+                </div>
+            </div>
+            
+            <div id='user-annotation-container' class='hidden'>
+                <textarea id='submission-input' name='user-annotation' rows='4'>Your thoughts</textarea>
+                <input type='text' id='source-input' name='source' value='Link'>
+                <br>
+                <input id='publish-annotation' type='submit' value='Publish'>
+            </div>
+        </div>`
+    ;
+
+    let shadowDomStyles = document.createElement('style');
+    shadowDomStyles.innerText = `
+        #context-menu-container {
+            position: fixed;
+            height: 2%;
+            width: 6.5%;
+            background-color: rgba(230, 230, 230, 0.8);
+            padding: 0px;
+            border-radius: 2.5px 10px 10px 10px;
+            z-index: 9999
+        }
+        #exit-button {
+            float: right;
+            margin-top: 4.5px;
+            margin-right: 5px
+        }
+        #exit-button:hover {
+            cursor: pointer
+        }
+        
+        .selection-menu-output {
+            text-align: center
+        }
+        #selection-quotes {
+            margin-top: 4px;
+            font-weight: bold;
+            font-size: 32px;
+            font-family: 'Revalia', cursive;
+        }
+        #selection-made {
+            font-weight: normal;
+            font-size: 14px;
+            font-family: Arial
+        }
+        .selection-menu-radios {
+            margin-left: 40px
+        }
+        
+        #argument-nature-container {
+            text-align: left;
+            margin-left: 20px
+        }
+        
+        #source-container {
+            text-align: left;
+            margin-left: 20px
+        }
+        #confirm-choices {
+            margin-left: 10px;
+            margin-top: 10px;
+        }
+        #user-annotation-container {
+            margin-top: 0px;
+        }
+        
+        #submission-input, #source-input {
+            border: none;
+            border-radius: 2.5px 20px 20px 20px;
+            margin-top: 10px;
+            margin-left: 15%;
+            margin-right: 15%;
+            width: 70%;
+            resize: none
+        }
+        #submission-input:focus, #source-input:focus {
+            outline: none;
+        }
+        #source-input {
+            height: 25px
+        }
+        #publish-annotation {
+            margin-left: 15%;
+            margin-top: 20px
+        }
+        #char-count {
+            text-align: center
+        }
+        .char-count-text {
+            margin-top: 0px;
+            font-family: calibri, sans-serif;
+            font-size: 20px
+        }
+        .hidden {
+            display: none
+        }
+        .quotes-font {
+            font-family: 'Revalia', Verdana
+        }
+        
+        .shake-anim {
+            animation-name: shake;
+            animation-duration: 0.3s
+        }
+        @keyframes shake {
+            0% {transform: translateX(-20px)}
+            20% {transform: translateX(20px)}
+            40% {transform: translateX(-20px)}
+            60% {transform: translateX(20px)}
+            80% {transform: translateX(-20px)}
+            100% {transform: translateX(20px)}
+        }
+        .expand-anim {
+            animation-name: expand;
+            animation-duration: 0.6s;
+            animation-fill-mode: forwards       
+        }
+        @keyframes expand {
+            0% {
+                height: 2%;
+                width: 6.5%
+            }
+            100% {
+                height: 20%;
+                width: 30%;
+            }
+        }
+        .fadein-anim {
+            animation-name: fade-in;
+            animation-duration: 0.1s;
+            animation-fill-mode: forwards        
+        }
+        @keyframes fade-in {
+            0% {opacity: 0}
+            100% {opacity: 1}
+        }
+        .fadeout-anim {
+            animation-name: fade-out;
+            animation-duration: 0.1s;
+            animation-fill-mode: forwards         
+        }
+        @keyframes fade-out {
+            0% {opacity: 1}
+            100% {opacity: 0}
+        }
+        .slide-right-anim {
+            animation-name: slide-right;
+            animation-duration: 1.5s;
+            animation-fill-mode: forwards
+        }
+        @keyframes slide-right {
+            0% {
+                opacity: 1;
+                margin-left: 20px
+            }
+            40% {opacity: 0}
+            100% {
+                margin-left: 400px;
+                opacity: 0
+            }
+        }
+        .slide-right-offset-anim {
+            animation-name: slide-right-offset;
+            animation-duration: 1.5s;
+            animation-fill-mode: forwards
+        }
+        
+        @keyframes slide-right-offset {
+            0% {
+                opacity: 1;
+                margin-left: 40px
+            }
+            40% {opacity: 0}
+            100% {
+                margin-left: 400px;
+                opacity: 0
+            }
+        }
+    `;
+}
+
 function begunSelecting() {
     window.removeEventListener('mouseup', doneSelecting);
 
     //only need to run this set up code the first time a selection is made
     if (!isClicked) {
 
-        //creating, styling and appending shadowDOM to document
-        let hostElement = document.createElement('div');
-        hostElement.id = 'host-element'
-        $(hostElement).appendTo('body');
-
-        let shadowHost = hostElement;
-        shadowRoot = shadowHost.attachShadow({mode: 'open'});
         
-        let container = document.createElement('div');
-        container.id = 'context-menu-container';
-        container.className = 'hidden';
-        container.innerHTML = `
-            <div id='loading'>
-                <img id='loading-icon' class='hidden' src='` + chrome.runtime.getURL('images/loading.png') + `' alt='loading' height='35' width='35'>
-            </div>
-            <div id='char-count'>
-                <p class='char-count-text'><span id='char-count-value' class='char-count-text'></span>/100</p>
-            </div>
-            <div id='selection-menu' class='hidden'>
-                <div class='selection-menu-output'>
-                    <p id='selection-quotes' class='selection-menu-text hidden quotes-font'>‘<span id='selection-made' class='selection-menu-text'></span>’<span><img id='exit-button' class='hidden' src='` + chrome.runtime.getURL('images/exit-button.png') + `' alt='exit' height='15' width='15'></span></p>
-                </div>
-                <br>
-                <div id='radio-container'>
-                    <div id='argument-nature-container' class='radio-headers'>Nature of argument
-                        <br>
-                        <input class='selection-menu-radios argument-nature-radios' type='radio' id='for-radio' name='argument-nature' value='for'>
-                        <label class='selection-menu-labels' for='for'>For</label>
-                        <br>
-                        <input class='selection-menu-radios argument-nature-radios' type='radio' id='against-radio' name='argument-nature' value='against'>
-                        <label class='selection-menu-labels' for='against'>Against</label>
-                        <br>
-                        <input class='selection-menu-radios argument-nature-radios' type='radio' id='other-radio' name='argument-nature' value='other'>
-                        <label class='selection-menu-labels' for='other'>Other</label>
-                        <br>
-                    </div>
-                    <br>
-                    <div id='source-container' class='radio-headers'>Have a source?
-                        <br>
-                        <input class='selection-menu-radios source-radios' type='radio' id='yes-source-radio' name='source' value='yes'>
-                        <label class='selection-menu-labels' for='yes'>Yes</label>
-                        <br>
-                        <input class='selection-menu-radios source-radios' type='radio' id='no-source-radio' name='source' value='no'>
-                        <label class='selection-menu-labels' for='no'>No</label>
-                        <br>
-                        <button id='confirm-choices'>Confirm</button>
-                    </div>
-                </div>
-                
-                <div id='user-anotation-container' class='hidden'>
-                    <textarea id='submission-input' name='user-anotation' rows='4'>Your thoughts</textarea>
-                    <input type='text' id='source-input' name='source' value='Link'>
-                    <br>
-                    <input id='publish-anotation' type='submit' value='Publish'>
-                </div>
-            </div>`
-        ;
-
-        let shadowDomStyles = document.createElement('style');
-        shadowDomStyles.innerText = `
-            #context-menu-container {
-                position: fixed;
-                height: 2%;
-                width: 6.5%;
-                background-color: rgba(230, 230, 230, 0.8);
-                padding: 0px;
-                border-radius: 2.5px 10px 10px 10px;
-                z-index: 9999
-            }
-            #exit-button {
-                float: right;
-                margin-top: 4.5px;
-                margin-right: 5px
-            }
-            #exit-button:hover {
-                cursor: pointer
-            }
-            
-            .selection-menu-output {
-                text-align: center
-            }
-            #selection-quotes {
-                margin-top: 4px;
-                font-weight: bold;
-                font-size: 32px;
-                font-family: 'Revalia', cursive;
-            }
-            #selection-made {
-                font-weight: normal;
-                font-size: 14px;
-                font-family: Arial
-            }
-            .selection-menu-radios {
-                margin-left: 40px
-            }
-            
-            #argument-nature-container {
-                text-align: left;
-                margin-left: 20px
-            }
-            
-            #source-container {
-                text-align: left;
-                margin-left: 20px
-            }
-            #confirm-choices {
-                margin-left: 10px;
-                margin-top: 10px;
-            }
-            #user-anotation-container {
-                margin-top: 0px;
-            }
-            
-            #submission-input, #source-input {
-                border: none;
-                border-radius: 2.5px 20px 20px 20px;
-                margin-top: 10px;
-                margin-left: 15%;
-                margin-right: 15%;
-                width: 70%;
-                resize: none
-            }
-            #submission-input:focus, #source-input:focus {
-                outline: none;
-            }
-            #source-input {
-                height: 25px
-            }
-            #publish-anotation {
-                margin-left: 15%;
-                margin-top: 20px
-            }
-            #char-count {
-                text-align: center
-            }
-            .char-count-text {
-                margin-top: 0px;
-                font-family: calibri, sans-serif;
-                font-size: 20px
-            }
-            .hidden {
-                display: none
-            }
-            .quotes-font {
-                font-family: 'Revalia', Verdana
-            }
-            
-            .shake-anim {
-                animation-name: shake;
-                animation-duration: 0.3s
-            }
-            @keyframes shake {
-                0% {transform: translateX(-20px)}
-                20% {transform: translateX(20px)}
-                40% {transform: translateX(-20px)}
-                60% {transform: translateX(20px)}
-                80% {transform: translateX(-20px)}
-                100% {transform: translateX(20px)}
-            }
-            .expand-anim {
-                animation-name: expand;
-                animation-duration: 0.6s;
-                animation-fill-mode: forwards       
-            }
-            @keyframes expand {
-                0% {
-                    height: 2%;
-                    width: 6.5%
-                }
-                100% {
-                    height: 20%;
-                    width: 30%;
-                }
-            }
-            .fadein-anim {
-                animation-name: fade-in;
-                animation-duration: 0.1s;
-                animation-fill-mode: forwards        
-            }
-            @keyframes fade-in {
-                0% {opacity: 0}
-                100% {opacity: 1}
-            }
-            .fadeout-anim {
-                animation-name: fade-out;
-                animation-duration: 0.1s;
-                animation-fill-mode: forwards         
-            }
-            @keyframes fade-out {
-                0% {opacity: 1}
-                100% {opacity: 0}
-            }
-            .slide-right-anim {
-                animation-name: slide-right;
-                animation-duration: 1.5s;
-                animation-fill-mode: forwards
-            }
-            @keyframes slide-right {
-                0% {
-                    opacity: 1;
-                    margin-left: 20px
-                }
-                40% {opacity: 0}
-                100% {
-                    margin-left: 400px;
-                    opacity: 0
-                }
-            }
-            .slide-right-offset-anim {
-                animation-name: slide-right-offset;
-                animation-duration: 1.5s;
-                animation-fill-mode: forwards
-            }
-            
-            @keyframes slide-right-offset {
-                0% {
-                    opacity: 1;
-                    margin-left: 40px
-                }
-                40% {opacity: 0}
-                100% {
-                    margin-left: 400px;
-                    opacity: 0
-                }
-            }
-        `;
 
         //shadowRoot.appendChild(header);
         shadowRoot.appendChild(shadowDomStyles);
@@ -953,13 +1021,13 @@ function begunSelecting() {
         exitButton.addEventListener('click', exitContextMenu);
         confirmButton = shadowRoot.querySelector('#confirm-choices');
         confirmButton.addEventListener('click', confirmChoices);
-        publishButton = shadowRoot.querySelector('#publish-anotation');
+        publishButton = shadowRoot.querySelector('#publish-annotation');
         publishButton.addEventListener('click', publishSubmission);
         argNatureContainer = shadowRoot.querySelector('#argument-nature-container')
         sourceContainer = shadowRoot.querySelector('#source-container')
         argumentNatureVals = shadowRoot.querySelectorAll('.argument-nature-radios');
         sourceVals = shadowRoot.querySelectorAll('.source-radios');
-        anotationContainer = shadowRoot.querySelector('#user-anotation-container');
+        annotationContainer = shadowRoot.querySelector('#user-annotation-container');
         submissionInput = shadowRoot.querySelector('#submission-input');
         sourceInput = shadowRoot.querySelector('#source-input');
 
@@ -967,19 +1035,17 @@ function begunSelecting() {
 
         console.log('shadowRoot: ', shadowRoot);
         console.log('document: ', document);
-        //console.log('container: ', container);    
-        //console.log('classList: ', contextMenuContainer.classList.value);
     }
     else {
         //if already clicked once, just need to hide/unhide elements rather than creating them every time
         whenNotHovering(contextMenuContainer, function() {
             isFocussed = false;
-            resetAnotation();
+            resetAnnotation();
             if (isExpanded) {
                 styleShadowDom(shadowRoot, ['#selection-quotes', '#exit-button', '#argument-nature-container', '#source-container'], [['display', 'none']]);    
                 if (isConfirmed) {
                     if (!submission.isSource) {sourceInput.classList.remove('hidden');}
-                    styleShadowDom(shadowRoot, ['#user-anotation-container'], [['display', 'none']])
+                    styleShadowDom(shadowRoot, ['#user-annotation-container'], [['display', 'none']])
                 }
 
                 contextMenuContainer.classList.remove('expand-anim');
@@ -1051,8 +1117,6 @@ function begunSelecting() {
     })
         
     isClicked = true;
-    //console.log('isSelectMade: ', isSelectMade);
-    //console.log('shadowRoot: ', shadowRoot);
     window.addEventListener('mouseup', doneSelecting);
 }
 
@@ -1092,7 +1156,7 @@ function doneSelecting() {
                     console.log('selectionObj: ', selectionObj);
 
                     finalSelection = autoCompOutcome;
-                    initAnotation(selectionObj, finalSelection);
+                    initAnnotation(selectionObj, finalSelection);
                 }
             });
             
@@ -1150,101 +1214,45 @@ window.addEventListener('load', function() {
 
     window.addEventListener('mousedown', begunSelecting);
 
-    //example of limitation of finding overlap method of getting searchString, both temp and searchstring are equal to 's', so 's' is used as the search query
-    //this makes the startPoint start at the first instance of s
-    //to tackle this you need to set searchString as the last correct match of the temp and searchString values instead of the first correct match
-
-    //this can also be a problem for one letter words (a and I)
-    //to tackle this you would need to find the whitespaces either side of the word and include them in the search
-    /*
     let testData = {
-        "anotationId": "ANTbvfdciz8j",
-        "textAnotated": "sites hundreds of miles from their",
-        "isUnified": false,
+        "annotationId": "ANTrx95y3504",
+        "textAnnotated": "government's testing system - part of its test, track and trace operation",
+        "isUnified": true,
         "anchor": {
             "nodeName": "#text",
             "nodeType": 3,
-            "wholeText": "directed to test sites hundreds of miles",
-            "parentNode": {
-                "nodeName": "A",
-                "nodeType": 1,
-                "parentWholeText": "directed to test sites hundreds of miles"
-            }
-        },
-        "focus": {
-            "nodeName": "#text",
-            "nodeType": 3,
-            "wholeText": " from their homes.",
+            "wholeText": "The government's testing system - part of its test, track and trace operation which Prime Minister Boris Johnson ",
             "parentNode": {
                 "nodeName": "P",
                 "nodeType": 1,
-                "parentWholeText": "An increase in demand for coronavirus tests has led to local shortages, with some people being directed to test sites hundreds of miles from their homes."
+                "parentWholeText": "The government's testing system - part of its test, track and trace operation which Prime Minister Boris Johnson promised would be \"world-beating\" - has faced criticism in recent weeks."
             }
         },
         "submissionsMade": {
-            "SUB1fpwhj0ri": {
-                "submissionId": "SUB1fpwhj0ri",
-                "assignedTo": "ANTbvfdciz8j",
+            "SUB57qm416ha": {
+                "submissionId": "SUB57qm416ha",
+                "assignedTo": "ANTrx95y3504",
                 "urlOfArticle": "https://www.bbc.co.uk/news/uk-54156889",
                 "argumentNature": "for",
-                "submissionText": "Your Wthoughts",
+                "submissionText": "Your trehoughts",
                 "isSource": false,
                 "sourceLink": null
             }
         }
-    }
-    */
-
-    let testData = {
-        "anotationId": "ANTeb09u0akq",
-        "textAnotated": "hundreds of miles from their",
-        "isUnified": false,
-        "anchor": {
-            "nodeName": "#text",
-            "nodeType": 3,
-            "wholeText": "directed to test sites hundreds of miles",
-            "parentNode": {
-                "nodeName": "A",
-                "nodeType": 1,
-                "parentWholeText": "directed to test sites hundreds of miles"
-            }
-        },
-        "focus": {
-            "nodeName": "#text",
-            "nodeType": 3,
-            "wholeText": " from their homes.",
-            "parentNode": {
-                "nodeName": "P",
-                "nodeType": 1,
-                "parentWholeText": "An increase in demand for coronavirus tests has led to local shortages, with some people being directed to test sites hundreds of miles from their homes."
-            }
-        },
-        "submissionsMade": {
-            "SUBbvlwmiv87": {
-                "submissionId": "SUBbvlwmiv87",
-                "assignedTo": "ANTeb09u0akq",
-                "urlOfArticle": "https://www.bbc.co.uk/news/uk-54156889",
-                "argumentNature": "for",
-                "submissionText": "Your tshoughts",
-                "isSource": false,
-                "sourceLink": null
-            }
-        }
-    }
-      
-    findAnotationInPage(testData, 'anchor');
+    };
+    
+    //sequence of function calls to find an annotation in the parent document given a specific annotation object (fetched from database)
+    findAnnotationInPage(testData, 'anchor');
 
     if (!testData.isUnified) {
-        if ('nodeList' in testData) {
-            //if(testData.nodeList.length > 2) {findAnotationInPage(testData, 'middle')}
-        }
-        findAnotationInPage(testData, 'focus');
-
-        console.log('insertions: ', insertions, 'nodeInDoc: ', nodeInDoc);
-        highlightAnotation(insertions, nodeInDoc);
-        
-
-        nodeInDoc = undefined;
-        insertions = {}
+        findAnnotationInPage(testData, 'middle');
+        findAnnotationInPage(testData, 'focus');
     }
+
+    console.log('insertions: ', insertions, 'nodeInDoc: ', nodeInDoc);
+    highlightAnnotation(insertions, nodeInDoc);
+        
+    nodeInDoc = undefined;
+    nodeChunks = undefined;
+    insertions = {}
 });

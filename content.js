@@ -31,25 +31,21 @@ let submission = {
 let checkSelectMade = undefined;
 let updateCharCount = undefined;
 
-//shadow DOM elements
+//shadow DOM vars/elements
+let shadowRoot = undefined;
+
 let contextMenuContainer = undefined;
-let loadingIcon = undefined;
-let charCountContainer = undefined;
 let charCountText = undefined;
 let selectionMenu = undefined;
 let selectionMade = undefined;
-let exitButton = undefined;
-let confirmButton = undefined;
 let radioContainer = undefined;
 let radioHeaders = undefined;
-let radioButtons = undefined;
-let radioLabels = undefined;
+let exitButton = undefined;
 let argumentNatureVals = undefined;
 let sourceVals = undefined;
 let annotationContainer = undefined;
 let submissionInput = undefined;
 let sourceInput = undefined;
-let publishButton = undefined;
 
 //bools
 let isClicked = false;
@@ -380,7 +376,7 @@ function confirmChoices() {
         if (selectedVals[1] == 'yes') {submission.isSource = true}
         else {submission.isSource = false}
 
-        let elemList = [radioButtons, radioLabels];
+        let elemList = [shadowRoot.querySelectorAll('.selection-menu-radios'), shadowRoot.querySelectorAll('.selection-menu-labels')];
         isConfirmed = true;
         for (let i=0; i<radioHeaders.length; i++) {
             radioHeaders[i].classList.add('slide-right-anim');
@@ -442,7 +438,7 @@ function publishSubmission() {
         insertions = {}
     }
 
-    //checks to see if url given is in correct format
+    //checks to see if url given is in correct format, taken from https://stackoverflow.com/questions/5717093/check-if-a-javascript-string-is-a-url
     let validateUrlFormat = function(string) {
         let url;
       
@@ -548,7 +544,7 @@ function initAnnotation(object, selection) {
     annotation.annotationId = generateId('annotation');
 }
 
-//inserts text (html tags) at the detected regions in the anchor and focus nodes
+//inserts text (html tags) at the detected regions in the anchor and focus nodes, taken from https://stackoverflow.com/questions/4313841/insert-a-string-at-a-specific-index
 function highlightAnnotation(object, node) {
     String.prototype.insertTextAtIndices = function(text) {
         return this.replace(/./g, function(character, index) {
@@ -736,8 +732,7 @@ function findAnnotationInPage(object, type) {
 
         for (let i=anchorIndex+1; i<focusIndex; i++) {
             let childNodeInDoc = findNode(nodeChunks[i]);
-            childNodeInDoc.classList.add(object.annotationId);
-            childNodeInDoc.classList.add('highlight-annotation');
+            childNodeInDoc.classList.add(object.annotationId, 'highlight-annotation');
             childNodeInDoc.style.backgroundColor = 'rgb(200, 200, 200)';
             console.log('childNodeInDoc.classList: ', childNodeInDoc.classList);
 
@@ -761,275 +756,259 @@ function findAnnotationInPage(object, type) {
     }
 }
 
-function shadowDomHabitat(type) {
-    if (type == 'create') {
-
-    }
-
-    //creating, styling and appending shadowDOM to document
-    let hostElement = document.createElement('div');
-    hostElement.id = 'host-element'
-    $(hostElement).appendTo('body');
-
-    let shadowHost = hostElement;
-    shadowRoot = shadowHost.attachShadow({mode: 'open'});
-    
-    let container = document.createElement('div');
-    container.id = 'context-menu-container';
-    container.className = 'hidden';
-    container.innerHTML = `
-        <div id='loading'>
-            <img id='loading-icon' class='hidden' src='` + chrome.runtime.getURL('images/loading.png') + `' alt='loading' height='35' width='35'>
-        </div>
-        <div id='char-count'>
-            <p class='char-count-text'><span id='char-count-value' class='char-count-text'></span>/100</p>
-        </div>
-        <div id='selection-menu' class='hidden'>
-            <div class='selection-menu-output'>
-                <p id='selection-quotes' class='selection-menu-text hidden quotes-font'>‘<span id='selection-made' class='selection-menu-text'></span>’<span><img id='exit-button' class='hidden' src='` + chrome.runtime.getURL('images/exit-button.png') + `' alt='exit' height='15' width='15'></span></p>
-            </div>
-            <br>
-            <div id='radio-container'>
-                <div id='argument-nature-container' class='radio-headers'>Nature of argument
-                    <br>
-                    <input class='selection-menu-radios argument-nature-radios' type='radio' id='for-radio' name='argument-nature' value='for'>
-                    <label class='selection-menu-labels' for='for'>For</label>
-                    <br>
-                    <input class='selection-menu-radios argument-nature-radios' type='radio' id='against-radio' name='argument-nature' value='against'>
-                    <label class='selection-menu-labels' for='against'>Against</label>
-                    <br>
-                    <input class='selection-menu-radios argument-nature-radios' type='radio' id='other-radio' name='argument-nature' value='other'>
-                    <label class='selection-menu-labels' for='other'>Other</label>
-                    <br>
-                </div>
-                <br>
-                <div id='source-container' class='radio-headers'>Have a source?
-                    <br>
-                    <input class='selection-menu-radios source-radios' type='radio' id='yes-source-radio' name='source' value='yes'>
-                    <label class='selection-menu-labels' for='yes'>Yes</label>
-                    <br>
-                    <input class='selection-menu-radios source-radios' type='radio' id='no-source-radio' name='source' value='no'>
-                    <label class='selection-menu-labels' for='no'>No</label>
-                    <br>
-                    <button id='confirm-choices'>Confirm</button>
-                </div>
-            </div>
-            
-            <div id='user-annotation-container' class='hidden'>
-                <textarea id='submission-input' name='user-annotation' rows='4'>Your thoughts</textarea>
-                <input type='text' id='source-input' name='source' value='Link'>
-                <br>
-                <input id='publish-annotation' type='submit' value='Publish'>
-            </div>
-        </div>`
-    ;
-
-    let shadowDomStyles = document.createElement('style');
-    shadowDomStyles.innerText = `
-        #context-menu-container {
-            position: fixed;
-            height: 2%;
-            width: 6.5%;
-            background-color: rgba(230, 230, 230, 0.8);
-            padding: 0px;
-            border-radius: 2.5px 10px 10px 10px;
-            z-index: 9999
-        }
-        #exit-button {
-            float: right;
-            margin-top: 4.5px;
-            margin-right: 5px
-        }
-        #exit-button:hover {
-            cursor: pointer
-        }
-        
-        .selection-menu-output {
-            text-align: center
-        }
-        #selection-quotes {
-            margin-top: 4px;
-            font-weight: bold;
-            font-size: 32px;
-            font-family: 'Revalia', cursive;
-        }
-        #selection-made {
-            font-weight: normal;
-            font-size: 14px;
-            font-family: Arial
-        }
-        .selection-menu-radios {
-            margin-left: 40px
-        }
-        
-        #argument-nature-container {
-            text-align: left;
-            margin-left: 20px
-        }
-        
-        #source-container {
-            text-align: left;
-            margin-left: 20px
-        }
-        #confirm-choices {
-            margin-left: 10px;
-            margin-top: 10px;
-        }
-        #user-annotation-container {
-            margin-top: 0px;
-        }
-        
-        #submission-input, #source-input {
-            border: none;
-            border-radius: 2.5px 20px 20px 20px;
-            margin-top: 10px;
-            margin-left: 15%;
-            margin-right: 15%;
-            width: 70%;
-            resize: none
-        }
-        #submission-input:focus, #source-input:focus {
-            outline: none;
-        }
-        #source-input {
-            height: 25px
-        }
-        #publish-annotation {
-            margin-left: 15%;
-            margin-top: 20px
-        }
-        #char-count {
-            text-align: center
-        }
-        .char-count-text {
-            margin-top: 0px;
-            font-family: calibri, sans-serif;
-            font-size: 20px
-        }
-        .hidden {
-            display: none
-        }
-        .quotes-font {
-            font-family: 'Revalia', Verdana
-        }
-        
-        .shake-anim {
-            animation-name: shake;
-            animation-duration: 0.3s
-        }
-        @keyframes shake {
-            0% {transform: translateX(-20px)}
-            20% {transform: translateX(20px)}
-            40% {transform: translateX(-20px)}
-            60% {transform: translateX(20px)}
-            80% {transform: translateX(-20px)}
-            100% {transform: translateX(20px)}
-        }
-        .expand-anim {
-            animation-name: expand;
-            animation-duration: 0.6s;
-            animation-fill-mode: forwards       
-        }
-        @keyframes expand {
-            0% {
-                height: 2%;
-                width: 6.5%
-            }
-            100% {
-                height: 20%;
-                width: 30%;
-            }
-        }
-        .fadein-anim {
-            animation-name: fade-in;
-            animation-duration: 0.1s;
-            animation-fill-mode: forwards        
-        }
-        @keyframes fade-in {
-            0% {opacity: 0}
-            100% {opacity: 1}
-        }
-        .fadeout-anim {
-            animation-name: fade-out;
-            animation-duration: 0.1s;
-            animation-fill-mode: forwards         
-        }
-        @keyframes fade-out {
-            0% {opacity: 1}
-            100% {opacity: 0}
-        }
-        .slide-right-anim {
-            animation-name: slide-right;
-            animation-duration: 1.5s;
-            animation-fill-mode: forwards
-        }
-        @keyframes slide-right {
-            0% {
-                opacity: 1;
-                margin-left: 20px
-            }
-            40% {opacity: 0}
-            100% {
-                margin-left: 400px;
-                opacity: 0
-            }
-        }
-        .slide-right-offset-anim {
-            animation-name: slide-right-offset;
-            animation-duration: 1.5s;
-            animation-fill-mode: forwards
-        }
-        
-        @keyframes slide-right-offset {
-            0% {
-                opacity: 1;
-                margin-left: 40px
-            }
-            40% {opacity: 0}
-            100% {
-                margin-left: 400px;
-                opacity: 0
-            }
-        }
-    `;
-}
-
 function begunSelecting() {
     window.removeEventListener('mouseup', doneSelecting);
 
     //only need to run this set up code the first time a selection is made
     if (!isClicked) {
 
-        
+        //creating, styling and appending shadowDOM to document
+        let hostElement = document.createElement('div');
+        hostElement.id = 'host-element'
+        $(hostElement).appendTo('body');
 
-        //shadowRoot.appendChild(header);
+        let shadowHost = hostElement;
+        shadowRoot = shadowHost.attachShadow({mode: 'open'});
+        
+        let container = document.createElement('div');
+        container.id = 'context-menu-container';
+        container.className = 'hidden';
+        container.innerHTML = `
+            <div id='loading'>
+                <img id='loading-icon' class='hidden' src='` + chrome.runtime.getURL('images/loading.png') + `' alt='loading' height='35' width='35'>
+            </div>
+            <div id='char-count'>
+                <p class='char-count-text'><span id='char-count-value' class='char-count-text'></span>/100</p>
+            </div>
+            <div id='selection-menu' class='hidden'>
+                <div class='selection-menu-output'>
+                    <p id='selection-quotes' class='selection-menu-text hidden quotes-font'>‘<span id='selection-made' class='selection-menu-text'></span>’<span><img id='exit-button' class='hidden' src='` + chrome.runtime.getURL('images/exit-button.png') + `' alt='exit' height='15' width='15'></span></p>
+                </div>
+                <br>
+                <div id='radio-container'>
+                    <div id='argument-nature-container' class='radio-headers'>Nature of argument
+                        <br>
+                        <input class='selection-menu-radios argument-nature-radios' type='radio' id='for-radio' name='argument-nature' value='for'>
+                        <label class='selection-menu-labels' for='for'>For</label>
+                        <br>
+                        <input class='selection-menu-radios argument-nature-radios' type='radio' id='against-radio' name='argument-nature' value='against'>
+                        <label class='selection-menu-labels' for='against'>Against</label>
+                        <br>
+                        <input class='selection-menu-radios argument-nature-radios' type='radio' id='other-radio' name='argument-nature' value='other'>
+                        <label class='selection-menu-labels' for='other'>Other</label>
+                        <br>
+                    </div>
+                    <br>
+                    <div id='source-container' class='radio-headers'>Have a source?
+                        <br>
+                        <input class='selection-menu-radios source-radios' type='radio' id='yes-source-radio' name='source' value='yes'>
+                        <label class='selection-menu-labels' for='yes'>Yes</label>
+                        <br>
+                        <input class='selection-menu-radios source-radios' type='radio' id='no-source-radio' name='source' value='no'>
+                        <label class='selection-menu-labels' for='no'>No</label>
+                        <br>
+                        <button id='confirm-choices'>Confirm</button>
+                    </div>
+                </div>
+                
+                <div id='user-annotation-container' class='hidden'>
+                    <textarea id='submission-input' name='user-annotation' rows='4'>Your thoughts</textarea>
+                    <input type='text' id='source-input' name='source' value='Link'>
+                    <br>
+                    <input id='publish-annotation' type='submit' value='Publish'>
+                </div>
+            </div>`
+        ;
+
+        let shadowDomStyles = document.createElement('style');
+        shadowDomStyles.innerText = `
+            #context-menu-container {
+                position: fixed;
+                height: 2%;
+                width: 6.5%;
+                background-color: rgba(230, 230, 230, 0.8);
+                padding: 0px;
+                border-radius: 2.5px 10px 10px 10px;
+                z-index: 9999
+            }
+            #exit-button {
+                float: right;
+                margin-top: 4.5px;
+                margin-right: 5px
+            }
+            #exit-button:hover {
+                cursor: pointer
+            }
+            
+            .selection-menu-output {
+                text-align: center
+            }
+            #selection-quotes {
+                margin-top: 4px;
+                font-weight: bold;
+                font-size: 32px;
+                font-family: 'Revalia', cursive;
+            }
+            #selection-made {
+                font-weight: normal;
+                font-size: 14px;
+                font-family: Arial
+            }
+            .selection-menu-radios {
+                margin-left: 40px
+            }
+            
+            #argument-nature-container {
+                text-align: left;
+                margin-left: 20px
+            }
+            
+            #source-container {
+                text-align: left;
+                margin-left: 20px
+            }
+            #confirm-choices {
+                margin-left: 10px;
+                margin-top: 10px;
+            }
+            #user-annotation-container {
+                margin-top: 0px;
+            }
+            
+            #submission-input, #source-input {
+                border: none;
+                border-radius: 2.5px 20px 20px 20px;
+                margin-top: 10px;
+                margin-left: 15%;
+                margin-right: 15%;
+                width: 70%;
+                resize: none
+            }
+            #submission-input:focus, #source-input:focus {
+                outline: none;
+            }
+            #source-input {
+                height: 25px
+            }
+            #publish-annotation {
+                margin-left: 15%;
+                margin-top: 20px
+            }
+            #char-count {
+                text-align: center
+            }
+            .char-count-text {
+                margin-top: 0px;
+                font-family: calibri, sans-serif;
+                font-size: 20px
+            }
+            .hidden {
+                display: none
+            }
+            .quotes-font {
+                font-family: 'Revalia', Verdana
+            }
+            
+            .shake-anim {
+                animation-name: shake;
+                animation-duration: 0.3s
+            }
+            @keyframes shake {
+                0% {transform: translateX(-20px)}
+                20% {transform: translateX(20px)}
+                40% {transform: translateX(-20px)}
+                60% {transform: translateX(20px)}
+                80% {transform: translateX(-20px)}
+                100% {transform: translateX(20px)}
+            }
+            .expand-anim {
+                animation-name: expand;
+                animation-duration: 0.6s;
+                animation-fill-mode: forwards       
+            }
+            @keyframes expand {
+                0% {
+                    height: 2%;
+                    width: 6.5%
+                }
+                100% {
+                    height: 20%;
+                    width: 30%;
+                }
+            }
+            .fadein-anim {
+                animation-name: fade-in;
+                animation-duration: 0.1s;
+                animation-fill-mode: forwards        
+            }
+            @keyframes fade-in {
+                0% {opacity: 0}
+                100% {opacity: 1}
+            }
+            .fadeout-anim {
+                animation-name: fade-out;
+                animation-duration: 0.1s;
+                animation-fill-mode: forwards         
+            }
+            @keyframes fade-out {
+                0% {opacity: 1}
+                100% {opacity: 0}
+            }
+            .slide-right-anim {
+                animation-name: slide-right;
+                animation-duration: 1.5s;
+                animation-fill-mode: forwards
+            }
+            @keyframes slide-right {
+                0% {
+                    opacity: 1;
+                    margin-left: 20px
+                }
+                40% {opacity: 0}
+                100% {
+                    margin-left: 400px;
+                    opacity: 0
+                }
+            }
+            .slide-right-offset-anim {
+                animation-name: slide-right-offset;
+                animation-duration: 1.5s;
+                animation-fill-mode: forwards
+            }
+            
+            @keyframes slide-right-offset {
+                0% {
+                    opacity: 1;
+                    margin-left: 40px
+                }
+                40% {opacity: 0}
+                100% {
+                    margin-left: 400px;
+                    opacity: 0
+                }
+            }
+        `;
+
         shadowRoot.appendChild(shadowDomStyles);
         shadowRoot.appendChild(container);
 
-        //saves repeating querySelector + readability
+        //saves repeating querySelector + more readability
         contextMenuContainer = shadowRoot.querySelector('#context-menu-container');
-        loadingIcon = shadowRoot.querySelector('#loading-icon');
-        charCountContainer = shadowRoot.querySelector('#char-count');
         charCountText = shadowRoot.querySelector('.char-count-text');
         selectionMenu = shadowRoot.querySelector('#selection-menu');
         selectionMade = shadowRoot.querySelector('#selection-made');
         radioContainer = shadowRoot.querySelector('#radio-container');
         radioHeaders = shadowRoot.querySelectorAll('.radio-headers');
-        radioButtons = shadowRoot.querySelectorAll('.selection-menu-radios');
-        radioLabels = shadowRoot.querySelectorAll('.selection-menu-labels');
         exitButton = shadowRoot.querySelector('#exit-button');
-        exitButton.addEventListener('click', exitContextMenu);
-        confirmButton = shadowRoot.querySelector('#confirm-choices');
-        confirmButton.addEventListener('click', confirmChoices);
-        publishButton = shadowRoot.querySelector('#publish-annotation');
-        publishButton.addEventListener('click', publishSubmission);
-        argNatureContainer = shadowRoot.querySelector('#argument-nature-container')
-        sourceContainer = shadowRoot.querySelector('#source-container')
         argumentNatureVals = shadowRoot.querySelectorAll('.argument-nature-radios');
         sourceVals = shadowRoot.querySelectorAll('.source-radios');
         annotationContainer = shadowRoot.querySelector('#user-annotation-container');
         submissionInput = shadowRoot.querySelector('#submission-input');
         sourceInput = shadowRoot.querySelector('#source-input');
+
+        exitButton.addEventListener('click', exitContextMenu);
+        shadowRoot.querySelector('#confirm-choices').addEventListener('click', confirmChoices);
+        shadowRoot.querySelector('#publish-annotation').addEventListener('click', publishSubmission);
 
         emptyVal = submissionInput.value;
 

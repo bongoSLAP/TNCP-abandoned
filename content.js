@@ -1096,7 +1096,11 @@ function begunSelecting() {
     })
         
     isClicked = true;
-    window.addEventListener('mouseup', doneSelecting);
+    window.addEventListener('keydown', function(event) {if (event.keyCode === 83) {
+        window.addEventListener('mouseup', doneSelecting)
+        console.log('success');
+    }});
+    window.addEventListener('keyup', function(event) {if (event.keyCode === 83) {window.removeEventListener('mouseup', doneSelecting);}});
 }
 
 //selection callback function
@@ -1173,7 +1177,8 @@ function doneSelecting() {
     selectionList = [];
     autoCompOutcome = '';
     
-    window.addEventListener('mousedown', begunSelecting);
+    window.addEventListener('keydown', function(event) {if (event.keyCode === 83) {window.addEventListener('mousedown', begunSelecting)}});
+    window.addEventListener('keyup', function(event) {if (event.keyCode === 83) {window.removeEventListener('mousedown', begunSelecting)}});
 }
 
 //event listeners
@@ -1190,8 +1195,10 @@ window.addEventListener('load', function() {
     `;
 
     $(fontRule).appendTo('body');
+    //window.addEventListener('mousedown', begunSelecting);
 
-    window.addEventListener('mousedown', begunSelecting);
+    window.addEventListener('keydown', function(event) {if (event.keyCode === 83) {window.addEventListener('mousedown', begunSelecting)}});
+    window.addEventListener('keyup', function(event) {if (event.keyCode === 83) {window.removeEventListener('mousedown', begunSelecting)}});
 
     let testData = {
         "annotationId": "ANTrx95y3504",

@@ -1093,13 +1093,10 @@ function begunSelecting() {
             ['left', event.clientX + 75 + 'px'],
             ['top', event.clientY + 50 + 'px'],
         ]);
-    })
+    });
         
     isClicked = true;
-    window.addEventListener('keydown', function(event) {if (event.keyCode === 83) {
-        window.addEventListener('mouseup', doneSelecting)
-        console.log('success');
-    }});
+    window.addEventListener('keydown', function(event) {if (event.keyCode === 83) {window.addEventListener('mouseup', doneSelecting)}});
     window.addEventListener('keyup', function(event) {if (event.keyCode === 83) {window.removeEventListener('mouseup', doneSelecting);}});
 }
 
@@ -1177,8 +1174,55 @@ function doneSelecting() {
     selectionList = [];
     autoCompOutcome = '';
     
-    window.addEventListener('keydown', function(event) {if (event.keyCode === 83) {window.addEventListener('mousedown', begunSelecting)}});
-    window.addEventListener('keyup', function(event) {if (event.keyCode === 83) {window.removeEventListener('mousedown', begunSelecting)}});
+    window.addEventListener('keydown', function(event) {
+        if (event.keyCode === 83) {
+            window.addEventListener('mousemove', borderHoveredElement);
+            window.addEventListener('mousedown', begunSelecting)
+        }
+    });
+
+    window.addEventListener('keyup', function(event) {
+        if (event.keyCode === 83) {
+            window.removeEventListener('mousemove', borderHoveredElement);
+            window.removeEventListener('mousedown', begunSelecting)
+        }
+    });
+}
+
+//adds a temporary border to element currently being hovered over (while holding s key)
+function borderHoveredElement() {
+    let found = false;
+    let overElement = document.elementFromPoint(event.clientX, event.clientY);
+
+    for (let i=0; i<validTags.length; i++) {
+        if (overElement.nodeName == validTags[i]) {
+            found = true;
+        }
+    }
+
+    if (found) {
+        for (let i=0; i<validTags.length; i++) {
+            if (overElement.parentNode.nodeName == validTags[i]) {
+                overElement = getParentNode(overElement);
+                break;
+            }
+        }
+
+        overElement.style = `
+            border-style: solid;
+            border-width: 3px;
+            border-radius: 10px;
+            border-color: rgb(200, 200, 200);
+        `;
+
+        overElement.addEventListener('mouseout', function() {
+            overElement.style = `
+                border: none;
+            `;
+        });
+    }
+    
+    
 }
 
 //event listeners
@@ -1197,9 +1241,21 @@ window.addEventListener('load', function() {
     $(fontRule).appendTo('body');
     //window.addEventListener('mousedown', begunSelecting);
 
-    window.addEventListener('keydown', function(event) {if (event.keyCode === 83) {window.addEventListener('mousedown', begunSelecting)}});
-    window.addEventListener('keyup', function(event) {if (event.keyCode === 83) {window.removeEventListener('mousedown', begunSelecting)}});
+    window.addEventListener('keydown', function(event) {
+        if (event.keyCode === 83) {
+            window.addEventListener('mousemove', borderHoveredElement);
+            window.addEventListener('mousedown', begunSelecting);
+        }
+    });
 
+    window.addEventListener('keyup', function(event) {
+        if (event.keyCode === 83) {
+            window.removeEventListener('mousemove', borderHoveredElement);
+            window.removeEventListener('mousedown', begunSelecting);
+        }
+    });
+
+    /*
     let testData = {
         "annotationId": "ANTrx95y3504",
         "textAnnotated": "government's testing system - part of its test, track and trace operation",
@@ -1241,4 +1297,5 @@ window.addEventListener('load', function() {
     nodeInDoc = undefined;
     nodeChunks = undefined;
     insertions = {}
+    */
 });

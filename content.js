@@ -54,6 +54,7 @@ let isOverLimit = false;
 let isExpanded = false;
 let isConfirmed = false;
 let isFocussed = false;
+let isAbortSelection = false;
 
 //messaging callback to send data between .js files
 function handleContentRequests(message, sender, sendResponse) {
@@ -1019,9 +1020,11 @@ function begunSelecting() {
         //if already clicked once, just need to hide/unhide elements rather than creating them every time
         whenNotHovering(contextMenuContainer, function() {
             isFocussed = false;
+            isAbortSelection = false;
             resetAnnotation();
             if (isExpanded) {
                 styleShadowDom(shadowRoot, ['#selection-quotes', '#exit-button', '#argument-nature-container', '#source-container'], [['display', 'none']]);    
+                isExpanded = false;
                 if (isConfirmed) {
                     if (!submission.isSource) {sourceInput.classList.remove('hidden');}
                     styleShadowDom(shadowRoot, ['#user-annotation-container'], [['display', 'none']])
@@ -1047,7 +1050,8 @@ function begunSelecting() {
         whenNotHovering(contextMenuContainer, function() {
             let initialSelection = window.getSelection().toString();
 
-            if (initialSelection.length > 0) {
+            if (initialSelection.length > 0 && !isAbortSelection) {
+                console.log('success');
                 isSelectMade = true;
                 contextMenuContainer.classList.remove('hidden');
             }
@@ -1057,9 +1061,9 @@ function begunSelecting() {
         })
     }, 50);
 
-    //displays the this character count of selection being made
+    //displays the current character count of selection being made
     updateCharCount = setInterval(function() {
-        if (isSelectMade) {
+        if (isSelectMade && !isFocussed && !isExpanded) {
             let countLimit = 100; 
             let rgb = '';
             selectionList = [];
@@ -1080,9 +1084,7 @@ function begunSelecting() {
 
             styleShadowDom(shadowRoot, '#context-menu-container', [['background-color', rgb]]);
             whenNotHovering(contextMenuContainer, function() {
-                if (!isFocussed) {
-                    window.addEventListener('mousemove', setToMousePos)
-                }
+                window.addEventListener('mousemove', setToMousePos)
             });
         }
     }, 100);
@@ -1097,7 +1099,23 @@ function begunSelecting() {
         
     isClicked = true;
     window.addEventListener('keydown', function(event) {if (event.keyCode === 83) {window.addEventListener('mouseup', doneSelecting)}});
-    window.addEventListener('keyup', function(event) {if (event.keyCode === 83) {window.removeEventListener('mouseup', doneSelecting);}});
+
+    window.addEventListener('keyup', function(event) {
+        if (event.keyCode === 83) {
+            if (!isExpanded) {
+                console.log('success2');
+                isAbortSelection = true;
+                contextMenuContainer.classList.add('fadeout-anim');
+    
+                setTimeout(function() {
+                    contextMenuContainer.classList.add('hidden');
+                    contextMenuContainer.classList.remove('fadeout-anim');
+                }, 150);
+            }
+            
+            window.removeEventListener('mouseup', doneSelecting);
+        }
+    });
 }
 
 //selection callback function
@@ -1143,13 +1161,13 @@ function doneSelecting() {
             styleShadowDom(shadowRoot, '#context-menu-container', [['background-color', 'rgb(230, 230, 230)']]);
             charCountText.classList.add('fadeout-anim');
             contextMenuContainer.classList.add('expand-anim');
+            isExpanded = true;
 
             setTimeout(function() {
                 charCountText.classList.add('hidden');
                 charCountText.classList.remove('fadeout-anim');
                 selectionMenu.classList.add('fadein-anim');
                 exitButton.classList.add('fadein-anim');
-                isExpanded = true;
 
                 setTimeout(function() {
                     whenNotHovering(contextMenuContainer, function() {
@@ -1210,8 +1228,8 @@ function borderHoveredElement() {
 
         overElement.style = `
             border-style: solid;
-            border-width: 3px;
-            border-radius: 10px;
+            border-width: 1px;
+            border-radius: 4px;
             border-color: rgb(200, 200, 200);
         `;
 
@@ -1220,9 +1238,7 @@ function borderHoveredElement() {
                 border: none;
             `;
         });
-    }
-    
-    
+    }  
 }
 
 //event listeners

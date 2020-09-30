@@ -101,6 +101,7 @@ function newSearch(searchIn, query) {
     else {return searchOutcome}
 }
 
+/*
 //recursive function to move up the tree of nodes starting from the selected node
 function getParentNode(targetNode) {
     let parent = undefined;
@@ -132,6 +133,28 @@ function getParentNode(targetNode) {
     //console.log('parent: ', parent);
     return parent; 
 }
+*/
+
+function getParentNode(targetNode) {
+    let parent = undefined;
+    let childText = targetNode.innerText;
+
+    let getNextParent = function(child) {
+        console.log('child.parentNode.innerText: ', child.parentNode.innerText, 'childText: ', childText);
+        if (newSearch(child.parentNode.innerText, childText) != 'failed') {
+            parent = child.parentNode;
+            getNextParent(parent);
+        }
+        else {
+            return;
+        }
+    }
+
+    getNextParent(targetNode);
+    if (parent == undefined) {console.log('ERROR: conditions not met at getNextParent')}
+    return parent;
+}
+
 
 //need to find the entirety of the text in nodes selected in order to calculate a start point carry out autocomplete function
 function searchForContext(targetNode, selection) {

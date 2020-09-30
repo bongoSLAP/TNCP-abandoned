@@ -140,8 +140,7 @@ function getParentNode(targetNode) {
     let childText = targetNode.innerText;
 
     let getNextParent = function(child) {
-        console.log('child.parentNode.innerText: ', child.parentNode.innerText, 'childText: ', childText);
-        if (newSearch(child.parentNode.innerText, childText) != 'failed') {
+        if (child.parentNode.children.length <= 1) {
             parent = child.parentNode;
             getNextParent(parent);
         }
@@ -152,6 +151,7 @@ function getParentNode(targetNode) {
 
     getNextParent(targetNode);
     if (parent == undefined) {console.log('ERROR: conditions not met at getNextParent')}
+    console.log('parent: ', parent);
     return parent;
 }
 

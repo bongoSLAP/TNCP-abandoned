@@ -136,23 +136,56 @@ function getParentNode(targetNode) {
 */
 
 function getParentNode(targetNode) {
-    let parent = undefined;
-    let childText = targetNode.innerText;
+    let finalParent = undefined;
 
     let getNextParent = function(child) {
-        if (child.parentNode.children.length <= 1) {
+        console.log('GETNEXTPARENT CALLED')
+        let sibling = undefined;
+        let parent = undefined;
+
+        if (child.nextElementSibling != null && child.previousElementSibling != null) {sibling = 'both'}
+        else if (child.nextElementSibling != null && child.previousElementSibling == null) {sibling = child.nextElementSibling}
+        else if (child.nextElementSibling == null && child.previousElementSibling != null) {sibling = child.previousElementSibling}
+        else if (child.nextElementSibling == null && child.previousElementSibling == null) {
+            console.log('both null');
             parent = child.parentNode;
             getNextParent(parent);
-        }
-        else {
             return;
         }
+
+        console.log('child.nextElementSibling: ', child.nextElementSibling, 'child.previousElementSibling: ', child.previousElementSibling);
+
+        if (sibling != 'both') {
+            console.log('child.parentNode: ', child.parentNode, 'sibling: ', sibling);
+            if (newSearch(child.parentNode.innerText, sibling.innerText) != 'failed') {
+                parent = child.parentNode;
+                getNextParent(parent);
+            }
+            else {
+                finalParent = child;
+                return;
+            }
+        }
+        else {
+            console.log('child: ', child);
+            if (newSearch(child.innerText, child.nextElementSibling.innerText) != 'failed' && newSearch(child.innerText, child.previousElementSibling.innerText) != 'failed') {
+                console.log('WHAT?');
+                parent = child.parentNode;
+                getNextParent(parent);
+            }
+            else {
+                finalParent = child;
+                return;
+            }
+        }
+        console.log('=======================');
     }
 
     getNextParent(targetNode);
     if (parent == undefined) {console.log('ERROR: conditions not met at getNextParent')}
-    console.log('parent: ', parent);
-    return parent;
+    console.log('finalParent: ', finalParent);
+    console.log('*****************************')
+    return finalParent;
 }
 
 
@@ -437,66 +470,6 @@ function confirmChoices() {
     else {alert('You did not confirm all of your choices')}
 }
 
-//publish button click function
-function publishSubmission() {
-    //sends preliminarily validated data to background script for more in depth validation
-    let sendData = function(annotation, submission) {
-        submission.assignedTo = annotation.annotationId;
-        annotation.submissionsMade[submission.submissionId] = submission;
-        chrome.runtime.sendMessage({request: 'validate>submission', data: annotation}, function(response) {
-            console.log('sent submission for validation, data received: ', JSON.stringify(response.dataReceived, null, 4));
-        });
-
-        findAnnotationInPage(annotation, 'anchor');
-
-        if (!annotation.isUnified) {
-            findAnnotationInPage(annotation, 'middle');
-            findAnnotationInPage(annotation, 'focus');
-        }
-
-        console.log('insertions: ', insertions, 'nodeInDoc: ', nodeInDoc);
-        highlightAnnotation(insertions, nodeInDoc);
-        
-        nodeInDoc = undefined;
-        nodeChunks = undefined;
-        insertions = {}
-    }
-
-    //checks to see if url given is in correct format, taken from https://stackoverflow.com/questions/5717093/check-if-a-javascript-string-is-a-url
-    let validateUrlFormat = function(string) {
-        let url;
-      
-        try {
-            url = new URL(string);
-        } 
-        catch (_) {
-            return false;  
-        }
-    
-        return url.protocol === 'http:' || url.protocol === 'https:';
-    }
-
-    //validates if input is unchanged or whitespace and other data, then set values to the submission object
-    if (submissionInput.value != '' && submissionInput.value.trim() != '' && submissionInput.value != emptyVal) {
-        submission.submissionText = submissionInput.value;
-
-        if (submission.isSource) {
-            if (validateUrlFormat(sourceInput.value) != false) {
-                submission.sourceLink = sourceInput.value;
-                submission.submissionId = generateId('submission');
-                sendData(annotation, submission);
-            }
-            else {alert('Enter a valid HTTP Link (http://, https://)')}
-        }
-        else {
-            submission.sourceLink = null;
-            submission.submissionId = generateId('submission');
-            sendData(annotation, submission);
-        }
-    }
-    else {alert('Enter a valid submission')}
-}
-
 function resetAnnotation() {
     annotation = {
         annotationId: '',
@@ -636,12 +609,12 @@ function findAnnotationInPage(object, type) {
 
         //must find outermost (parent) node in order to get the entirety of the text, this is because if the start and end points are attained from differing full texts, it will break the highlightAnnotation() function
         //this is because the insertions object is not reset per call of the findAnnotationInPage() function
-        for (let i=0; i<validTags.length; i++) {
-            if (nodeInDoc.parentNode.nodeName == validTags[i]) {
+        //for (let i=0; i<validTags.length; i++) {
+            //if (nodeInDoc.parentNode.nodeName == validTags[i]) {
                 nodeInDoc = getParentNode(findNode(node))
-                break;
-            }
-        }
+                //break;
+            //}
+        //}
             
         console.log('nodeInDoc: ', nodeInDoc);
     
@@ -778,6 +751,66 @@ function findAnnotationInPage(object, type) {
         console.log('ERROR: invalid type: ', type);
         return;
     }
+}
+
+//publish button click function
+function publishSubmission() {
+    //sends preliminarily validated data to background script for more in depth validation
+    let sendData = function(annotation, submission) {
+        submission.assignedTo = annotation.annotationId;
+        annotation.submissionsMade[submission.submissionId] = submission;
+        chrome.runtime.sendMessage({request: 'validate>submission', data: annotation}, function(response) {
+            console.log('sent submission for validation, data received: ', JSON.stringify(response.dataReceived, null, 4));
+        });
+
+        findAnnotationInPage(annotation, 'anchor');
+
+        if (!annotation.isUnified) {
+            findAnnotationInPage(annotation, 'middle');
+            findAnnotationInPage(annotation, 'focus');
+        }
+
+        console.log('insertions: ', insertions, 'nodeInDoc: ', nodeInDoc);
+        highlightAnnotation(insertions, nodeInDoc);
+        
+        nodeInDoc = undefined;
+        nodeChunks = undefined;
+        insertions = {}
+    }
+
+    //checks to see if url given is in correct format, taken from https://stackoverflow.com/questions/5717093/check-if-a-javascript-string-is-a-url
+    let validateUrlFormat = function(string) {
+        let url;
+      
+        try {
+            url = new URL(string);
+        } 
+        catch (_) {
+            return false;  
+        }
+    
+        return url.protocol === 'http:' || url.protocol === 'https:';
+    }
+
+    //validates if input is unchanged or whitespace and other data, then set values to the submission object
+    if (submissionInput.value != '' && submissionInput.value.trim() != '' && submissionInput.value != emptyVal) {
+        submission.submissionText = submissionInput.value;
+
+        if (submission.isSource) {
+            if (validateUrlFormat(sourceInput.value) != false) {
+                submission.sourceLink = sourceInput.value;
+                submission.submissionId = generateId('submission');
+                sendData(annotation, submission);
+            }
+            else {alert('Enter a valid HTTP Link (http://, https://)')}
+        }
+        else {
+            submission.sourceLink = null;
+            submission.submissionId = generateId('submission');
+            sendData(annotation, submission);
+        }
+    }
+    else {alert('Enter a valid submission')}
 }
 
 function begunSelecting() {
@@ -1174,7 +1207,6 @@ function doneSelecting() {
 
                 if (!isFocussed) {
                     let selectionObj = window.getSelection();
-                    console.log('selectionObj: ', selectionObj);
 
                     finalSelection = autoCompOutcome;
                     initAnnotation(selectionObj, finalSelection);
@@ -1232,36 +1264,20 @@ function doneSelecting() {
 
 //adds a temporary border to element currently being hovered over (while holding s key)
 function borderHoveredElement() {
-    let found = false;
     let overElement = document.elementFromPoint(event.clientX, event.clientY);
+    overElement = getParentNode(overElement);
+    overElement.style = `
+        border-style: solid;
+        border-width: 1px;
+        border-radius: 4px;
+        border-color: rgb(200, 200, 200)
+    `;
 
-    for (let i=0; i<validTags.length; i++) {
-        if (overElement.nodeName == validTags[i]) {
-            found = true;
-        }
-    }
-
-    if (found) {
-        for (let i=0; i<validTags.length; i++) {
-            if (overElement.parentNode.nodeName == validTags[i]) {
-                overElement = getParentNode(overElement);
-                break;
-            }
-        }
-
+    overElement.addEventListener('mouseout', function() {
         overElement.style = `
-            border-style: solid;
-            border-width: 1px;
-            border-radius: 4px;
-            border-color: rgb(200, 200, 200);
+            border: none
         `;
-
-        overElement.addEventListener('mouseout', function() {
-            overElement.style = `
-                border: none;
-            `;
-        });
-    }  
+    });
 }
 
 //event listeners

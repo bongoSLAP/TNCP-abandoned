@@ -2,8 +2,9 @@ let selectionList = [];
 let autoCompOutcome = '';
 let emptyVal = ''
 let validTags = ['H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'P', 'SPAN', 'UL', 'LI', 'A', 'STRONG', 'B', 'CITE', 'DFN', 'EM', 'I', 'KBD', 'LABEL', 'Q', 'SMALL', 'BIG', 'SUB', 'SUP', 'TIME', 'VAR'];
+let punctuation = ['.', '?', '!', ',', ';', ':', '-', '—', ' ']; //include brackets, quotes etc? not sure
 let insertions = {};
-let nodeInDoc = undefined;
+let elemInDoc = undefined;
 let nodeChunks = undefined
 
 //user data objects
@@ -103,7 +104,7 @@ function newSearch(searchIn, query) {
 
 /*
 //recursive function to move up the tree of nodes starting from the selected node
-function getParentNode(targetNode) {
+function getParentElement(targetNode) {
     let parent = undefined;
 
     //recursion
@@ -135,11 +136,10 @@ function getParentNode(targetNode) {
 }
 */
 
-function getParentNode(targetNode) {
+function getParentElement(targetNode) {
     let finalParent = undefined;
 
     let getNextParent = function(child) {
-        console.log('GETNEXTPARENT CALLED')
         let sibling = undefined;
         let parent = undefined;
 
@@ -147,16 +147,16 @@ function getParentNode(targetNode) {
         else if (child.nextElementSibling != null && child.previousElementSibling == null) {sibling = child.nextElementSibling}
         else if (child.nextElementSibling == null && child.previousElementSibling != null) {sibling = child.previousElementSibling}
         else if (child.nextElementSibling == null && child.previousElementSibling == null) {
-            console.log('both null');
+            //console.log('both null');
             parent = child.parentNode;
             getNextParent(parent);
             return;
         }
 
-        console.log('child.nextElementSibling: ', child.nextElementSibling, 'child.previousElementSibling: ', child.previousElementSibling);
+        //console.log('child.nextElementSibling: ', child.nextElementSibling, 'child.previousElementSibling: ', child.previousElementSibling);
 
         if (sibling != 'both') {
-            console.log('child.parentNode: ', child.parentNode, 'sibling: ', sibling);
+            //console.log('child.parentNode: ', child.parentNode, 'sibling: ', sibling);
             if (newSearch(child.parentNode.innerText, sibling.innerText) != 'failed') {
                 parent = child.parentNode;
                 getNextParent(parent);
@@ -167,9 +167,8 @@ function getParentNode(targetNode) {
             }
         }
         else {
-            console.log('child: ', child);
+            //console.log('child: ', child);
             if (newSearch(child.innerText, child.nextElementSibling.innerText) != 'failed' && newSearch(child.innerText, child.previousElementSibling.innerText) != 'failed') {
-                console.log('WHAT?');
                 parent = child.parentNode;
                 getNextParent(parent);
             }
@@ -178,13 +177,13 @@ function getParentNode(targetNode) {
                 return;
             }
         }
-        console.log('=======================');
+        //console.log('=======================');
     }
 
     getNextParent(targetNode);
     if (parent == undefined) {console.log('ERROR: conditions not met at getNextParent')}
-    console.log('finalParent: ', finalParent);
-    console.log('*****************************')
+    //console.log('finalParent: ', finalParent);
+    //console.log('*****************************')
     return finalParent;
 }
 
@@ -195,7 +194,7 @@ function searchForContext(targetNode, selection) {
 
     //if it couldnt be found then use parent
     if (newSearch(fullText, selection.trim()) == 'failed') {     
-        fullText = getParentNode(targetNode).innerText;
+        fullText = getParentElement(targetNode).innerText;
     }
 
     let indexFound = newSearch(fullText, selection.trim());
@@ -222,36 +221,57 @@ function testRange(range) {
 //autocompletes the first and last words of the selection
 function completeFirstWord(targetNode, selection) {
     let context = searchForContext(targetNode, selection);
-    fullText = context[0];
     let startPoint = context[1];
+    let fullText = context[0];
+    let found = false;
 
     if (fullText.charAt(startPoint-1) != ' ' && startPoint != 0) {
-        while (fullText.charAt(startPoint-1) != ' ' && startPoint > 0) {
-            selection = fullText.charAt(startPoint-1).concat(selection);
-            startPoint--;
+        while (!found && startPoint > 0) {
+            for (let i=0; i<punctuation.length; i++) {
+                if (fullText.charAt(startPoint-1) == punctuation[i]) {
+                    found = true
+                    break;
+                }
+            }
+
+            if (!found) {
+                selection = fullText.charAt(startPoint-1).concat(selection);
+                startPoint--;
+            }
         }
     }
+    
     return selection;
 }
 
 function completeLastWord(targetNode, selection) {
     let context = searchForContext(targetNode, selection);
-    fullText = context[0];
     let startPoint = context[1];
     let endPoint = startPoint + selection.length;
+    let fullText = context[0];
+    let found = false;
 
     if (fullText.charAt(endPoint) != ' ') {
-        while (fullText.charAt(endPoint) != ' ' && endPoint < fullText.length) {
-            selection = selection.concat(fullText.charAt(endPoint));
-            endPoint++;
+        while (!found && endPoint < fullText.length) {
+            for (let i=0; i<punctuation.length; i++) {
+                if (fullText.charAt(endPoint) == punctuation[i]) {
+                    found = true
+                    break;
+                }
+            }
+
+            if (!found) {
+                selection = selection.concat(fullText.charAt(endPoint));
+                endPoint++;
+            }
         }
     }
 
     return selection;
 }
 
-//pushes the nodes inbetween the anchor and focus to the selectionList array
-function pushFilteredNodes(staticArray) {
+//pushes the elements inbetween the anchor and focus to the selectionList array
+function pushFilteredElems(staticArray) {
     if (staticArray.length > 2) {
         for (let i=1; i<staticArray.length-1; i++) {
             selectionList.push(staticArray[i].innerText);
@@ -285,7 +305,7 @@ function autoCompSelection() {
     let selection = thisSelectionObj.toString();
     
     if (!thisSelectionObj.isCollapsed) {
-        //if selection stays within the same node or not
+        //if selection stays within the same element or not
         if (thisSelectionObj.anchorNode == thisSelectionObj.focusNode || testRange(thisSelectionObj.getRangeAt(0)) == true) {
             autoCompOutcome = completeFirstWord(thisSelectionObj.anchorNode, completeLastWord(thisSelectionObj.anchorNode, selection));
         }
@@ -295,12 +315,12 @@ function autoCompSelection() {
             //if selection went up the page from starting point or down the page from starting point
             if (thisSelectionObj.anchorNode.wholeText.search(staticNodeArray[staticNodeArray.length-1].innerText) == -1) {
                 selectionList.push(completeFirstWord(thisSelectionObj.anchorNode, staticNodeArray[0].innerText));
-                pushFilteredNodes(staticNodeArray);
+                pushFilteredElems(staticNodeArray);
                 selectionList.push(completeLastWord(thisSelectionObj.focusNode, staticNodeArray[staticNodeArray.length-1].innerText));
             }
             else {
                 selectionList.push(completeFirstWord(thisSelectionObj.focusNode, staticNodeArray[0].innerText));
-                pushFilteredNodes(staticNodeArray);
+                pushFilteredElems(staticNodeArray);
                 selectionList.push(completeLastWord(thisSelectionObj.anchorNode, staticNodeArray[staticNodeArray.length-1].innerText));
             }  
             
@@ -542,15 +562,15 @@ function initAnnotation(object, selection) {
 }
 
 //inserts text (html tags) at the detected regions in the anchor and focus nodes, taken from https://stackoverflow.com/questions/4313841/insert-a-string-at-a-specific-index
-function highlightAnnotation(object, node) {
+function highlightAnnotation(object, element) {
     String.prototype.insertTextAtIndices = function(text) {
         return this.replace(/./g, function(character, index) {
             return text[index] ? text[index] + character : character;
         });
     };
 
-    let highlighted = node.innerHTML.insertTextAtIndices(object);
-    node.innerHTML = highlighted;
+    let highlighted = element.innerHTML.insertTextAtIndices(object);
+    element.innerHTML = highlighted;
 }
 
 //finds an annotation in the parent document given a valid annotation object (fetched from database)
@@ -559,11 +579,11 @@ function findAnnotationInPage(object, type) {
     console.log('**************');
 
     //finds the nodes in the parent docoument using the snapshots of data in the annotation object (cant call methods on the annotation object data as it is just strings and arrays etc not actual nodes)
-    let findNode = function(targetNode) {
+    let findElement = function(targetNode) {
         let searchArea = [];
         let found = false;
 
-        //if finding the anchor and focus nodes in document, use annotation data to find node, if finding middle nodes, use the nodeInDoc value that was found from the previous findNode() call in findAnnotation(object, 'anchor')
+        //if finding the anchor and focus nodes in document, use annotation data to find element, if finding middle elements, use the elemInDoc value that was found from the previous findElement() call in findAnnotation(object, 'anchor')
         if (type != 'middle') {
             if (targetNode.nodeType != 1) {
                 searchArea = document.querySelectorAll(targetNode.parentNode.nodeName.toLowerCase());
@@ -580,46 +600,48 @@ function findAnnotationInPage(object, type) {
             }
     
             if (!found) {
-                console.log('findNode()| ERROR: could not find annotation: ', object.textAnnotated)
+                console.log('findElement()| ERROR: could not find annotation: ', object.textAnnotated)
                 return;
             }
         }
         else {
-            //(previous nodeInDoc value)
-            console.log('findNode| nodeInDoc.children: ', nodeInDoc.children);
-            for (let i=0; i<nodeInDoc.children.length; i++) {
-                if (nodeInDoc.children[i].innerText == targetNode) {
-                    return nodeInDoc.children[i];
+            //(previous elemInDoc value)
+            console.log('findElement| elemInDoc.children: ', elemInDoc.children);
+            for (let i=0; i<elemInDoc.children.length; i++) {
+                if (elemInDoc.children[i].innerText == targetNode) {
+                    return elemInDoc.children[i];
                 }
             }
         }
     }
 
-    //finds the boundary words in the anchor and focus node, ie: if the full text in the node is 'hello world! this is text' and the selection is 'this is text', then the start point is 13 charaters in and so forth
-    let detectBoundaries = function(node) {
+    //finds the boundary words in the anchor and focus node, ie: if the full text in the element is 'hello world! this is text' and the selection is 'this is text', then the start point is 13 charaters in and so forth
+    let detectBoundaries = function(targetNode) {
         let startPoint = undefined;
         let endPoint = undefined;
         let searchString = undefined;
         let fullText = undefined;
         let temp = '';
         let indexInNodeChunks = undefined;
-        let wholeText = node.wholeText;
+        let wholeText = targetNode.wholeText;
+        let possibleMatches = [];
+        let found = false;
 
-        nodeInDoc = findNode(node);
+        elemInDoc = findElement(targetNode);
 
-        //must find outermost (parent) node in order to get the entirety of the text, this is because if the start and end points are attained from differing full texts, it will break the highlightAnnotation() function
+        //must find outermost (parent) element in order to get the entirety of the text, this is because if the start and end points are attained from differing full texts, it will break the highlightAnnotation() function
         //this is because the insertions object is not reset per call of the findAnnotationInPage() function
         //for (let i=0; i<validTags.length; i++) {
-            //if (nodeInDoc.parentNode.nodeName == validTags[i]) {
-                nodeInDoc = getParentNode(findNode(node))
+            //if (elemInDoc.parentNode.nodeName == validTags[i]) {
+                elemInDoc = getParentElement(findElement(targetNode))
                 //break;
             //}
         //}
             
-        console.log('nodeInDoc: ', nodeInDoc);
+        console.log('elemInDoc: ', elemInDoc);
     
-        //chunking up the node by its HTML tags and removing the split tags from the array
-        nodeChunks = nodeInDoc.innerHTML.split(/(<([^>]+)>)/g);
+        //chunking up the element by its HTML tags and removing the split tags from the array
+        nodeChunks = elemInDoc.innerHTML.split(/(<([^>]+)>)/g);
     
         for (let i=0; i<nodeChunks.length; i++) {
             if (nodeChunks[i].match(/(<([^>]+)>)/g, '') != null) {
@@ -631,57 +653,52 @@ function findAnnotationInPage(object, type) {
             }
         }
 
-        console.log('node.wholeText: ', node.wholeText, 'nodeChunks ', nodeChunks);
+        console.log('targetNode.wholeText: ', targetNode.wholeText, 'nodeChunks ', nodeChunks);
 
-        //anchor and focus nodes are not neccesarily the first and last nodes in the parent node found in doc
+        //anchor and focus nodes are not neccesarily the first and last nodes in the parent element found in doc
         for (let i=0; i<nodeChunks.length; i++) {
-            if (node.wholeText == nodeChunks[i]) {indexInNodeChunks = i}
+            if (targetNode.wholeText == nodeChunks[i]) {indexInNodeChunks = i}
         }
     
         //detects overlap of a given node chunk with the selection that was made, this is because if we simply searched in the node chunk for the whole text selected, it is likely that it would fail becuase it is only a chunk. 
         if (type == 'anchor' && !object.isUnified) {
-            let found = false;
             for (let i=nodeChunks[indexInNodeChunks].length-1; i>=0; i--) {
                 temp = nodeChunks[indexInNodeChunks][i] + temp;
                 searchString = object.textAnnotated.substr(0, temp.length);
                 console.log('anchor|', 'temp: ', temp, 'searchString: ', searchString);
         
                 if (temp == searchString) {
+                    possibleMatches.push(searchString);
                     found = true;
-                    break;
                 }
             }                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        
-            
-            if (!found) {
-                console.log('detectBoundaries()| ERROR: could not find annotation: ', object.textAnnotated)
-            }
         }
         else if (type == 'focus') {
-            let found = false;
             for (let j=0; j<nodeChunks[indexInNodeChunks].length; j++) {
                 temp = temp + nodeChunks[indexInNodeChunks][j];
                 searchString = object.textAnnotated.substr(object.textAnnotated.length - temp.length, temp.length);
                 console.log('focus|', 'temp: ', temp, 'searchString: ', searchString);
             
                 if (temp == searchString) {
+                    possibleMatches.push(searchString);
                     found = true;
-                    break;
                 }
             }                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      
-            
-            if (!found) {
-                console.log('detectBoundaries()| ERROR: could not find annotation: ', object.textAnnotated)
-            }
         }
+
+        if (!found) {
+            console.log('detectBoundaries()| ERROR: could not detect boundary: ', indexInNodeChunks)
+        }
+        else {searchString = possibleMatches[possibleMatches.length-1]}
     
         console.log('searchString: ', searchString);
     
         if (!object.isUnified) {
-            //does the searchString span over 2 nodes (html tag between these nodes will cause search to fail, therefore use innerText) however just setting innerText declaratively causes it to break for other cases.
-            if (newSearch(nodeInDoc.innerHTML, searchString) == 'failed') {fullText = nodeInDoc.innerText}
-            else {fullText = nodeInDoc.innerHTML}
+            //does the searchString span over 2 elements (html tag between these elements will cause search to fail, therefore use innerText) however just setting innerText declaratively causes it to break for other cases.
+            if (newSearch(elemInDoc.innerHTML, searchString) == 'failed') {fullText = elemInDoc.innerText}
+            else {fullText = elemInDoc.innerHTML}
         
-            //does anchor/focus begin/end at the beginning/end of the node in question? if so need to use fulltext instead of wholeText because the fulltext is used for selections that start within a child node and end in the parent.
+            //does anchor/focus begin/end at the beginning/end of the node in question? if so need to use fulltext instead of wholeText because the fulltext is used for selections that start within a child element and end in the parent.
             console.log('indexInNodeChunks: ', indexInNodeChunks, 'nodeChunks.length: ', nodeChunks.length);
             if (indexInNodeChunks != 0 && indexInNodeChunks != nodeChunks.length-1) {substringFrom = fullText}
             else {substringFrom = wholeText}
@@ -696,7 +713,7 @@ function findAnnotationInPage(object, type) {
         else if (type == 'anchor' && object.isUnified) {
             console.log('wholeText: ', wholeText, 'object.textAnnotated: ', object.textAnnotated);
             startPoint = newSearch(wholeText, object.textAnnotated);
-            endPoint = startPoint + object.textAnnotated.length + 1;
+            endPoint = startPoint + object.textAnnotated.length;
         }
         else if (type == 'focus') {
             console.log('fullText: ', fullText, 'searchString', searchString);
@@ -712,7 +729,7 @@ function findAnnotationInPage(object, type) {
         insertions[endPoint] = '</span>';
     };
 
-    //if highlighting middle nodes, dont need to find any boundaries, just highlight the whole element
+    //if highlighting middle elements, dont need to find any boundaries, just highlight the whole element
     let highlightMidNodes = function(object) {
         let anchorIndex = undefined;
         let focusIndex = undefined;
@@ -728,10 +745,10 @@ function findAnnotationInPage(object, type) {
         console.log('indexes: ', anchorIndex, focusIndex);
 
         for (let i=anchorIndex+1; i<focusIndex; i++) {
-            let childNodeInDoc = findNode(nodeChunks[i]);
-            childNodeInDoc.classList.add(object.annotationId, 'highlight-annotation');
-            childNodeInDoc.style.backgroundColor = 'rgb(200, 200, 200)';
-            console.log('childNodeInDoc.classList: ', childNodeInDoc.classList);
+            let childElemInDoc = findElement(nodeChunks[i]);
+            childElemInDoc.classList.add(object.annotationId, 'highlight-annotation');
+            childElemInDoc.style.backgroundColor = 'rgb(200, 200, 200)';
+            console.log('childElemInDoc.classList: ', childElemInDoc.classList);
 
             console.log('middle loop| nodeChunks[i]', nodeChunks[i]); 
         }
@@ -770,10 +787,10 @@ function publishSubmission() {
             findAnnotationInPage(annotation, 'focus');
         }
 
-        console.log('insertions: ', insertions, 'nodeInDoc: ', nodeInDoc);
-        highlightAnnotation(insertions, nodeInDoc);
+        console.log('insertions: ', insertions, 'elemInDoc: ', elemInDoc);
+        highlightAnnotation(insertions, elemInDoc);
         
-        nodeInDoc = undefined;
+        elemInDoc = undefined;
         nodeChunks = undefined;
         insertions = {}
     }
@@ -1203,7 +1220,7 @@ function doneSelecting() {
 
             whenNotHovering(contextMenuContainer, function() {
                 //triple clicks cause weird bugs
-                if (event.detail === 3) {contextMenuContainer.classList.add('hidden')}
+                //if (event.detail === 3) {contextMenuContainer.classList.add('hidden')}
 
                 if (!isFocussed) {
                     let selectionObj = window.getSelection();
@@ -1265,7 +1282,7 @@ function doneSelecting() {
 //adds a temporary border to element currently being hovered over (while holding s key)
 function borderHoveredElement() {
     let overElement = document.elementFromPoint(event.clientX, event.clientY);
-    overElement = getParentNode(overElement);
+    overElement = getParentElement(overElement);
     overElement.style = `
         border-style: solid;
         border-width: 1px;
@@ -1310,33 +1327,42 @@ window.addEventListener('load', function() {
         }
     });
 
-    /*
     let testData = {
-        "annotationId": "ANTrx95y3504",
-        "textAnnotated": "government's testing system - part of its test, track and trace operation",
-        "isUnified": true,
+        "annotationId": "ANTsz9xkt92k",
+        "textAnnotated": "released this week suggested infections may be increasing more slowly than in previous weeks",
+        "isUnified": false,
         "anchor": {
             "nodeName": "#text",
             "nodeType": 3,
-            "wholeText": "The government's testing system - part of its test, track and trace operation which Prime Minister Boris Johnson ",
+            "wholeText": "It comes after data released this week ",
             "parentNode": {
                 "nodeName": "P",
                 "nodeType": 1,
-                "parentWholeText": "The government's testing system - part of its test, track and trace operation which Prime Minister Boris Johnson promised would be \"world-beating\" - has faced criticism in recent weeks."
+                "parentWholeText": "It comes after data released this week suggested infections may be increasing more slowly than in previous weeks."
+            }
+        },
+        "focus": {
+            "nodeName": "#text",
+            "nodeType": 3,
+            "wholeText": "suggested infections may be increasing more slowly than in previous weeks.",
+            "parentNode": {
+                "nodeName": "A",
+                "nodeType": 1,
+                "parentWholeText": "suggested infections may be increasing more slowly than in previous weeks."
             }
         },
         "submissionsMade": {
-            "SUB57qm416ha": {
-                "submissionId": "SUB57qm416ha",
-                "assignedTo": "ANTrx95y3504",
-                "urlOfArticle": "https://www.bbc.co.uk/news/uk-54156889",
+            "SUB7edkllra4": {
+                "submissionId": "SUB7edkllra4",
+                "assignedTo": "ANTsz9xkt92k",
+                "urlOfArticle": "https://www.bbc.co.uk/news/health-54404561",
                 "argumentNature": "for",
-                "submissionText": "Your trehoughts",
+                "submissionText": "Your dqthoughts",
                 "isSource": false,
                 "sourceLink": null
             }
         }
-    };
+    }
     
     //sequence of function calls to find an annotation in the parent document given a specific annotation object (fetched from database)
     findAnnotationInPage(testData, 'anchor');
@@ -1346,11 +1372,10 @@ window.addEventListener('load', function() {
         findAnnotationInPage(testData, 'focus');
     }
 
-    console.log('insertions: ', insertions, 'nodeInDoc: ', nodeInDoc);
-    highlightAnnotation(insertions, nodeInDoc);
+    console.log('insertions: ', insertions, 'elemInDoc: ', elemInDoc);
+    highlightAnnotation(insertions, elemInDoc);
         
-    nodeInDoc = undefined;
+    elemInDoc = undefined;
     nodeChunks = undefined;
-    insertions = {}
-    */
+    insertions = {};
 });

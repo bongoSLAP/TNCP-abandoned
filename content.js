@@ -163,17 +163,23 @@ function getParentElement(targetNode) {
             }
             else {
                 finalParent = child;
+                console.log('finalParent: ', finalParent);
                 return;
             }
         }
         else {
-            //console.log('child: ', child);
-            if (newSearch(child.innerText, child.nextElementSibling.innerText) != 'failed' && newSearch(child.innerText, child.previousElementSibling.innerText) != 'failed') {
+            let fullText = undefined;
+
+            if (targetNode.nodeName == '#text') {fullText = child.wholeText}
+            else {fullText = child.innerText}
+
+            if (newSearch(fullText, child.nextElementSibling.innerText) != 'failed' && newSearch(fullText, child.previousElementSibling.innerText) != 'failed') {
                 parent = child.parentNode;
                 getNextParent(parent);
             }
             else {
-                finalParent = child;
+                if (child.nodeName == '#text') {finalParent = child.parentNode}
+                else {finalParent = child};
                 return;
             }
         }
@@ -181,7 +187,7 @@ function getParentElement(targetNode) {
     }
 
     getNextParent(targetNode);
-    if (parent == undefined) {console.log('ERROR: conditions not met at getNextParent')}
+    if (finalParent == undefined) {console.log('ERROR: conditions not met at getNextParent')}
     //console.log('finalParent: ', finalParent);
     //console.log('*****************************')
     return finalParent;
@@ -197,6 +203,7 @@ function searchForContext(targetNode, selection) {
         fullText = getParentElement(targetNode).innerText;
     }
 
+    console.log('fullText: ', fullText);
     let indexFound = newSearch(fullText, selection.trim());
     return [fullText, indexFound];
 }
@@ -251,7 +258,7 @@ function completeLastWord(targetNode, selection) {
     let fullText = context[0];
     let found = false;
 
-    if (fullText.charAt(endPoint) != ' ') {
+    if (fullText.charAt(endPoint) != ' ' && fullText.charAt(endPoint-1) != ' ') {
         while (!found && endPoint < fullText.length) {
             for (let i=0; i<punctuation.length; i++) {
                 if (fullText.charAt(endPoint) == punctuation[i]) {
@@ -307,7 +314,8 @@ function autoCompSelection() {
     if (!thisSelectionObj.isCollapsed) {
         //if selection stays within the same element or not
         if (thisSelectionObj.anchorNode == thisSelectionObj.focusNode || testRange(thisSelectionObj.getRangeAt(0)) == true) {
-            autoCompOutcome = completeFirstWord(thisSelectionObj.anchorNode, completeLastWord(thisSelectionObj.anchorNode, selection));
+            console.log('thisSelectionObj.anchorNode: ', thisSelectionObj);
+            autoCompOutcome = completeFirstWord(thisSelectionObj.anchorNode, completeLastWord(thisSelectionObj.anchorNode, selection/*.trim()*/));
         }
         else if (thisSelectionObj.anchorNode != thisSelectionObj.focusNode) {
             let staticNodeArray = getAllNodes(thisSelectionObj);
@@ -1124,7 +1132,6 @@ function begunSelecting() {
             let initialSelection = window.getSelection().toString();
 
             if (initialSelection.length > 0 && !isAbortSelection) {
-                console.log('success');
                 isSelectMade = true;
                 contextMenuContainer.classList.remove('hidden');
             }
@@ -1176,7 +1183,6 @@ function begunSelecting() {
     window.addEventListener('keyup', function(event) {
         if (event.keyCode === 83) {
             if (!isExpanded) {
-                console.log('success2');
                 isAbortSelection = true;
                 contextMenuContainer.classList.add('fadeout-anim');
     

@@ -153,8 +153,6 @@ function getParentElement(targetNode) {
             return;
         }
 
-        //console.log('child.nextElementSibling: ', child.nextElementSibling, 'child.previousElementSibling: ', child.previousElementSibling);
-
         if (sibling != 'both') {
             //console.log('child.parentNode: ', child.parentNode, 'sibling: ', sibling);
             if (newSearch(child.parentNode.innerText, sibling.innerText) != 'failed') {
@@ -163,15 +161,17 @@ function getParentElement(targetNode) {
             }
             else {
                 finalParent = child;
-                console.log('finalParent: ', finalParent);
+                //console.log('finalParent: ', finalParent);
                 return;
             }
         }
         else {
             let fullText = undefined;
 
-            if (targetNode.nodeName == '#text') {fullText = child.wholeText}
+            if (child.nodeName == '#text') {fullText = child.wholeText;}
             else {fullText = child.innerText}
+
+            //console.log('fullText: ', fullText);
 
             if (newSearch(fullText, child.nextElementSibling.innerText) != 'failed' && newSearch(fullText, child.previousElementSibling.innerText) != 'failed') {
                 parent = child.parentNode;
@@ -203,7 +203,6 @@ function searchForContext(targetNode, selection) {
         fullText = getParentElement(targetNode).innerText;
     }
 
-    console.log('fullText: ', fullText);
     let indexFound = newSearch(fullText, selection.trim());
     return [fullText, indexFound];
 }
@@ -314,7 +313,6 @@ function autoCompSelection() {
     if (!thisSelectionObj.isCollapsed) {
         //if selection stays within the same element or not
         if (thisSelectionObj.anchorNode == thisSelectionObj.focusNode || testRange(thisSelectionObj.getRangeAt(0)) == true) {
-            console.log('thisSelectionObj.anchorNode: ', thisSelectionObj);
             autoCompOutcome = completeFirstWord(thisSelectionObj.anchorNode, completeLastWord(thisSelectionObj.anchorNode, selection/*.trim()*/));
         }
         else if (thisSelectionObj.anchorNode != thisSelectionObj.focusNode) {
@@ -1181,15 +1179,25 @@ function begunSelecting() {
     window.addEventListener('keydown', function(event) {if (event.keyCode === 83) {window.addEventListener('mouseup', doneSelecting)}});
 
     window.addEventListener('keyup', function(event) {
+        let isMouseUp = false;
         if (event.keyCode === 83) {
             if (!isExpanded) {
-                isAbortSelection = true;
-                contextMenuContainer.classList.add('fadeout-anim');
-    
+                //some delay added to check whether user meant to let mouse up but they let s key up first
+                window.addEventListener('mouseup', function() {isMouseUp = true});
+
                 setTimeout(function() {
-                    contextMenuContainer.classList.add('hidden');
-                    contextMenuContainer.classList.remove('fadeout-anim');
-                }, 150);
+                    //hide UI if s key is let up before mouse key
+                    if (!isMouseUp) {
+                        isAbortSelection = true;
+                        contextMenuContainer.classList.add('fadeout-anim');
+            
+                        setTimeout(function() {
+                            contextMenuContainer.classList.add('hidden');
+                            contextMenuContainer.classList.remove('fadeout-anim');
+                        }, 150);
+                    }
+                    else {doneSelecting()}
+                }, 200);
             }
             
             window.removeEventListener('mouseup', doneSelecting);

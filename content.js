@@ -1,5 +1,4 @@
 let selectionList = [];
-let autoCompOutcome = '';
 let emptyVal = ''
 let validTags = ['H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'P', 'SPAN', 'UL', 'LI', 'A', 'STRONG', 'B', 'CITE', 'DFN', 'EM', 'I', 'KBD', 'LABEL', 'Q', 'SMALL', 'BIG', 'SUB', 'SUP', 'TIME', 'VAR'];
 let punctuation = ['.', '?', '!', ',', ';', ':', '-', '—', ' ']; //include brackets, quotes etc? not sure
@@ -12,16 +11,14 @@ let annotation = {
     annotationId: '',
     textAnnotated: '',
     isUnified: true,
+    urlOfArticle: '',
     anchor: {},
-    focus: {},
-    nodeList: [],
-    submissionsMade: {}
+    focus: {}
 }
 
 let submission = {
     submissionId: '',
     assignedTo: '', 
-    urlOfArticle: '',
     argumentNature: '',
     submissionText: '',
     isSource: false,
@@ -309,11 +306,12 @@ function getAllNodes(object) {
 function autoCompSelection() {
     let thisSelectionObj = window.getSelection();
     let selection = thisSelectionObj.toString();
+    let autoCompOutcome = undefined;
     
     if (!thisSelectionObj.isCollapsed) {
         //if selection stays within the same element or not
         if (thisSelectionObj.anchorNode == thisSelectionObj.focusNode || testRange(thisSelectionObj.getRangeAt(0)) == true) {
-            autoCompOutcome = completeFirstWord(thisSelectionObj.anchorNode, completeLastWord(thisSelectionObj.anchorNode, selection/*.trim()*/));
+            autoCompOutcome = completeFirstWord(thisSelectionObj.anchorNode, completeLastWord(thisSelectionObj.anchorNode, selection.trim()));
         }
         else if (thisSelectionObj.anchorNode != thisSelectionObj.focusNode) {
             let staticNodeArray = getAllNodes(thisSelectionObj);
@@ -331,7 +329,7 @@ function autoCompSelection() {
             }  
             
             //concatenating text values of filtered selected elements
-            autoCompOutcome = selectionList.join(' ');
+            autoCompOutcome = selectionList.join(' ')
             
         }           
     }
@@ -503,8 +501,6 @@ function resetAnnotation() {
         isUnified: true,
         anchor: {},
         focus: {},
-        nodeList: [],
-        submissionsMade: {}
     }
 }
 
@@ -548,6 +544,7 @@ function initAnnotation(object, selection) {
     }
     else {delete annotation.focus}
 
+    /*
     let nodeList = getAllNodes(object);
 
     //if selection spans multiple block level elemets, then get these elements and capture a snapshot of this data for the object 
@@ -563,6 +560,7 @@ function initAnnotation(object, selection) {
         }
     }
     else {delete annotation.nodeList}
+    */
 
     annotation.annotationId = generateId('annotation');
 }
@@ -781,8 +779,18 @@ function publishSubmission() {
     //sends preliminarily validated data to background script for more in depth validation
     let sendData = function(annotation, submission) {
         submission.assignedTo = annotation.annotationId;
-        annotation.submissionsMade[submission.submissionId] = submission;
-        chrome.runtime.sendMessage({request: 'validate>submission', data: annotation}, function(response) {
+
+        let data = {
+            contents: 'submission',
+            submission: submission
+        }
+
+        if (annotation.annotationId != '') {
+            data.contents = 'both';
+            data.annotation = annotation;
+        }
+
+        chrome.runtime.sendMessage({request: 'validate>submission', data: data}, function(response) {
             console.log('sent submission for validation, data received: ', JSON.stringify(response.dataReceived, null, 4));
         });
 
@@ -796,8 +804,8 @@ function publishSubmission() {
         console.log('insertions: ', insertions, 'elemInDoc: ', elemInDoc);
         highlightAnnotation(insertions, elemInDoc);
         
-        elemInDoc = undefined;
-        nodeChunks = undefined;
+        elemInDoc = null;
+        nodeChunks = null;
         insertions = {}
     }
 
@@ -1197,7 +1205,7 @@ function begunSelecting() {
                         }, 150);
                     }
                     else {doneSelecting()}
-                }, 200);
+                }, 300);
             }
             
             window.removeEventListener('mouseup', doneSelecting);
@@ -1230,7 +1238,7 @@ function doneSelecting() {
     else {
         if (isSelectMade) {
             let finalSelection = '';
-            submission.urlOfArticle = window.location.href;
+            annotation.urlOfArticle = window.location.href;
 
             whenNotHovering(contextMenuContainer, function() {
                 //triple clicks cause weird bugs
@@ -1239,7 +1247,7 @@ function doneSelecting() {
                 if (!isFocussed) {
                     let selectionObj = window.getSelection();
 
-                    finalSelection = autoCompOutcome;
+                    finalSelection = autoCompSelection();
                     initAnnotation(selectionObj, finalSelection);
                 }
             });
@@ -1276,7 +1284,6 @@ function doneSelecting() {
     }
 
     selectionList = [];
-    autoCompOutcome = '';
     
     window.addEventListener('keydown', function(event) {
         if (event.keyCode === 83) {
@@ -1364,17 +1371,6 @@ window.addEventListener('load', function() {
                 "nodeType": 1,
                 "parentWholeText": "suggested infections may be increasing more slowly than in previous weeks."
             }
-        },
-        "submissionsMade": {
-            "SUB7edkllra4": {
-                "submissionId": "SUB7edkllra4",
-                "assignedTo": "ANTsz9xkt92k",
-                "urlOfArticle": "https://www.bbc.co.uk/news/health-54404561",
-                "argumentNature": "for",
-                "submissionText": "Your dqthoughts",
-                "isSource": false,
-                "sourceLink": null
-            }
         }
     }
     
@@ -1389,7 +1385,7 @@ window.addEventListener('load', function() {
     console.log('insertions: ', insertions, 'elemInDoc: ', elemInDoc);
     highlightAnnotation(insertions, elemInDoc);
         
-    elemInDoc = undefined;
-    nodeChunks = undefined;
+    elemInDoc = null;
+    nodeChunks = null;
     insertions = {};
 });

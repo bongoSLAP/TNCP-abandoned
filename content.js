@@ -778,19 +778,24 @@ function findAnnotationInPage(object, type) {
 function publishSubmission() {
     //sends preliminarily validated data to background script for more in depth validation
     let sendData = function(annotation, submission) {
+        let resource = 'submission';
         submission.assignedTo = annotation.annotationId;
 
         let data = {
-            contents: 'submission',
             submission: submission
         }
 
         if (annotation.annotationId != '') {
-            data.contents = 'both';
             data.annotation = annotation;
+            resource = 'both';
         }
 
-        chrome.runtime.sendMessage({request: 'validate>submission', data: data}, function(response) {
+        chrome.runtime.sendMessage({
+            request: 'create>validate', 
+            resource: resource,
+            data: data
+        }, 
+            function(response) {
             console.log('sent submission for validation, data received: ', JSON.stringify(response.dataReceived, null, 4));
         });
 
@@ -1239,6 +1244,7 @@ function doneSelecting() {
         if (isSelectMade) {
             let finalSelection = '';
             annotation.urlOfArticle = window.location.href;
+            submission.urlOfArticle = window.location.href;
 
             whenNotHovering(contextMenuContainer, function() {
                 //triple clicks cause weird bugs
@@ -1348,6 +1354,7 @@ window.addEventListener('load', function() {
         }
     });
 
+    /*
     let testData = {
         "annotationId": "ANTsz9xkt92k",
         "textAnnotated": "released this week suggested infections may be increasing more slowly than in previous weeks",
@@ -1384,8 +1391,46 @@ window.addEventListener('load', function() {
 
     console.log('insertions: ', insertions, 'elemInDoc: ', elemInDoc);
     highlightAnnotation(insertions, elemInDoc);
-        
+
     elemInDoc = null;
     nodeChunks = null;
     insertions = {};
+    */
+
+    chrome.runtime.sendMessage({
+        request: 'read',
+        quantity: 'all',
+        resource: 'Annotations', 
+        subResource: 'https://www.bbc.co.uk/news/uk-54468498'
+    }, 
+    function(response) {
+        console.log('sent submission for validation, data fetched: ', JSON.stringify(response.dataFetched, null, 4));
+        console.log('response: ', response);
+
+        if (response.dataFetched.length > 0) {
+            for (let i=0; i<response.dataFetched.length; i++) {
+                findAnnotationInPage(response.dataFetched[i], 'anchor');
+
+                if (!annotation.isUnified) {
+                    findAnnotationInPage(response.dataFetched[i], 'middle');
+                    findAnnotationInPage(response.dataFetched[i], 'focus');
+                }
+
+                console.log('insertions: ', insertions, 'elemInDoc: ', elemInDoc);
+                highlightAnnotation(insertions, elemInDoc);
+                
+                elemInDoc = null;
+                nodeChunks = null;
+                insertions = {}
+            }
+        }
+    });
+
+    /*
+    chrome.runtime.sendMessage({
+        request: 'delete',
+        resource: 'Submissions',
+        id: 'SUBi16qd0bjw'
+    });
+    */
 });

@@ -25,9 +25,8 @@ chrome.runtime.onInstalled.addListener(function() {
 
 //store submission in db
 function createRecord(resource, data) {
-    //if (validateInput(data) == true) {fetch request}
-    //else {return error message}
-
+    validateInput(data);
+    
     console.log(fetch('https://localhost:44376/api/Submissions', {
         method: 'POST',
         headers: {
@@ -119,8 +118,7 @@ function readRecord(resource, quantity, subResource) {
 
 //update a submission in db
 function updateRecord(data, id) {
-    //if (validateInput(data) == true) {fetch request}
-    //else {return error message}
+    validateInput(data);
 
     console.log(fetch('https://localhost:44376/api/Submissions/' + id, {
         method: 'POST',
@@ -158,8 +156,53 @@ function deleteRecord(resource, id) {
 
 //validation for noSQL XSS, unsafe links etc
 function validateInput(data) {
+    let isValid = true;
     //validate submission text for noSQL XSS etc
+
+    console.log('data.submission.sourceLink: ', data.submission.sourceLink);
     //validate sourcelink for unsafe links
+    if (data.submission.isSource) {
+        let query = {
+            client: {
+                clientId: 'TNCP',
+                clientVersion: '0.0.0'
+            },
+            threatInfo: {
+                threatTypes: ['MALWARE', 'SOCIAL_ENGINEERING', 'UNWANTED_SOFTWARE'],
+                platformTypes: ['ANY_PLATFORM'],
+                threatEntryTypes: ['URL'],
+                threatEntries: [
+                    {'url': data.submission.sourceLink}
+                ]
+            }
+        }
+
+        new Promise(function(resolve, reject) {
+            fetch('https://safebrowsing.googleapis.com/v4/threatMatches:find?key=AIzaSyAQi3E5y-deSyOMwbf_hSQ1kzYOewZJ7z4', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(query)
+            }).then(function (response) {
+                if (response.ok) {
+                    return response.json();
+                }
+                return Promise.reject(response);
+            }).then(function (data) {
+                resolve(data);
+            }).catch(function (error) {
+                console.warn('Something went wrong.', error);
+                reject(error);
+            });
+        }).then(function(outcome) {
+            console.log('outcome: ', outcome)
+            if (outcome.matches) {
+                isValid = false;
+            }
+            return isValid;
+        });
+    }
 }
 
 function handleBackgroundRequests(message, sender, sendResponse) {
@@ -182,4 +225,5 @@ function handleBackgroundRequests(message, sender, sendResponse) {
 }
 
 //Fact check API key: AIzaSyDFpqS-olfCY9kU8mPO4VkxJg-dfR2bS1A
+//Safe browsing API key: AIzaSyAQi3E5y-deSyOMwbf_hSQ1kzYOewZJ7z4
 chrome.runtime.onMessage.addListener(handleBackgroundRequests);

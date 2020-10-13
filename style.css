@@ -1,6 +1,94 @@
 body {
-    height: 500px;
-    width: 300px;
-    background-color: rgb(240, 240, 240);
+    font-family: Tahoma, Geneva, sans-serif
 }
+
+#triangle-up, #completed-submission-container {
+    margin: auto
+}
+
+#triangle-up {
+    width: 0;
+	height: 0;
+	border-left: 10px solid transparent;
+	border-right: 10px solid transparent;
+    border-bottom: 20px solid  rgb(220, 220, 220);
+    margin-bottom: -20px
+}
+
+#completed-submission-container {
+    height: 260px;
+    width: 400px;
+    border-radius: 10px;
+    padding-bottom: 4px;
+    background-color: rgb(240, 240, 240)
+}
+
+#user-info-container {
+    height: 18px;
+    width: 100%;
+    margin-top: 20px;
+    border-radius: 10px 10px 0px 0px;
+    border-bottom: 0.5px solid rgb(200, 200, 200);
+    background-color: rgb(220, 220, 220)
+}
+
+#user-name-label, #karma-score-label {
+    width: 50%;
+    text-align: center;
+    margin-top: 0px;
+}
+
+#user-name-label {
+    float: left
+}
+
+#karma-score-label {
+    float: right
+}
+
+#control-panel {
+    height: 241.5px;
+    width: 18%;
+    margin-top: -19.5px;
+    margin-right: 0px;
+    padding: 2px;
+    border-radius: 0px 0px 10px 0px;
+    background-color: rgb(220, 220, 220);
+    float: right
+}
+
+#control-panel-buttons, #control-panel-counters {
+    display: inline-grid
+}
+
+#control-panel-buttons {
+    float: left;
+}
+
+#control-panel-counters {
+    float: right;
+    margin-right: 4px;
+}
+
+.control-panel-button {
+    border-radius: 25%;
+    padding: 2px;
+    padding-top: 6px;
+    padding-bottom: 6px
+}
+
+.control-panel-button:hover {
+    background-color: rgb(200, 200, 200)
+}
+
+.control-panel-counter {
+    text-align: center;
+    margin-bottom: 8px
+}
+
+#cycle-submission-count {
+    margin-top: 12px;
+    padding-bottom: 6px
+}
+
 

@@ -3,6 +3,7 @@
         <head>
             <title>Test Page</title>
             <link rel="stylesheet" type="text/css" href="style.css">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
         </head>
         <body>
             <h1>TNCP</h1>
@@ -12,14 +13,13 @@
                     <p id="user-name-label">User: <span id="user-name">jim</span></p>
                     <p id="karma-score-label">Karma: <span id="karma-score">-34</span></p>
                 </div>
-                <br>
                 <div id="control-panel">
                     <div id="control-panel-buttons">
-                        <img id='cycle-submission-button' class="control-panel-button" src='images/cycle-submissions.png' height='35' width='35'>
-                        <img id='upvote-button' class="control-panel-button" src='images/upvote.png' height='35' width='35'>
-                        <img id='downvote-button' class="control-panel-button" src='images/downvote.png' height='35' width='35'>
-                        <img id='helpful-button' class="control-panel-button" src='images/helpful.png' height='35' width='35'>
-                        <img id='report-button' class="control-panel-button" src='images/report.png' height='35' width='35'>
+                        <img class="control-panel-button" id='cycle-submission-button' src='images/cycle-submissions.png'>
+                        <img class="control-panel-button" id='upvote-button' src='images/upvote.png'>
+                        <img class="control-panel-button" id='downvote-button' src='images/downvote.png'>
+                        <img class="control-panel-button" id='helpful-button' src='images/helpful.png'>
+                        <img class="control-panel-button" id='report-button'  src='images/report.png'>
                     </div>
                     <div id="control-panel-counters">
                         <p class="control-panel-counter" id="cycle-submission-count">3</p>
@@ -33,5 +33,8 @@
                     <p id="submission-source">https://www.youtube.com/watch?v=fd3MuK6-W5k&list=WL&index=1</p>
                 </div>
             </div>
+            <script>
+                console.log('dpi: ', window.devicePixelRatio);
+            </script>
         </body>
   </html>

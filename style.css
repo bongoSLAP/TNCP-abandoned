@@ -8,28 +8,270 @@ body {
 
 #triangle-up {
     width: 0;
-	height: 0;
-	border-left: 10px solid transparent;
-	border-right: 10px solid transparent;
-    border-bottom: 20px solid  rgb(220, 220, 220);
+    height: 0;
     margin-bottom: -20px
 }
 
 #completed-submission-container {
-    height: 260px;
-    width: 400px;
-    border-radius: 10px;
     padding-bottom: 4px;
     background-color: rgb(240, 240, 240)
 }
 
-#user-info-container {
-    height: 18px;
-    width: 100%;
-    margin-top: 20px;
-    border-radius: 10px 10px 0px 0px;
-    border-bottom: 0.5px solid rgb(200, 200, 200);
-    background-color: rgb(220, 220, 220)
+.control-panel-button {
+    border-radius: 10%
+}
+
+@media screen and (min-resolution: 350dpi) {
+    #triangle-up {
+        border-left: 1.25px solid transparent;
+        border-right: 1.25px solid transparent;
+        border-bottom: 2.5px solid  rgb(220, 220, 220)
+    }
+
+    #completed-submission-container {
+        height: 31.25px;
+        width: 50px;
+        border-radius: 2.5px;
+        font-size: 2.5px;
+    }
+
+    #user-info-container {
+        height: 11%;
+        width: 100%;
+        margin-top: 20px;
+        border-radius: 2.5px 2.5px 0px 0px;
+        border-bottom: 0.25px solid rgb(200, 200, 200);
+        background-color: rgb(220, 220, 220)
+    }
+
+    #control-panel {
+        height: calc(100% - 3.7px);
+        width: 12%;
+        margin-top: -2px;
+        margin-right: 0px;
+        padding: 2px;
+        border-radius: 0px 0px 2.5px 0px;
+        background-color: rgb(220, 220, 220);
+        float: right
+    }
+
+    #control-panel-counters {
+        font-size: 2px;
+        margin-right: -1px;
+    }
+
+    .control-panel-button {
+        width: 3px;
+        height: 3px;
+        padding: 0.25px;
+        padding-top: 1.25px;
+        padding-bottom: 1.25px
+    }
+
+    .control-panel-counter {
+        text-align: center;
+        margin-bottom: 0.5px
+    }
+
+    #cycle-submission-count {
+        margin-top: 2px;
+        padding-bottom: 0.25px
+    }
+
+    #upvote-count {
+        padding-bottom: 0.25px
+    }
+    
+    #downvote-count {
+        padding-bottom: 1px
+    }
+}
+
+@media screen and (max-resolution: 300dpi) {
+    #triangle-up {
+        border-left: 2.5px solid transparent;
+        border-right: 2.5px solid transparent;
+        border-bottom: 5px solid  rgb(220, 220, 220)
+    }
+
+    #completed-submission-container {
+        height: 62.5px;
+        width: 100px;
+        border-radius: 5px;
+        font-size: 4px;
+    }
+
+    #user-info-container {
+        height: 7%;
+        width: 100%;
+        margin-top: 20px;
+        border-radius: 5px 5px 0px 0px;
+        border-bottom: 0.5px solid rgb(200, 200, 200);
+        background-color: rgb(220, 220, 220)
+    }
+
+    #control-panel {
+        height: calc(100% - 4.8px);
+        width: 13%;
+        margin-top: -4px;
+        margin-right: 0px;
+        padding: 2px;
+        border-radius: 0px 0px 5px 0px;
+        background-color: rgb(220, 220, 220);
+        float: right
+    }
+
+    #control-panel-counters {
+        margin-right: 0px;
+    }
+
+    .control-panel-button {
+        width: 6px;
+        height: 6px;
+        padding: 0.5px;
+        padding-top: 2.75px;
+        padding-bottom: 2.75px
+    }
+
+    .control-panel-counter {
+        text-align: center;
+        margin-bottom: 0px
+    }
+
+    #cycle-submission-count {
+        margin-top: 3px;
+        padding-bottom: 3px
+    }
+
+    #upvote-count {
+        padding-bottom: 2.5px
+    }
+    
+    #downvote-count {
+        padding-bottom: 3px
+    }
+}
+
+@media screen and (max-resolution: 200dpi) {
+    #triangle-up {
+        border-left: 5px solid transparent;
+        border-right: 5px solid transparent;
+        border-bottom: 10px solid  rgb(220, 220, 220)
+    }
+
+    #completed-submission-container {
+        height: 125px;
+        width: 200px;
+        border-radius: 5px;
+        font-size: 0.5em
+    }
+
+    #user-info-container {
+        height: 7%;
+        width: 100%;
+        margin-top: 20px;
+        border-radius: 5px 5px 0px 0px;
+        border-bottom: 0.5px solid rgb(200, 200, 200);
+        background-color: rgb(220, 220, 220)
+    }
+
+    #control-panel {
+        height: calc(100% - 9px);
+        width: 17%;
+        margin-top: -8.5px;
+        margin-right: 0px;
+        padding: 2px;
+        border-radius: 0px 0px 5px 0px;
+        background-color: rgb(220, 220, 220);
+        float: right
+    }
+
+    .control-panel-button {
+        width: 16px;
+        height: 16px;
+        padding: 1px;
+        padding-top: 3px;
+        padding-bottom: 3px
+    }
+
+    #control-panel-counters {
+        margin-right: 2px;
+    }
+
+    .control-panel-counter {
+        text-align: center;
+        margin-bottom: 4px
+    }
+
+    #cycle-submission-count {
+        margin-top: 5px;
+        padding-bottom: 1px
+    }
+    
+    #downvote-count {
+        padding-bottom: 2px
+    }
+}
+
+@media screen and (max-resolution: 100dpi) {
+    #triangle-up {
+        border-left: 10px solid transparent;
+        border-right: 10px solid transparent;
+        border-bottom: 20px solid  rgb(220, 220, 220)
+    }
+
+    #completed-submission-container {
+       height: 250px;
+       width: 400px;
+       border-radius: 10px;
+       font-size: 1em
+    }
+
+    #user-info-container {
+        height: 7%;
+        width: 100%;
+        margin-top: 20px;
+        border-radius: 10px 10px 0px 0px;
+        border-bottom: 0.5px solid rgb(200, 200, 200);
+        background-color: rgb(220, 220, 220)
+    }
+
+    #control-panel {
+        height: calc(100% - 18.5px);
+        width: 17%;
+        margin-top: -16.5px;
+        margin-right: 0px;
+        padding: 2px;
+        border-radius: 0px 0px 10px 0px;
+        background-color: rgb(220, 220, 220);
+        float: right
+    }
+
+    .control-panel-button {
+        width: 35px;
+        height: 35px;
+        padding: 2px;
+        padding-top: 6px;
+        padding-bottom: 6px
+    }
+
+    #control-panel-counters {
+        margin-right: 4px;
+    }
+
+    .control-panel-counter {
+        text-align: center;
+        margin-bottom: 8px
+    }
+
+    #cycle-submission-count {
+        margin-top: 12px;
+        padding-bottom: 6px
+    }
+    
+    #downvote-count {
+        padding-bottom: 5px
+    }
 }
 
 #user-name-label, #karma-score-label {
@@ -46,17 +288,6 @@ body {
     float: right
 }
 
-#control-panel {
-    height: 241.5px;
-    width: 18%;
-    margin-top: -19.5px;
-    margin-right: 0px;
-    padding: 2px;
-    border-radius: 0px 0px 10px 0px;
-    background-color: rgb(220, 220, 220);
-    float: right
-}
-
 #control-panel-buttons, #control-panel-counters {
     display: inline-grid
 }
@@ -67,28 +298,8 @@ body {
 
 #control-panel-counters {
     float: right;
-    margin-right: 4px;
-}
-
-.control-panel-button {
-    border-radius: 25%;
-    padding: 2px;
-    padding-top: 6px;
-    padding-bottom: 6px
 }
 
 .control-panel-button:hover {
     background-color: rgb(200, 200, 200)
 }
-
-.control-panel-counter {
-    text-align: center;
-    margin-bottom: 8px
-}
-
-#cycle-submission-count {
-    margin-top: 12px;
-    padding-bottom: 6px
-}
-
-

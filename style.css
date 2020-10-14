@@ -160,10 +160,10 @@ body {
     }
 
     #completed-submission-container {
-        height: 125px;
-        width: 200px;
+        height: 150px;
+        width: 225px;
         border-radius: 5px;
-        font-size: 0.5em
+        font-size: 0.7em
     }
 
     #user-info-container {
@@ -176,9 +176,9 @@ body {
     }
 
     #control-panel {
-        height: calc(100% - 9px);
+        height: calc(100% - 11px);
         width: 17%;
-        margin-top: -8.5px;
+        margin-top: -13.5px;
         margin-right: 0px;
         padding: 2px;
         border-radius: 0px 0px 5px 0px;
@@ -200,16 +200,21 @@ body {
 
     .control-panel-counter {
         text-align: center;
-        margin-bottom: 4px
     }
 
     #cycle-submission-count {
         margin-top: 5px;
         padding-bottom: 1px
     }
+
+    #upvote-count {
+        margin-top: 7px;
+        margin-bottom: -6px;
+    }
     
     #downvote-count {
-        padding-bottom: 2px
+        margin-bottom: -2px;
+        padding-bottom: 0px
     }
 }
 

@@ -25,14 +25,14 @@ body {
     #triangle-up {
         border-left: 1.25px solid transparent;
         border-right: 1.25px solid transparent;
-        border-bottom: 2.5px solid  rgb(220, 220, 220)
+        border-bottom: 2.5px solid  blue
     }
 
     #completed-submission-container {
         height: 31.25px;
         width: 50px;
         border-radius: 2.5px;
-        font-size: 2.5px;
+        font-size: 2.5px
     }
 
     #user-info-container {
@@ -56,8 +56,7 @@ body {
     }
 
     #control-panel-counters {
-        font-size: 2px;
-        margin-right: -1px;
+        margin-right: -1px
     }
 
     .control-panel-button {
@@ -91,7 +90,7 @@ body {
     #triangle-up {
         border-left: 2.5px solid transparent;
         border-right: 2.5px solid transparent;
-        border-bottom: 5px solid  rgb(220, 220, 220)
+        border-bottom: 5px solid red
     }
 
     #completed-submission-container {
@@ -122,7 +121,7 @@ body {
     }
 
     #control-panel-counters {
-        margin-right: 0px;
+        margin-right: 0px
     }
 
     .control-panel-button {
@@ -156,7 +155,7 @@ body {
     #triangle-up {
         border-left: 5px solid transparent;
         border-right: 5px solid transparent;
-        border-bottom: 10px solid  rgb(220, 220, 220)
+        border-bottom: 10px solid green
     }
 
     #completed-submission-container {
@@ -195,12 +194,12 @@ body {
     }
 
     #control-panel-counters {
-        margin-right: 2px;
+        margin-right: 2px
     }
 
     .control-panel-counter {
         text-align: center;
-        margin-bottom: 8px;
+        margin-bottom: 8px
     }
 
     #cycle-submission-count {
@@ -210,7 +209,7 @@ body {
 
     #upvote-count {
         margin-top: 7px;
-        margin-bottom: -2px;
+        margin-bottom: 0px
     }
     
     #downvote-count {
@@ -223,7 +222,7 @@ body {
     #triangle-up {
         border-left: 10px solid transparent;
         border-right: 10px solid transparent;
-        border-bottom: 20px solid  rgb(220, 220, 220)
+        border-bottom: 20px solid yellow
     }
 
     #completed-submission-container {
@@ -283,7 +282,7 @@ body {
 #user-name-label, #karma-score-label {
     width: 50%;
     text-align: center;
-    margin-top: 0px;
+    margin-top: 0px
 }
 
 #user-name-label {
@@ -299,13 +298,31 @@ body {
 }
 
 #control-panel-buttons {
-    float: left;
+    float: left
 }
 
 #control-panel-counters {
-    float: right;
+    float: right
 }
 
 .control-panel-button:hover {
     background-color: rgb(200, 200, 200)
+}
+
+#submission-text-container {
+    margin-left: 5px;
+}
+
+#submission-text-label {
+    margin-bottom: -12px
+}
+
+#submission-source-label {
+    margin-bottom: -10px
+}
+
+#submission-text, #submission-source {
+    margin-right: 47.5px;
+    border-radius: 3px;
+    background-color: white
 }

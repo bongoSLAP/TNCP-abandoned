@@ -1,6 +1,7 @@
 let selectionList = [];
 let emptyVal = ''
-let validTags = ['H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'P', 'SPAN', 'UL', 'LI', 'A', 'STRONG', 'B', 'CITE', 'DFN', 'EM', 'I', 'KBD', 'LABEL', 'Q', 'SMALL', 'BIG', 'SUB', 'SUP', 'TIME', 'VAR'];
+let blockLevelTags = ['P', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'UL', 'OL', 'LI', 'TABLE', 'FORM', 'ARTICLE', 'VIDEO', 'FIGURE', 'NAV', 'ADDRESS', 'ASIDE', 'BLOCKQUOTE', 'CANVAS', 'DD', 'DL', 'DT', 'FIELDSET', 'FIGCAPTION', 'HEADER', 'FOOTER', 'HR', 'MAIN', 'NOSCRIPT', 'PRE', 'SECTION', 'TABLE', 'TFOOT'];
+let inlineTags = ['A', 'SPAN', 'I', 'Q', 'B', 'STRONG', 'SUB', 'SUP', 'LABEL', 'SCRIPT', 'TEXTAREA', 'IMG', 'ABBR', 'ACRONYM', 'BIG', 'BR', 'BIG', 'CITE', 'BUTTON', 'EM', 'INPUT', 'OUTPUT', 'VAR', 'TT', 'TIME', 'SELECT', 'SAMP', 'OUTPUT', 'OBJECT', 'MAP', 'KBD', 'DFN', 'CODE', 'BDO'];
 let punctuation = ['.', '?', '!', ',', ';', ':', '-', '—', ' ']; //include brackets, quotes etc? not sure
 let insertions = {};
 let elemInDoc = undefined;
@@ -30,9 +31,10 @@ let checkSelectMade = undefined;
 let updateCharCount = undefined;
 
 //shadow DOM vars/elements
-let shadowRoot = undefined;
+let userInputShadowRoot = undefined;
+let viewSubmissionShadowRoot = undefined;
 
-let contextMenuContainer = undefined;
+let userInputContextMenuContainer = undefined;
 let charCountText = undefined;
 let selectionMenu = undefined;
 let selectionMade = undefined;
@@ -46,7 +48,7 @@ let submissionInput = undefined;
 let sourceInput = undefined;
 
 //bools
-let isClicked = false;
+let isUserInputDomCreated = false;
 let isSelectMade = false;
 let isOverLimit = false;
 let isExpanded = false;
@@ -108,8 +110,8 @@ function getParentElement(targetNode) {
     let getNextParent = function(child) {
         let isFinished = false;
 
-        for (let i=0; i<validTags.length; i++) {
-            if (child.parentNode.nodeName == validTags[i]) {
+        for (let i=0; i<blockLevelTags.length; i++) {
+            if (child.parentNode.nodeName == blockLevelTags[i]) {
                 parent = child.parentNode;
                 getNextParent(parent);
                 
@@ -119,7 +121,7 @@ function getParentElement(targetNode) {
             if (isFinished) {
                 return
             }
-            else if (!isFinished && i == validTags.length) {
+            else if (!isFinished && i == blockLevelTags.length-1) {
                 console.log('ERROR: tag not accepted');
             }
         }
@@ -135,40 +137,61 @@ function getParentElement(targetNode) {
 
 function getParentElement(targetNode) {
     let finalParent = undefined;
+    let sibling = undefined;
 
     let getNextParent = function(child) {
-        let sibling = undefined;
         let parent = undefined;
+
+        console.log('child.nextElementSibling: ', child.nextElementSibling, 'child.previousElementSibling: ', child.previousElementSibling);
 
         if (child.nextElementSibling != null && child.previousElementSibling != null) {sibling = 'both'}
         else if (child.nextElementSibling != null && child.previousElementSibling == null) {sibling = child.nextElementSibling}
         else if (child.nextElementSibling == null && child.previousElementSibling != null) {sibling = child.previousElementSibling}
         else if (child.nextElementSibling == null && child.previousElementSibling == null) {
-            //console.log('both null');
-            parent = child.parentNode;
-            getNextParent(parent);
-            return;
-        }
+            console.log('both null');
+            let isFinished = false;
 
-        if (sibling != 'both') {
-            //console.log('child.parentNode: ', child.parentNode, 'sibling: ', sibling);
+            console.log('child.nodeName: ', child.nodeName, 'child.innerText: ', child.innerText);
+            //block level elements cannot be nested, so if it matches an item in blockLevelTags (list of block level elements), then this is the parent
+            for (let i=0; i<blockLevelTags.length; i++) {
+                if (child.nodeName == blockLevelTags[i]) {
+                    finalParent = child;
+                    isFinished = true;
+                }
+
+                if (isFinished) {
+                    sibling = 'both null';
+                    console.log('finished');
+                    break;
+                    //return;
+                }
+                else if (!isFinished && i == blockLevelTags.length-1) {
+                    console.log('child is not a block-level tag');
+                    getNextParent(child.parentNode);
+                }
+            }
+        }
+        console.log('sibling: ', sibling);
+
+        if (sibling != 'both' && sibling != 'both null') {
+            console.log('child.parentNode: ', child.parentNode, 'sibling: ', sibling);
             if (newSearch(child.parentNode.innerText, sibling.innerText) != 'failed') {
                 parent = child.parentNode;
                 getNextParent(parent);
             }
             else {
                 finalParent = child;
-                //console.log('finalParent: ', finalParent);
+                console.log('finalParent: ', finalParent);
                 return;
             }
         }
-        else {
+        else if (sibling == 'both') {
             let fullText = undefined;
 
             if (child.nodeName == '#text') {fullText = child.wholeText;}
             else {fullText = child.innerText}
 
-            //console.log('fullText: ', fullText);
+            console.log('fullText: ', fullText);
 
             if (newSearch(fullText, child.nextElementSibling.innerText) != 'failed' && newSearch(fullText, child.previousElementSibling.innerText) != 'failed') {
                 parent = child.parentNode;
@@ -180,15 +203,24 @@ function getParentElement(targetNode) {
                 return;
             }
         }
-        //console.log('=======================');
+        else if (sibling == 'both null') {
+            console.log('child.nodeName: ', child.nodeName, 'child.innerText: ', child.innerText);
+            //if both siblings are null, it is likely that child is a single inline tag nested within an x amount of other inline tags and a block level tag, so repeat for parent
+            for (let i=0; i<inlineTags.length; i++) {
+                if (child.nodeName == inlineTags[i]) {
+                    getNextParent(child.parentNode);
+                }
+            }
+        }
     }
 
     getNextParent(targetNode);
     if (finalParent == undefined) {console.log('ERROR: conditions not met at getNextParent')}
-    //console.log('finalParent: ', finalParent);
-    //console.log('*****************************')
+    console.log('finalParent: ', finalParent);
+    console.log('********************');
     return finalParent;
 }
+
 
 
 //need to find the entirety of the text in nodes selected in order to calculate a start point carry out autocomplete function
@@ -207,15 +239,15 @@ function searchForContext(targetNode, selection) {
 //is the furthest element in the tree where the anchor and focus nodes are both contained in a text element
 function testRange(range) {
     let isFinished = false;
-    for (let i=0; i<validTags.length; i++) {
-        if (range.commonAncestorContainer.nodeName == validTags[i]) {
+    for (let i=0; i<blockLevelTags.length; i++) {
+        if (range.commonAncestorContainer.nodeName == blockLevelTags[i]) {
             isFinished = true;
         }
 
         if (isFinished) {
             return true;
-        }
-        else if (!isFinished && i == validTags.length) {
+        }                              //needs length-1 here
+        else if (!isFinished && i == blockLevelTags.length) {
             return false;
         }
     }
@@ -285,11 +317,11 @@ function pushFilteredElems(staticArray) {
 //filters out non block level tags
 function filterSelectedNodes(liveList) {
     let staticArray = [];
-    let blockTextTags = ['H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'P', 'LI'];
+    let textTags = ['P', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'LI'];
 
     for (let i=0; i<liveList.length; i++) {
-        for (let j=0; j<blockTextTags.length; j++) {
-            if (liveList[i].tagName == blockTextTags[j]) {staticArray.push(liveList[i])}
+        for (let j=0; j<textTags.length; j++) {
+            if (liveList[i].tagName == textTags[j]) {staticArray.push(liveList[i])}
         }
     }
 
@@ -407,7 +439,7 @@ function whenHovering(element, callback) {
 }
 
 function setToMousePos(event) {
-    styleShadowDom(shadowRoot, '#context-menu-container', [
+    styleShadowDom(userInputShadowRoot, '#user-input-context-menu-container', [
         ['left', event.clientX + 75 + 'px'],
         ['top', event.clientY + 50 + 'px']
     ]);
@@ -424,7 +456,7 @@ function exitButtonActive() {
 
 //exit button click function
 function exitContextMenu() {
-    contextMenuContainer.classList.add('hidden');
+    userInputContextMenuContainer.classList.add('hidden');
 }
 
 //confirm button click function
@@ -457,7 +489,7 @@ function confirmChoices() {
         if (selectedVals[1] == 'yes') {submission.isSource = true}
         else {submission.isSource = false}
 
-        let elemList = [shadowRoot.querySelectorAll('.selection-menu-radios'), shadowRoot.querySelectorAll('.selection-menu-labels')];
+        let elemList = [userInputShadowRoot.querySelectorAll('.selection-menu-radios'), userInputShadowRoot.querySelectorAll('.selection-menu-labels')];
         isConfirmed = true;
         for (let i=0; i<radioHeaders.length; i++) {
             radioHeaders[i].classList.add('slide-right-anim');
@@ -486,12 +518,49 @@ function confirmChoices() {
             setTimeout(function() {
                 if (!submission.isSource) {sourceInput.classList.add('hidden');}
 
-                styleShadowDom(shadowRoot, ['#user-annotation-container'], [['display', 'inline']]);
+                styleShadowDom(userInputShadowRoot, ['#user-annotation-container'], [['display', 'inline']]);
                 annotationContainer.classList.remove('fadein-anim');
             }, 150)
         }, 550);
     }
     else {alert('You did not confirm all of your choices')}
+}
+
+//finds the nodes in the parent docoument using the snapshots of data in the annotation object (cant call methods on the annotation object data as it is just strings and arrays etc not actual nodes)
+function findElement(type, targetNode) {
+    let searchArea = [];
+    let found = false;
+
+    //if finding the anchor and focus nodes in document, use annotation data to find element, if finding middle elements, use the elemInDoc value that was found from the previous findElement() call in findAnnotation(object, 'anchor')
+    if (type != 'middle') {
+        if (targetNode.nodeType != 1) {
+            searchArea = document.querySelectorAll(targetNode.parentNode.nodeName.toLowerCase());
+        }
+        else {
+            searchArea = document.querySelectorAll(targetNode.nodeName.toLowerCase());
+        }
+
+        for (let i=0; i<searchArea.length; i++) {
+            if (searchArea[i].innerText == targetNode.parentNode.parentWholeText) {
+                found = true;
+                return searchArea[i];
+            }
+        }
+
+        if (!found) {
+            console.log('findElement()| ERROR: could not find annotation: ', object.textAnnotated)
+            return;
+        }
+    }
+    else {
+        //(previous elemInDoc value)
+        console.log('findElement| elemInDoc.children: ', elemInDoc.children);
+        for (let i=0; i<elemInDoc.children.length; i++) {
+            if (elemInDoc.children[i].innerText == targetNode) {
+                return elemInDoc.children[i];
+            }
+        }
+    }
 }
 
 function resetAnnotation() {
@@ -525,7 +594,8 @@ function initAnnotation(object, selection) {
     }
 
     //if selections spans multiple elements, then capture a snapshot of data for focus node to object
-    if (object.anchorNode != object.focusNode) {
+    //console.log(getParentElement(findElement('anchor', annotation.anchor)).children.length)
+    if (getParentElement(findElement('anchor', annotation.anchor)).children.length >= 1) {
         annotation.isUnified = false;
         annotation.focus = {
             nodeName: object.focusNode.nodeName,
@@ -565,6 +635,17 @@ function initAnnotation(object, selection) {
     annotation.annotationId = generateId('annotation');
 }
 
+function initHighlighElemEvents(element) {
+    element.addEventListener('click', viewSubmission(this));
+    element.addEventListener('mouseover', function() {
+        this.style.backgroundColor = 'rgb(220, 220, 220)';
+    });
+
+    element.addEventListener('mouseover', function() {
+        this.style.backgroundColor = 'rgb(200, 200, 200)';
+    });
+}   
+
 //inserts text (html tags) at the detected regions in the anchor and focus nodes, taken from https://stackoverflow.com/questions/4313841/insert-a-string-at-a-specific-index
 function highlightAnnotation(object, element) {
     String.prototype.insertTextAtIndices = function(text) {
@@ -573,51 +654,20 @@ function highlightAnnotation(object, element) {
         });
     };
 
+    let id = object.id;
+    delete object.id;
+
     let highlighted = element.innerHTML.insertTextAtIndices(object);
     element.innerHTML = highlighted;
+
+    let highlightElement = document.querySelector('.' + id);
+    //initHighlighElemEvents(highlightElement);
 }
 
 //finds an annotation in the parent document given a valid annotation object (fetched from database)
 function findAnnotationInPage(object, type) {
     console.log('type: ', type);
     console.log('**************');
-
-    //finds the nodes in the parent docoument using the snapshots of data in the annotation object (cant call methods on the annotation object data as it is just strings and arrays etc not actual nodes)
-    let findElement = function(targetNode) {
-        let searchArea = [];
-        let found = false;
-
-        //if finding the anchor and focus nodes in document, use annotation data to find element, if finding middle elements, use the elemInDoc value that was found from the previous findElement() call in findAnnotation(object, 'anchor')
-        if (type != 'middle') {
-            if (targetNode.nodeType != 1) {
-                searchArea = document.querySelectorAll(targetNode.parentNode.nodeName.toLowerCase());
-            }
-            else {
-                searchArea = document.querySelectorAll(targetNode.nodeName.toLowerCase());
-            }
-    
-            for (let i=0; i<searchArea.length; i++) {
-                if (searchArea[i].innerText == targetNode.parentNode.parentWholeText) {
-                    found = true;
-                    return searchArea[i];
-                }
-            }
-    
-            if (!found) {
-                console.log('findElement()| ERROR: could not find annotation: ', object.textAnnotated)
-                return;
-            }
-        }
-        else {
-            //(previous elemInDoc value)
-            console.log('findElement| elemInDoc.children: ', elemInDoc.children);
-            for (let i=0; i<elemInDoc.children.length; i++) {
-                if (elemInDoc.children[i].innerText == targetNode) {
-                    return elemInDoc.children[i];
-                }
-            }
-        }
-    }
 
     //finds the boundary words in the anchor and focus node, ie: if the full text in the element is 'hello world! this is text' and the selection is 'this is text', then the start point is 13 charaters in and so forth
     let detectBoundaries = function(targetNode) {
@@ -631,17 +681,12 @@ function findAnnotationInPage(object, type) {
         let possibleMatches = [];
         let found = false;
 
-        elemInDoc = findElement(targetNode);
+        //elemInDoc = findElement(type, targetNode);
 
         //must find outermost (parent) element in order to get the entirety of the text, this is because if the start and end points are attained from differing full texts, it will break the highlightAnnotation() function
         //this is because the insertions object is not reset per call of the findAnnotationInPage() function
-        //for (let i=0; i<validTags.length; i++) {
-            //if (elemInDoc.parentNode.nodeName == validTags[i]) {
-                elemInDoc = getParentElement(findElement(targetNode))
-                //break;
-            //}
-        //}
-            
+        elemInDoc = getParentElement(findElement(type, targetNode))
+
         console.log('elemInDoc: ', elemInDoc);
     
         //chunking up the element by its HTML tags and removing the split tags from the array
@@ -657,62 +702,125 @@ function findAnnotationInPage(object, type) {
             }
         }
 
-        console.log('targetNode.wholeText: ', targetNode.wholeText, 'nodeChunks ', nodeChunks);
+        console.log('wholeText: ', wholeText, 'nodeChunks: ', nodeChunks);
 
         //anchor and focus nodes are not neccesarily the first and last nodes in the parent element found in doc
         for (let i=0; i<nodeChunks.length; i++) {
-            if (targetNode.wholeText == nodeChunks[i]) {indexInNodeChunks = i}
+            if (newSearch(nodeChunks[i], wholeText) != 'failed') {
+                indexInNodeChunks = i;
+                console.log('indexInNodeChunks: ', indexInNodeChunks);
+            }
         }
     
         //detects overlap of a given node chunk with the selection that was made, this is because if we simply searched in the node chunk for the whole text selected, it is likely that it would fail becuase it is only a chunk. 
-        if (type == 'anchor' && !object.isUnified) {
+        if (type == 'anchor' /*&& !object.isUnified*/) {
             for (let i=nodeChunks[indexInNodeChunks].length-1; i>=0; i--) {
                 temp = nodeChunks[indexInNodeChunks][i] + temp;
                 searchString = object.textAnnotated.substr(0, temp.length);
                 console.log('anchor|', 'temp: ', temp, 'searchString: ', searchString);
         
+                /*
                 if (temp == searchString) {
                     possibleMatches.push(searchString);
                     found = true;
+                }
+                */
+
+                console.log('anchor search: ', newSearch(temp, searchString));
+                if (newSearch(temp, searchString) != 'failed') {
+                    console.log('possibleMatches.length: ', possibleMatches.length);
+
+                    let j = 0;
+                    let isAlreadyMatched = false;
+                    do {
+                        console.log('possibleMatches[i]: ', possibleMatches[i]);
+                        if (searchString == possibleMatches[i]) {
+                            isAlreadyMatched = true;
+                        }
+                        
+                        else {
+                            if (j == possibleMatches.length) {
+                                possibleMatches.push(searchString);
+                                found = true;
+                            }
+                        }
+                    }
+                    while (j<possibleMatches.length && !isAlreadyMatched && !found);
                 }
             }                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        
         }
         else if (type == 'focus') {
-            for (let j=0; j<nodeChunks[indexInNodeChunks].length; j++) {
-                temp = temp + nodeChunks[indexInNodeChunks][j];
+            for (let i=0; i<nodeChunks[indexInNodeChunks].length; i++) {
+                temp = temp + nodeChunks[indexInNodeChunks][i];
                 searchString = object.textAnnotated.substr(object.textAnnotated.length - temp.length, temp.length);
                 console.log('focus|', 'temp: ', temp, 'searchString: ', searchString);
             
+                /*
                 if (temp == searchString) {
                     possibleMatches.push(searchString);
                     found = true;
                 }
-            }                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      
+                */
+
+                console.log('focus search: ', newSearch(temp, searchString));
+                if (newSearch(temp, searchString) != 'failed') {
+                   console.log('possibleMatches.length: ', possibleMatches.length);
+
+                    let j = 0;
+                    let isAlreadyMatched = false;
+                    do {
+                       console.log('possibleMatches[i]: ', possibleMatches[i]);
+                        if (searchString == possibleMatches[i]) {
+                           isAlreadyMatched = true;
+                        }
+                       
+                        else {
+                           if (j == possibleMatches.length) {
+                               possibleMatches.push(searchString);
+                               found = true;
+                           }
+                        }
+                    }
+                    while (j<possibleMatches.length && !isAlreadyMatched && !found);
+                }
+            }                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   
         }
 
         if (!found) {
-            console.log('detectBoundaries()| ERROR: could not detect boundary: ', indexInNodeChunks)
+            console.log('detectBoundaries()| ERROR: could not detect boundary for type: ', type, 'at nodeChunk:',  indexInNodeChunks)
         }
         else {searchString = possibleMatches[possibleMatches.length-1]}
     
         console.log('searchString: ', searchString);
-    
+
+        //check for new bugs here due to changes made DEFO NEW BUGS HERE LMAO
         if (!object.isUnified) {
-            //does the searchString span over 2 elements (html tag between these elements will cause search to fail, therefore use innerText) however just setting innerText declaratively causes it to break for other cases.
-            if (newSearch(elemInDoc.innerHTML, searchString) == 'failed') {fullText = elemInDoc.innerText}
+            //does the searchString span over 2 nodes (html tags in innerHTML used to chunk into nodes will cause search to fail for any given chunk, therefore use innerText) however just setting innerText declaratively causes it to break for other cases.
+            console.log('elemInDoc.innerHTML: ', elemInDoc.innerHTML);
+            console.log('nodeChunks[indexInNodeChunks]: ', nodeChunks[indexInNodeChunks]);
+
+            //if (newSearch(nodeChunks[indexInNodeChunks], searchString) != 'failed') {fullText = elemInDoc.innerText}
+            if(newSearch(elemInDoc.innerHTML, searchString) == 'failed') {fullText = elemInDoc.innerText}
             else {fullText = elemInDoc.innerHTML}
         
-            //does anchor/focus begin/end at the beginning/end of the node in question? if so need to use fulltext instead of wholeText because the fulltext is used for selections that start within a child element and end in the parent.
+            //does anchor/focus begin/end at the beginning/end of the node in question? if so need to use fulltext instead of wholeText
             console.log('indexInNodeChunks: ', indexInNodeChunks, 'nodeChunks.length: ', nodeChunks.length);
-            if (indexInNodeChunks != 0 && indexInNodeChunks != nodeChunks.length-1) {substringFrom = fullText}
-            else {substringFrom = wholeText}
+            if (indexInNodeChunks != 0 && indexInNodeChunks != nodeChunks.length-1 || newSearch(nodeChunks[indexInNodeChunks], searchString) != 'failed') {
+                substringFrom = fullText;
+                console.log('substringFrom if: ', substringFrom);
+            }
+            else {
+                substringFrom = wholeText;
+                console.log('substringFrom else: ', substringFrom);
+            }       
         }
     
         //finds start point for the opening tag in the full text using searchString or object.textAnnotated, uses this start point to calculate the end point
         if (type == 'anchor' && !object.isUnified) {
-            console.log('fullText: ', fullText, 'searchString', searchString);
+            console.log('fullText: ', fullText, 'searchString: ', searchString);
+            console.log('search: ', newSearch(fullText, searchString));
             startPoint = newSearch(fullText, searchString);
-            endPoint = startPoint + substringFrom.substr(startPoint).length;
+            endPoint = startPoint + searchString.length;
         }
         else if (type == 'anchor' && object.isUnified) {
             console.log('wholeText: ', wholeText, 'object.textAnnotated: ', object.textAnnotated);
@@ -720,7 +828,7 @@ function findAnnotationInPage(object, type) {
             endPoint = startPoint + object.textAnnotated.length;
         }
         else if (type == 'focus') {
-            console.log('fullText: ', fullText, 'searchString', searchString);
+            console.log('fullText: ', fullText, 'searchString: ', searchString);
             startPoint = newSearch(fullText, searchString);
             endPoint = startPoint + searchString.length;
         }
@@ -731,6 +839,7 @@ function findAnnotationInPage(object, type) {
         //uses start and end points as object keys with the values set as the <span> open and closing tags
         insertions[startPoint] = `<span class='` + object.annotationId + ` highlight-annotation' style='background-color: rgb(200, 200, 200)'>`;
         insertions[endPoint] = '</span>';
+        insertions.id = object.annotationId;
     };
 
     //if highlighting middle elements, dont need to find any boundaries, just highlight the whole element
@@ -749,7 +858,7 @@ function findAnnotationInPage(object, type) {
         console.log('indexes: ', anchorIndex, focusIndex);
 
         for (let i=anchorIndex+1; i<focusIndex; i++) {
-            let childElemInDoc = findElement(nodeChunks[i]);
+            let childElemInDoc = findElement(type, nodeChunks[i]);
             childElemInDoc.classList.add(object.annotationId, 'highlight-annotation');
             childElemInDoc.style.backgroundColor = 'rgb(200, 200, 200)';
             console.log('childElemInDoc.classList: ', childElemInDoc.classList);
@@ -795,23 +904,25 @@ function publishSubmission() {
             resource: resource,
             data: data
         }, 
-            function(response) {
+        function(response) {
             console.log('sent submission for validation, data received: ', JSON.stringify(response.dataReceived, null, 4));
         });
 
         findAnnotationInPage(annotation, 'anchor');
 
         if (!annotation.isUnified) {
-            findAnnotationInPage(annotation, 'middle');
+            //findAnnotationInPage(annotation, 'middle');
             findAnnotationInPage(annotation, 'focus');
         }
 
-        console.log('insertions: ', insertions, 'elemInDoc: ', elemInDoc);
+        console.log('insertions: ', JSON.stringify(insertions), 'elemInDoc: ', elemInDoc);
         highlightAnnotation(insertions, elemInDoc);
         
         elemInDoc = null;
         nodeChunks = null;
         insertions = {}
+
+        location.reload();
     }
 
     //checks to see if url given is in correct format, taken from https://stackoverflow.com/questions/5717093/check-if-a-javascript-string-is-a-url
@@ -849,23 +960,421 @@ function publishSubmission() {
     else {alert('Enter a valid submission')}
 }
 
+function viewSubmission(span) {
+    let isViewSubmissionDomCreated = false;
+    if (!isViewSubmissionDomCreated) {
+        let hostElement = document.createElement('div');
+        hostElement.id = 'view-submission-host-element';
+        $(hostElement).appendTo('body');
+
+        let shadowHost = hostElement;
+        viewSubmissionShadowRoot = shadowHost.attachShadow({mode: 'open'}); 
+        
+        let container = document.createElement('div');
+        container.id = 'view-submission-context-menu-container';
+        container.innerHTML = `
+            <div id="triangle-up"></div>
+            <div id="completed-submission-container">
+                <div id="user-info-container">
+                    <p id="user-name-label">User: <span id="user-name">jim</span></p>
+                    <p id="karma-score-label">Karma: <span id="karma-score">-34</span></p>
+                </div>
+                <div id="control-panel">
+                    <div id="control-panel-buttons">
+                        <img class="control-panel-button" id='cycle-submission-button' src='` + chrome.runtime.getURL('images/cycle-submissions.png') + `'>
+                        <img class="control-panel-button" id='upvote-button' src='` + chrome.runtime.getURL('images/upvote.png') + `'>
+                        <img class="control-panel-button" id='downvote-button' src='` + chrome.runtime.getURL('images/downvote.png') + `'>
+                        <img class="control-panel-button" id='helpful-button' src='` + chrome.runtime.getURL('images/helpful.png') + `'>
+                        <img class="control-panel-button" id='report-button'  src='` + chrome.runtime.getURL('images/report.png') + `'>
+                    </div>
+                    <div id="control-panel-counters">
+                        <p class="control-panel-counter" id="cycle-submission-count"></p>
+                        <p class="control-panel-counter" id="upvote-count"></p>
+                        <p class="control-panel-counter" id="downvote-count"></p>
+                        <p class="control-panel-counter" id="helpful-count"></p>
+                    </div>
+                </div>
+                <div id="submission-text-container">
+                    <h3 id="submission-text-label">Submission:</h3>
+                    <p id="submission-text"></p>
+                    <div id="submission-source-container">
+                        <h4 id="submission-source-label">Source:</h4>
+                        <p id="submission-source"></p>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        let shadowDomStyles = document.createElement('style');
+        shadowDomStyles.innerText = `
+            #view-submission-context-menu-container {
+                position: relative;
+                font-family: Tahoma, Geneva, sans-serif;
+                z-index: 10000
+            }
+            
+            #triangle-up {
+                width: 0;
+                height: 0;
+                margin-bottom: -20px
+            }
+            
+            #completed-submission-container {
+                padding-bottom: 4px;
+                background-color: rgb(240, 240, 240)
+            }
+            
+            .control-panel-button {
+                border-radius: 10%
+            }
+            
+            @media screen and (min-resolution: 350dpi) {
+                #triangle-up {
+                    margin-left: 22.5px;
+                    border-left: 1.25px solid transparent;
+                    border-right: 1.25px solid transparent;
+                    border-bottom: 2.5px solid  blue
+                }
+            
+                #completed-submission-container {
+                    height: 31.25px;
+                    width: 50px;
+                    border-radius: 2.5px;
+                    font-size: 2.5px
+                }
+            
+                #user-info-container {
+                    height: 11%;
+                    width: 100%;
+                    margin-top: 20px;
+                    border-radius: 2.5px 2.5px 0px 0px;
+                    border-bottom: 0.25px solid rgb(200, 200, 200);
+                    background-color: rgb(220, 220, 220)
+                }
+            
+                #control-panel {
+                    height: calc(100% - 3.7px);
+                    width: 12%;
+                    margin-top: -2px;
+                    margin-right: 0px;
+                    padding: 2px;
+                    border-radius: 0px 0px 2.5px 0px;
+                    background-color: rgb(220, 220, 220);
+                    float: right
+                }
+            
+                #control-panel-counters {
+                    margin-right: -1px
+                }
+            
+                .control-panel-button {
+                    width: 3px;
+                    height: 3px;
+                    padding: 0.25px;
+                    padding-top: 1.25px;
+                    padding-bottom: 1.25px
+                }
+            
+                .control-panel-counter {
+                    text-align: center;
+                    margin-bottom: 0.5px
+                }
+            
+                #cycle-submission-count {
+                    margin-top: 2px;
+                    padding-bottom: 0.25px
+                }
+            
+                #upvote-count {
+                    padding-bottom: 0.25px
+                }
+                
+                #downvote-count {
+                    padding-bottom: 1px
+                }
+            }
+            
+            @media screen and (max-resolution: 300dpi) {
+                #triangle-up {
+                    margin-left: 45px;
+                    border-left: 2.5px solid transparent;
+                    border-right: 2.5px solid transparent;
+                    border-bottom: 5px solid red
+                }
+            
+                #completed-submission-container {
+                    height: 62.5px;
+                    width: 100px;
+                    border-radius: 5px;
+                    font-size: 4px;
+                }
+            
+                #user-info-container {
+                    height: 7%;
+                    width: 100%;
+                    margin-top: 20px;
+                    border-radius: 5px 5px 0px 0px;
+                    border-bottom: 0.5px solid rgb(200, 200, 200);
+                    background-color: rgb(220, 220, 220)
+                }
+            
+                #control-panel {
+                    height: calc(100% - 4.8px);
+                    width: 13%;
+                    margin-top: -4px;
+                    margin-right: 0px;
+                    padding: 2px;
+                    border-radius: 0px 0px 5px 0px;
+                    background-color: rgb(220, 220, 220);
+                    float: right
+                }
+            
+                #control-panel-counters {
+                    margin-right: 0px
+                }
+            
+                .control-panel-button {
+                    width: 6px;
+                    height: 6px;
+                    padding: 0.5px;
+                    padding-top: 2.75px;
+                    padding-bottom: 2.75px
+                }
+            
+                .control-panel-counter {
+                    text-align: center;
+                    margin-bottom: 0px
+                }
+            
+                #cycle-submission-count {
+                    margin-top: 3px;
+                    padding-bottom: 3px
+                }
+            
+                #upvote-count {
+                    padding-bottom: 2.5px
+                }
+                
+                #downvote-count {
+                    padding-bottom: 3px
+                }
+            }
+            
+            @media screen and (max-resolution: 200dpi) {
+                #triangle-up {
+                    margin-left: 102.5px;
+                    border-left: 5px solid transparent;
+                    border-right: 5px solid transparent;
+                    border-bottom: 10px solid green
+                }
+            
+                #completed-submission-container {
+                    height: 150px;
+                    width: 225px;
+                    border-radius: 5px;
+                    font-size: 0.7em
+                }
+            
+                #user-info-container {
+                    height: 7%;
+                    width: 100%;
+                    margin-top: 20px;
+                    border-radius: 5px 5px 0px 0px;
+                    border-bottom: 0.5px solid rgb(200, 200, 200);
+                    background-color: rgb(220, 220, 220)
+                }
+            
+                #control-panel {
+                    height: calc(100% - 12px);
+                    width: 17%;
+                    margin-top: -10.5px;
+                    margin-right: 0px;
+                    padding: 2px;
+                    border-radius: 0px 0px 5px 0px;
+                    background-color: rgb(220, 220, 220);
+                    float: right
+                }
+            
+                .control-panel-button {
+                    width: 16px;
+                    height: 16px;
+                    padding: 1px;
+                    padding-top: 5.5px;
+                    padding-bottom: 5.5px
+                }
+            
+                #control-panel-counters {
+                    margin-right: 2px
+                }
+            
+                .control-panel-counter {
+                    text-align: center;
+                    margin-bottom: 8px
+                }
+            
+                #cycle-submission-count {
+                    margin-top: 6px;
+                    padding-bottom: 0px
+                }
+            
+                #upvote-count {
+                    margin-top: 7px;
+                    margin-bottom: 0px
+                }
+                
+                #downvote-count {
+                    margin-bottom: 3px;
+                    padding-bottom: 0px
+                }
+            }
+            
+            @media screen and (max-resolution: 100dpi) {
+                #triangle-up {
+                    margin-left: 180px;
+                    border-left: 10px solid transparent;
+                    border-right: 10px solid transparent;
+                    border-bottom: 20px solid yellow
+                }
+            
+                #completed-submission-container {
+                    height: 250px;
+                    width: 400px;
+                    border-radius: 10px;
+                    font-size: 1em
+                }
+            
+                #user-info-container {
+                    height: 7%;
+                    width: 100%;
+                    margin-top: 20px;
+                    border-radius: 10px 10px 0px 0px;
+                    border-bottom: 0.5px solid rgb(200, 200, 200);
+                    background-color: rgb(220, 220, 220)
+                }
+            
+                #control-panel {
+                    height: calc(100% - 18.5px);
+                    width: 17%;
+                    margin-top: -13.5px;
+                    margin-right: 0px;
+                    padding: 2px;
+                    border-radius: 0px 0px 10px 0px;
+                    background-color: rgb(220, 220, 220);
+                    float: right
+                }
+            
+                .control-panel-button {
+                    width: 35px;
+                    height: 35px;
+                    padding: 2px;
+                    padding-top: 5.5px;
+                    padding-bottom: 5.5px
+                }
+            
+                #control-panel-counters {
+                    margin-right: 4px;
+                }
+            
+                .control-panel-counter {
+                    text-align: center;
+                    margin-bottom: 8px
+                }
+            
+                #cycle-submission-count {
+                    margin-top: 12px;
+                    padding-bottom: 6px
+                }
+                
+                #downvote-count {
+                    padding-bottom: 5px
+                }
+            }
+            
+            #user-name-label, #karma-score-label {
+                width: 50%;
+                text-align: center;
+                margin-top: 0px
+            }
+            
+            #user-name-label {
+                float: left
+            }
+            
+            #karma-score-label {
+                float: right
+            }
+            
+            #control-panel-buttons, #control-panel-counters {
+                display: inline-grid
+            }
+            
+            #control-panel-buttons {
+                float: left
+            }
+            
+            #control-panel-counters {
+                float: right
+            }
+            
+            .control-panel-button:hover {
+                background-color: rgb(200, 200, 200)
+            }
+            
+            #submission-text-container {
+                margin-left: 5px;
+            }
+            
+            #submission-text-label {
+                margin-bottom: -12px
+            }
+            
+            #submission-source-label {
+                margin-bottom: -10px
+            }
+            
+            #submission-text, #submission-source {
+                margin-right: 47.5px;
+                border-radius: 3px;
+                background-color: white
+            }
+        `;
+
+        viewSubmissionShadowRoot.appendChild(shadowDomStyles);
+        viewSubmissionShadowRoot.appendChild(container);
+    }
+}
+
 function begunSelecting() {
     window.removeEventListener('mouseup', doneSelecting);
 
     //only need to run this set up code the first time a selection is made
-    if (!isClicked) {
+    if (!isUserInputDomCreated) {
 
         //creating, styling and appending shadowDOM to document
         let hostElement = document.createElement('div');
-        hostElement.id = 'host-element'
+        hostElement.id = 'user-input-host-element';
         $(hostElement).appendTo('body');
 
         let shadowHost = hostElement;
-        shadowRoot = shadowHost.attachShadow({mode: 'open'});
+        userInputShadowRoot = shadowHost.attachShadow({mode: 'open'}); 
         
         let container = document.createElement('div');
-        container.id = 'context-menu-container';
+        container.id = 'user-input-context-menu-container';
         container.className = 'hidden';
+        
+        /*
+        chrome.runtime.sendMessage({
+            request: 'fetch>file',
+            url: chrome.runtime.getURL('create-submission-context-menu.html'),
+            type: 'text/html'
+        }, 
+        function(response) {
+            console.log('response: ', response);
+            container.innerHTML = response.html;
+            console.log(container);
+        });
+        */
+        
         container.innerHTML = `
             <div id='loading'>
                 <img id='loading-icon' class='hidden' src='` + chrome.runtime.getURL('images/loading.png') + `' alt='loading' height='35' width='35'>
@@ -912,10 +1421,12 @@ function begunSelecting() {
                 </div>
             </div>`
         ;
+        
+        //src='` + chrome.runtime.getURL('images/loading.png') + `'
 
         let shadowDomStyles = document.createElement('style');
         shadowDomStyles.innerText = `
-            #context-menu-container {
+            #user-input-context-menu-container {
                 position: fixed;
                 height: 2%;
                 width: 6.5%;
@@ -1082,47 +1593,47 @@ function begunSelecting() {
             }
         `;
 
-        shadowRoot.appendChild(shadowDomStyles);
-        shadowRoot.appendChild(container);
+        userInputShadowRoot.appendChild(shadowDomStyles);
+        userInputShadowRoot.appendChild(container);
 
         //saves repeating querySelector + more readability
-        contextMenuContainer = shadowRoot.querySelector('#context-menu-container');
-        charCountText = shadowRoot.querySelector('.char-count-text');
-        selectionMenu = shadowRoot.querySelector('#selection-menu');
-        selectionMade = shadowRoot.querySelector('#selection-made');
-        radioContainer = shadowRoot.querySelector('#radio-container');
-        radioHeaders = shadowRoot.querySelectorAll('.radio-headers');
-        exitButton = shadowRoot.querySelector('#exit-button');
-        argumentNatureVals = shadowRoot.querySelectorAll('.argument-nature-radios');
-        sourceVals = shadowRoot.querySelectorAll('.source-radios');
-        annotationContainer = shadowRoot.querySelector('#user-annotation-container');
-        submissionInput = shadowRoot.querySelector('#submission-input');
-        sourceInput = shadowRoot.querySelector('#source-input');
+        userInputContextMenuContainer = userInputShadowRoot.querySelector('#user-input-context-menu-container');
+        charCountText = userInputShadowRoot.querySelector('.char-count-text');
+        selectionMenu = userInputShadowRoot.querySelector('#selection-menu');
+        selectionMade = userInputShadowRoot.querySelector('#selection-made');
+        radioContainer = userInputShadowRoot.querySelector('#radio-container');
+        radioHeaders = userInputShadowRoot.querySelectorAll('.radio-headers');
+        exitButton = userInputShadowRoot.querySelector('#exit-button');
+        argumentNatureVals = userInputShadowRoot.querySelectorAll('.argument-nature-radios');
+        sourceVals = userInputShadowRoot.querySelectorAll('.source-radios');
+        annotationContainer = userInputShadowRoot.querySelector('#user-annotation-container');
+        submissionInput = userInputShadowRoot.querySelector('#submission-input');
+        sourceInput = userInputShadowRoot.querySelector('#source-input');
 
         exitButton.addEventListener('click', exitContextMenu);
-        shadowRoot.querySelector('#confirm-choices').addEventListener('click', confirmChoices);
-        shadowRoot.querySelector('#publish-annotation').addEventListener('click', publishSubmission);
+        userInputShadowRoot.querySelector('#confirm-choices').addEventListener('click', confirmChoices);
+        userInputShadowRoot.querySelector('#publish-annotation').addEventListener('click', publishSubmission);
 
         emptyVal = submissionInput.value;
 
-        console.log('shadowRoot: ', shadowRoot);
+        console.log('userInputShadowRoot: ', userInputShadowRoot);
         console.log('document: ', document);
     }
     else {
         //if already clicked once, just need to hide/unhide elements rather than creating them every time
-        whenNotHovering(contextMenuContainer, function() {
+        whenNotHovering(userInputContextMenuContainer, function() {
             isFocussed = false;
             isAbortSelection = false;
             resetAnnotation();
             if (isExpanded) {
-                styleShadowDom(shadowRoot, ['#selection-quotes', '#exit-button', '#argument-nature-container', '#source-container'], [['display', 'none']]);    
+                styleShadowDom(userInputShadowRoot, ['#selection-quotes', '#exit-button', '#argument-nature-container', '#source-container'], [['display', 'none']]);    
                 isExpanded = false;
                 if (isConfirmed) {
                     if (!submission.isSource) {sourceInput.classList.remove('hidden');}
-                    styleShadowDom(shadowRoot, ['#user-annotation-container'], [['display', 'none']])
+                    styleShadowDom(userInputShadowRoot, ['#user-annotation-container'], [['display', 'none']])
                 }
 
-                contextMenuContainer.classList.remove('expand-anim');
+                userInputContextMenuContainer.classList.remove('expand-anim');
                 charCountText.classList.add('fadein-anim');
     
                 setTimeout(function() {
@@ -1132,19 +1643,21 @@ function begunSelecting() {
             }
         });
     }
+
+    isUserInputDomCreated = true;
     
-    whenHovering(contextMenuContainer, function() {
+    whenHovering(userInputContextMenuContainer, function() {
         isFocussed = true;
     });
 
     //checks to see whether mouse events lead to a selection being made or just normal click
     checkSelectMade = setInterval(function() {
-        whenNotHovering(contextMenuContainer, function() {
+        whenNotHovering(userInputContextMenuContainer, function() {
             let initialSelection = window.getSelection().toString();
 
             if (initialSelection.length > 0 && !isAbortSelection) {
                 isSelectMade = true;
-                contextMenuContainer.classList.remove('hidden');
+                userInputContextMenuContainer.classList.remove('hidden');
             }
             else {
                 isSelectMade = false
@@ -1162,7 +1675,7 @@ function begunSelecting() {
             let thisSelection = autoCompSelection();
             charCount = thisSelection.length;
             
-            shadowRoot.querySelector('#char-count-value').innerText = charCount;
+            userInputShadowRoot.querySelector('#char-count-value').innerText = charCount;
 
             if (charCount > countLimit) {
                 rgb = 'rgba(255, 96, 96, 0.8)'
@@ -1173,22 +1686,21 @@ function begunSelecting() {
                 isOverLimit = false;
             }
 
-            styleShadowDom(shadowRoot, '#context-menu-container', [['background-color', rgb]]);
-            whenNotHovering(contextMenuContainer, function() {
-                window.addEventListener('mousemove', setToMousePos)
+            styleShadowDom(userInputShadowRoot, '#user-input-context-menu-container', [['background-color', rgb]]);
+            whenNotHovering(userInputContextMenuContainer, function() {
+                window.addEventListener('mousemove', setToMousePos);
             });
         }
     }, 100);
 
     //allows user to 'click out' of context menu
-    whenNotHovering(contextMenuContainer, function() {
-        styleShadowDom(shadowRoot, '#context-menu-container', [
+    whenNotHovering(userInputContextMenuContainer, function() {
+        styleShadowDom(userInputShadowRoot, '#user-input-context-menu-container', [
             ['left', event.clientX + 75 + 'px'],
             ['top', event.clientY + 50 + 'px'],
         ]);
     });
         
-    isClicked = true;
     window.addEventListener('keydown', function(event) {if (event.keyCode === 83) {window.addEventListener('mouseup', doneSelecting)}});
 
     window.addEventListener('keyup', function(event) {
@@ -1202,11 +1714,11 @@ function begunSelecting() {
                     //hide UI if s key is let up before mouse key
                     if (!isMouseUp) {
                         isAbortSelection = true;
-                        contextMenuContainer.classList.add('fadeout-anim');
+                        userInputContextMenuContainer.classList.add('fadeout-anim');
             
                         setTimeout(function() {
-                            contextMenuContainer.classList.add('hidden');
-                            contextMenuContainer.classList.remove('fadeout-anim');
+                            userInputContextMenuContainer.classList.add('hidden');
+                            userInputContextMenuContainer.classList.remove('fadeout-anim');
                         }, 150);
                     }
                     else {doneSelecting()}
@@ -1227,16 +1739,16 @@ function doneSelecting() {
 
     //if selection more than 100 chars, then appropriate animation displayed
     if (isOverLimit) {
-        contextMenuContainer.classList.add('shake-anim');
+        userInputContextMenuContainer.classList.add('shake-anim');
 
         setTimeout(function() {
-            contextMenuContainer.classList.add('fadeout-anim')
+            userInputContextMenuContainer.classList.add('fadeout-anim')
 
             setTimeout(function() {
-                contextMenuContainer.classList.add('hidden');
-                contextMenuContainer.classList.remove('fadeout-anim');
-                contextMenuContainer.classList.remove('shake-anim');
-                styleShadowDom(shadowRoot, '#context-menu-container', [['background-color', 'rgb(230, 230, 230)']]);
+                userInputContextMenuContainer.classList.add('hidden');
+                userInputContextMenuContainer.classList.remove('fadeout-anim');
+                userInputContextMenuContainer.classList.remove('shake-anim');
+                styleShadowDom(userInputShadowRoot, '#user-input-context-menu-container', [['background-color', 'rgb(230, 230, 230)']]);
             }, 150)
         }, 350)
     }
@@ -1246,9 +1758,9 @@ function doneSelecting() {
             annotation.urlOfArticle = window.location.href;
             submission.urlOfArticle = window.location.href;
 
-            whenNotHovering(contextMenuContainer, function() {
+            whenNotHovering(userInputContextMenuContainer, function() {
                 //triple clicks cause weird bugs
-                //if (event.detail === 3) {contextMenuContainer.classList.add('hidden')}
+                //if (event.detail === 3) {userInputContextMenuContainer.classList.add('hidden')}
 
                 if (!isFocussed) {
                     let selectionObj = window.getSelection();
@@ -1258,9 +1770,9 @@ function doneSelecting() {
                 }
             });
             
-            styleShadowDom(shadowRoot, '#context-menu-container', [['background-color', 'rgb(230, 230, 230)']]);
+            styleShadowDom(userInputShadowRoot, '#user-input-context-menu-container', [['background-color', 'rgb(230, 230, 230)']]);
             charCountText.classList.add('fadeout-anim');
-            contextMenuContainer.classList.add('expand-anim');
+            userInputContextMenuContainer.classList.add('expand-anim');
             isExpanded = true;
 
             setTimeout(function() {
@@ -1270,13 +1782,13 @@ function doneSelecting() {
                 exitButton.classList.add('fadein-anim');
 
                 setTimeout(function() {
-                    whenNotHovering(contextMenuContainer, function() {
+                    whenNotHovering(userInputContextMenuContainer, function() {
                         if (!isFocussed) {
                             //displays first 50 chars of selection to save space
                             if (finalSelection.length > 50) {selectionMade.innerText = finalSelection.substr(0, 50) + '...';}
                             else {selectionMade.innerText = finalSelection}
                             radioContainer.classList.remove('hidden');
-                            styleShadowDom(shadowRoot, ['#selection-quotes', '#exit-button', '#argument-nature-container', '#source-container'], [['display', 'inline']]);
+                            styleShadowDom(userInputShadowRoot, ['#selection-quotes', '#exit-button', '#argument-nature-container', '#source-container'], [['display', 'inline']]);
                             exitButton.addEventListener('mouseover', exitButtonActive);
                         }
                     });
@@ -1285,7 +1797,7 @@ function doneSelecting() {
             }, 150)
         }
         else {
-            contextMenuContainer.classList.add('hidden')
+            userInputContextMenuContainer.classList.add('hidden')
         }
     }
 
@@ -1396,27 +1908,35 @@ window.addEventListener('load', function() {
     nodeChunks = null;
     insertions = {};
     */
+    
+    
+    chrome.runtime.sendMessage({
+        request: 'delete',
+        resource: 'Annotations',
+        id: 'ANTxe97z32wl'
+    });
+    
 
     chrome.runtime.sendMessage({
         request: 'read',
         quantity: 'all',
         resource: 'Annotations', 
-        subResource: 'https://www.bbc.co.uk/news/uk-54468498'
+        subResource: window.location.href
     }, 
     function(response) {
-        console.log('sent submission for validation, data fetched: ', JSON.stringify(response.dataFetched, null, 4));
+        console.log('fetching submissions for page, data fetched: ', JSON.stringify(response.dataFetched, null, 4));
         console.log('response: ', response);
 
         if (response.dataFetched.length > 0) {
             for (let i=0; i<response.dataFetched.length; i++) {
                 findAnnotationInPage(response.dataFetched[i], 'anchor');
 
-                if (!annotation.isUnified) {
-                    findAnnotationInPage(response.dataFetched[i], 'middle');
+                if (!response.dataFetched[i].isUnified) {
+                    //findAnnotationInPage(response.dataFetched[i], 'middle');
                     findAnnotationInPage(response.dataFetched[i], 'focus');
                 }
 
-                console.log('insertions: ', insertions, 'elemInDoc: ', elemInDoc);
+                console.log('insertions: ', JSON.stringify(insertions), 'elemInDoc: ', elemInDoc);
                 highlightAnnotation(insertions, elemInDoc);
                 
                 elemInDoc = null;
@@ -1424,13 +1944,5 @@ window.addEventListener('load', function() {
                 insertions = {}
             }
         }
-    });
-
-    /*
-    chrome.runtime.sendMessage({
-        request: 'delete',
-        resource: 'Submissions',
-        id: 'SUBi16qd0bjw'
-    });
-    */
+    }); 
 });

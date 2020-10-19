@@ -86,7 +86,7 @@ function readRecord(resource, quantity, subResource) {
                 reject(error);
             });
         }).then(function(message) {
-            console.log('message', message);
+            console.log('message:', message);
             return message;
         });
     }
@@ -110,7 +110,7 @@ function readRecord(resource, quantity, subResource) {
                 reject(error);
             });
         }).then(function(message) {
-            console.log('message', message);
+            console.log('message:', message);
             return message;
         });
     }
@@ -205,6 +205,32 @@ function validateInput(data) {
     }
 }
 
+function fetchLocalFile(url, fileType) {
+    return new Promise(function(resolve, reject) {
+        console.log('url: ', url);
+        fetch(url, {
+            method: 'GET',
+            headers: {
+                'Content-Type': fileType
+            },
+        }).then(function (response) {
+            if (response.ok) {
+                return response.text();
+            }
+            return Promise.reject(response);
+        }).then(function (data) {
+            //console.log('data:', data);
+            resolve(data);
+        }).catch(function (error) {
+            console.warn('Something went wrong.', error);
+            reject(error);
+        });
+    }).then(function(message) {
+        //console.log('message:', message);
+        return message;
+    });
+}
+
 function handleBackgroundRequests(message, sender, sendResponse) {
     if (message.request === 'create>validate') {
         sendResponse({dataReceived: message});
@@ -221,6 +247,10 @@ function handleBackgroundRequests(message, sender, sendResponse) {
     else if (message.request === 'delete') {
         sendResponse({dataReceived: message});
         deleteRecord(message.resource, message.id);
+    }
+    else if (message.request === 'fetch>file') {
+        fetchLocalFile(message.url, message.type).then(function(result) {sendResponse({html: result})});
+        return true;
     }
 }
 

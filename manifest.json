@@ -35,9 +35,15 @@
 		"128": "images/icon128.png"
 	},
 	"web_accessible_resources": [
+        "create-submission-context-menu.html",
 		"images/exit-button.png",
 		"images/exit-button-active.png",
-		"images/loading.png",
+        "images/loading.png",
+        "images/cycle-submissions.png",
+        "images/upvote.png",
+        "images/downvote.png",
+        "images/helpful.png",
+        "images/report.png",
 		"fonts/Revalia-Regular.ttf",
 		"fonts/Oswald-Regular.ttf"
 	]

@@ -5,7 +5,7 @@ let inlineTags = ['A', 'SPAN', 'I', 'Q', 'B', 'STRONG', 'SUB', 'SUP', 'LABEL', '
 let punctuation = ['.', '?', '!', ',', ';', ':', '-', '—', ' ']; //include brackets, quotes etc? not sure
 let insertions = {};
 let elemInDoc = undefined;
-let nodeChunks = undefined
+let nodeChunks = undefined;
 
 //user data objects
 let annotation = {
@@ -30,6 +30,9 @@ let submission = {
 let checkSelectMade = undefined;
 let updateCharCount = undefined;
 
+//parent DOM elements
+let parentDocStyle = undefined;
+
 //shadow DOM vars/elements
 let userInputShadowRoot = undefined;
 let viewSubmissionShadowRoot = undefined;
@@ -47,8 +50,11 @@ let annotationContainer = undefined;
 let submissionInput = undefined;
 let sourceInput = undefined;
 
+let viewSubmissionContextMenuContainer
+
 //bools
 let isUserInputDomCreated = false;
+let isViewSubmissionDomCreated = false;
 let isSelectMade = false;
 let isOverLimit = false;
 let isExpanded = false;
@@ -635,333 +641,7 @@ function initAnnotation(object, selection) {
     annotation.annotationId = generateId('annotation');
 }
 
-function initHighlighElemEvents(element) {
-    element.addEventListener('click', viewSubmission(this));
-    element.addEventListener('mouseover', function() {
-        this.style.backgroundColor = 'rgb(220, 220, 220)';
-    });
-
-    element.addEventListener('mouseover', function() {
-        this.style.backgroundColor = 'rgb(200, 200, 200)';
-    });
-}   
-
-//inserts text (html tags) at the detected regions in the anchor and focus nodes, taken from https://stackoverflow.com/questions/4313841/insert-a-string-at-a-specific-index
-function highlightAnnotation(object, element) {
-    String.prototype.insertTextAtIndices = function(text) {
-        return this.replace(/./g, function(character, index) {
-            return text[index] ? text[index] + character : character;
-        });
-    };
-
-    let id = object.id;
-    delete object.id;
-
-    let highlighted = element.innerHTML.insertTextAtIndices(object);
-    element.innerHTML = highlighted;
-
-    let highlightElement = document.querySelector('.' + id);
-    //initHighlighElemEvents(highlightElement);
-}
-
-//finds an annotation in the parent document given a valid annotation object (fetched from database)
-function findAnnotationInPage(object, type) {
-    console.log('type: ', type);
-    console.log('**************');
-
-    //finds the boundary words in the anchor and focus node, ie: if the full text in the element is 'hello world! this is text' and the selection is 'this is text', then the start point is 13 charaters in and so forth
-    let detectBoundaries = function(targetNode) {
-        let startPoint = undefined;
-        let endPoint = undefined;
-        let searchString = undefined;
-        let fullText = undefined;
-        let temp = '';
-        let indexInNodeChunks = undefined;
-        let wholeText = targetNode.wholeText;
-        let possibleMatches = [];
-        let found = false;
-
-        //elemInDoc = findElement(type, targetNode);
-
-        //must find outermost (parent) element in order to get the entirety of the text, this is because if the start and end points are attained from differing full texts, it will break the highlightAnnotation() function
-        //this is because the insertions object is not reset per call of the findAnnotationInPage() function
-        elemInDoc = getParentElement(findElement(type, targetNode))
-
-        console.log('elemInDoc: ', elemInDoc);
-    
-        //chunking up the element by its HTML tags and removing the split tags from the array
-        nodeChunks = elemInDoc.innerHTML.split(/(<([^>]+)>)/g);
-    
-        for (let i=0; i<nodeChunks.length; i++) {
-            if (nodeChunks[i].match(/(<([^>]+)>)/g, '') != null) {
-                nodeChunks.splice(i, 2);
-            }
-
-            if (nodeChunks[i] == '') {
-                nodeChunks.splice(i);
-            }
-        }
-
-        console.log('wholeText: ', wholeText, 'nodeChunks: ', nodeChunks);
-
-        //anchor and focus nodes are not neccesarily the first and last nodes in the parent element found in doc
-        for (let i=0; i<nodeChunks.length; i++) {
-            if (newSearch(nodeChunks[i], wholeText) != 'failed') {
-                indexInNodeChunks = i;
-                console.log('indexInNodeChunks: ', indexInNodeChunks);
-            }
-        }
-    
-        //detects overlap of a given node chunk with the selection that was made, this is because if we simply searched in the node chunk for the whole text selected, it is likely that it would fail becuase it is only a chunk. 
-        if (type == 'anchor' /*&& !object.isUnified*/) {
-            for (let i=nodeChunks[indexInNodeChunks].length-1; i>=0; i--) {
-                temp = nodeChunks[indexInNodeChunks][i] + temp;
-                searchString = object.textAnnotated.substr(0, temp.length);
-                console.log('anchor|', 'temp: ', temp, 'searchString: ', searchString);
-        
-                /*
-                if (temp == searchString) {
-                    possibleMatches.push(searchString);
-                    found = true;
-                }
-                */
-
-                console.log('anchor search: ', newSearch(temp, searchString));
-                if (newSearch(temp, searchString) != 'failed') {
-                    console.log('possibleMatches.length: ', possibleMatches.length);
-
-                    let j = 0;
-                    let isAlreadyMatched = false;
-                    do {
-                        console.log('possibleMatches[i]: ', possibleMatches[i]);
-                        if (searchString == possibleMatches[i]) {
-                            isAlreadyMatched = true;
-                        }
-                        
-                        else {
-                            if (j == possibleMatches.length) {
-                                possibleMatches.push(searchString);
-                                found = true;
-                            }
-                        }
-                    }
-                    while (j<possibleMatches.length && !isAlreadyMatched && !found);
-                }
-            }                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        
-        }
-        else if (type == 'focus') {
-            for (let i=0; i<nodeChunks[indexInNodeChunks].length; i++) {
-                temp = temp + nodeChunks[indexInNodeChunks][i];
-                searchString = object.textAnnotated.substr(object.textAnnotated.length - temp.length, temp.length);
-                console.log('focus|', 'temp: ', temp, 'searchString: ', searchString);
-            
-                /*
-                if (temp == searchString) {
-                    possibleMatches.push(searchString);
-                    found = true;
-                }
-                */
-
-                console.log('focus search: ', newSearch(temp, searchString));
-                if (newSearch(temp, searchString) != 'failed') {
-                   console.log('possibleMatches.length: ', possibleMatches.length);
-
-                    let j = 0;
-                    let isAlreadyMatched = false;
-                    do {
-                       console.log('possibleMatches[i]: ', possibleMatches[i]);
-                        if (searchString == possibleMatches[i]) {
-                           isAlreadyMatched = true;
-                        }
-                       
-                        else {
-                           if (j == possibleMatches.length) {
-                               possibleMatches.push(searchString);
-                               found = true;
-                           }
-                        }
-                    }
-                    while (j<possibleMatches.length && !isAlreadyMatched && !found);
-                }
-            }                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   
-        }
-
-        if (!found) {
-            console.log('detectBoundaries()| ERROR: could not detect boundary for type: ', type, 'at nodeChunk:',  indexInNodeChunks)
-        }
-        else {searchString = possibleMatches[possibleMatches.length-1]}
-    
-        console.log('searchString: ', searchString);
-
-        //check for new bugs here due to changes made DEFO NEW BUGS HERE LMAO
-        if (!object.isUnified) {
-            //does the searchString span over 2 nodes (html tags in innerHTML used to chunk into nodes will cause search to fail for any given chunk, therefore use innerText) however just setting innerText declaratively causes it to break for other cases.
-            console.log('elemInDoc.innerHTML: ', elemInDoc.innerHTML);
-            console.log('nodeChunks[indexInNodeChunks]: ', nodeChunks[indexInNodeChunks]);
-
-            //if (newSearch(nodeChunks[indexInNodeChunks], searchString) != 'failed') {fullText = elemInDoc.innerText}
-            if(newSearch(elemInDoc.innerHTML, searchString) == 'failed') {fullText = elemInDoc.innerText}
-            else {fullText = elemInDoc.innerHTML}
-        
-            //does anchor/focus begin/end at the beginning/end of the node in question? if so need to use fulltext instead of wholeText
-            console.log('indexInNodeChunks: ', indexInNodeChunks, 'nodeChunks.length: ', nodeChunks.length);
-            if (indexInNodeChunks != 0 && indexInNodeChunks != nodeChunks.length-1 || newSearch(nodeChunks[indexInNodeChunks], searchString) != 'failed') {
-                substringFrom = fullText;
-                console.log('substringFrom if: ', substringFrom);
-            }
-            else {
-                substringFrom = wholeText;
-                console.log('substringFrom else: ', substringFrom);
-            }       
-        }
-    
-        //finds start point for the opening tag in the full text using searchString or object.textAnnotated, uses this start point to calculate the end point
-        if (type == 'anchor' && !object.isUnified) {
-            console.log('fullText: ', fullText, 'searchString: ', searchString);
-            console.log('search: ', newSearch(fullText, searchString));
-            startPoint = newSearch(fullText, searchString);
-            endPoint = startPoint + searchString.length;
-        }
-        else if (type == 'anchor' && object.isUnified) {
-            console.log('wholeText: ', wholeText, 'object.textAnnotated: ', object.textAnnotated);
-            startPoint = newSearch(wholeText, object.textAnnotated);
-            endPoint = startPoint + object.textAnnotated.length;
-        }
-        else if (type == 'focus') {
-            console.log('fullText: ', fullText, 'searchString: ', searchString);
-            startPoint = newSearch(fullText, searchString);
-            endPoint = startPoint + searchString.length;
-        }
-    
-        console.log('points: ', startPoint, endPoint);
-        console.log('**************')
-    
-        //uses start and end points as object keys with the values set as the <span> open and closing tags
-        insertions[startPoint] = `<span class='` + object.annotationId + ` highlight-annotation' style='background-color: rgb(200, 200, 200)'>`;
-        insertions[endPoint] = '</span>';
-        insertions.id = object.annotationId;
-    };
-
-    //if highlighting middle elements, dont need to find any boundaries, just highlight the whole element
-    let highlightMidNodes = function(object) {
-        let anchorIndex = undefined;
-        let focusIndex = undefined;
-        for (let i=0; i<nodeChunks.length; i++) {
-            if (object.anchor.wholeText == nodeChunks[i]) {
-                anchorIndex = i;
-            }
-            else if (object.focus.wholeText == nodeChunks[i]) {
-                focusIndex = i;
-            }
-        }
-
-        console.log('indexes: ', anchorIndex, focusIndex);
-
-        for (let i=anchorIndex+1; i<focusIndex; i++) {
-            let childElemInDoc = findElement(type, nodeChunks[i]);
-            childElemInDoc.classList.add(object.annotationId, 'highlight-annotation');
-            childElemInDoc.style.backgroundColor = 'rgb(200, 200, 200)';
-            console.log('childElemInDoc.classList: ', childElemInDoc.classList);
-
-            console.log('middle loop| nodeChunks[i]', nodeChunks[i]); 
-        }
-    }
-
-    //assigning the right arguments for the respective type specified at findInAnnotation()
-    if (type == 'anchor') {
-        detectBoundaries(object.anchor);
-    }
-    else if (type == 'middle') {
-        highlightMidNodes(object);
-    }
-    else if (type == 'focus') {
-        detectBoundaries(object.focus);
-    }
-    else {
-        console.log('ERROR: invalid type: ', type);
-        return;
-    }
-}
-
-//publish button click function
-function publishSubmission() {
-    //sends preliminarily validated data to background script for more in depth validation
-    let sendData = function(annotation, submission) {
-        let resource = 'submission';
-        submission.assignedTo = annotation.annotationId;
-
-        let data = {
-            submission: submission
-        }
-
-        if (annotation.annotationId != '') {
-            data.annotation = annotation;
-            resource = 'both';
-        }
-
-        chrome.runtime.sendMessage({
-            request: 'create>validate', 
-            resource: resource,
-            data: data
-        }, 
-        function(response) {
-            console.log('sent submission for validation, data received: ', JSON.stringify(response.dataReceived, null, 4));
-        });
-
-        findAnnotationInPage(annotation, 'anchor');
-
-        if (!annotation.isUnified) {
-            //findAnnotationInPage(annotation, 'middle');
-            findAnnotationInPage(annotation, 'focus');
-        }
-
-        console.log('insertions: ', JSON.stringify(insertions), 'elemInDoc: ', elemInDoc);
-        highlightAnnotation(insertions, elemInDoc);
-        
-        elemInDoc = null;
-        nodeChunks = null;
-        insertions = {}
-
-        location.reload();
-    }
-
-    //checks to see if url given is in correct format, taken from https://stackoverflow.com/questions/5717093/check-if-a-javascript-string-is-a-url
-    let validateUrlFormat = function(string) {
-        let url;
-      
-        try {
-            url = new URL(string);
-        } 
-        catch (_) {
-            return false;  
-        }
-    
-        return url.protocol === 'http:' || url.protocol === 'https:';
-    }
-
-    //validates if input is unchanged or whitespace and other data, then set values to the submission object
-    if (submissionInput.value != '' && submissionInput.value.trim() != '' && submissionInput.value != emptyVal) {
-        submission.submissionText = submissionInput.value;
-
-        if (submission.isSource) {
-            if (validateUrlFormat(sourceInput.value) != false) {
-                submission.sourceLink = sourceInput.value;
-                submission.submissionId = generateId('submission');
-                sendData(annotation, submission);
-            }
-            else {alert('Enter a valid HTTP Link (http://, https://)')}
-        }
-        else {
-            submission.sourceLink = null;
-            submission.submissionId = generateId('submission');
-            sendData(annotation, submission);
-        }
-    }
-    else {alert('Enter a valid submission')}
-}
-
 function viewSubmission(span) {
-    let isViewSubmissionDomCreated = false;
     if (!isViewSubmissionDomCreated) {
         let hostElement = document.createElement('div');
         hostElement.id = 'view-submission-host-element';
@@ -1341,6 +1021,385 @@ function viewSubmission(span) {
 
         viewSubmissionShadowRoot.appendChild(shadowDomStyles);
         viewSubmissionShadowRoot.appendChild(container);
+        isViewSubmissionDomCreated = true;
+
+        viewSubmissionContextMenuContainer = viewSubmissionShadowRoot.querySelector('#view-submission-context-menu-container');
+    }
+
+    let spanInParent = getParentElement(span);
+
+    //calculate offset of clicked element and set UI position to this offset
+    let bodyBounds = document.body.getBoundingClientRect();
+    let elementBounds = spanInParent.getBoundingClientRect();
+    let elementXOffset = elementBounds.top - bodyBounds.top;
+    let elementYOffset = elementBounds.left - bodyBounds.left;
+
+    console.log('offsets: ', elementXOffset, elementYOffset);
+    
+    styleShadowDom(viewSubmissionShadowRoot, '#view-submission-context-menu-container', [
+        ['top', elementXOffset - 1240 + 'px'],
+        ['left', elementYOffset + 50 + 'px']
+    ]);
+}
+
+function initHighlightedElemEvents(elements) {
+    console.log('element: ', elements);
+    for (let i=0; i<elements.length; i++) {
+
+        elements[i].addEventListener('click', function(event) {
+            viewSubmission(event.target)
+        });
+
+        //trigger mouseover feedback event for intial highlighted element but also all related elements to maintain the effect that the highlight is one united string
+        elements[i].addEventListener('mouseover', function() {
+            this.style.backgroundColor = 'rgb(235, 235, 235)';
+            this.style.cursor = 'pointer';
+            for (let j=0; j<elements.length; j++) {
+                if (j != i) {
+                    elements[j].style.backgroundColor = 'rgb(235, 235, 235)';
+                    elements[j].style.cursor = 'pointer';
+                }
+            }
+        });
+    
+        elements[i].addEventListener('mouseout', function() {
+            this.style.backgroundColor = 'rgb(200, 200, 200)';
+            for (let j=0; j<elements.length; j++) {
+                if (j != i) {
+                    elements[j].style.backgroundColor = 'rgb(200, 200, 200)';
+                }
+            }
+        });
+    }
+}   
+
+//inserts text (html tags) at the detected regions in the anchor and focus nodes, taken from https://stackoverflow.com/questions/4313841/insert-a-string-at-a-specific-index
+function highlightAnnotation(object, element) {
+    String.prototype.insertTextAtIndices = function(text) {
+        return this.replace(/./g, function(character, index) {
+            return text[index] ? text[index] + character : character;
+        });
+    };
+
+    let highlighted = element.innerHTML.insertTextAtIndices(object);
+    element.innerHTML = highlighted;
+}
+
+//finds an annotation in the parent document given a valid annotation object (fetched from database)
+function findAnnotationInPage(object, type) {
+    console.log('type: ', type);
+    console.log('**************');
+
+    //finds the boundary words in the anchor and focus node, ie: if the full text in the element is 'hello world! this is text' and the selection is 'this is text', then the start point is 13 charaters in and so forth
+    let detectBoundaries = function(targetNode) {
+        let startPoint = undefined;
+        let endPoint = undefined;
+        let searchString = undefined;
+        let fullText = undefined;
+        let temp = '';
+        let indexInNodeChunks = undefined;
+        let wholeText = targetNode.wholeText;
+        let possibleMatches = [];
+        let found = false;
+
+        //must find outermost (parent) element in order to get the entirety of the text, this is because if the start and end points are attained from differing full texts, it will break the highlightAnnotation() function
+        //this is because the insertions object is not reset per call of the findAnnotationInPage() function
+        elemInDoc = getParentElement(findElement(type, targetNode))
+
+        //getParentElement() gets the outermost block level element, however the highlight wont work if this isnt the element that contains the actual text
+        if (elemInDoc.innerText == elemInDoc.firstChild.innerText) {
+            elemInDoc = elemInDoc.firstChild;
+        }
+
+        console.log('elemInDoc: ', elemInDoc);
+    
+        //chunking up the element by its HTML tags and removing the split tags from the array
+        nodeChunks = elemInDoc.innerHTML.split(/(<([^>]+)>)/g);
+        console.log('pre splice nodeChunks: ', nodeChunks);
+    
+        for (let i=0; i<nodeChunks.length; i++) {
+            if (nodeChunks[i].match(/(<([^>]+)>)/g, '') != null) {
+                nodeChunks.splice(i, 2);
+            }
+
+            if (nodeChunks[i] == '') {
+                nodeChunks.splice(i);
+            }
+        }
+
+        console.log('wholeText: ', wholeText, 'nodeChunks: ', nodeChunks);
+
+        //anchor and focus nodes are not neccesarily the first and last nodes in the parent element found in doc
+        for (let i=0; i<nodeChunks.length; i++) {
+            if (newSearch(nodeChunks[i], wholeText) != 'failed') {
+                indexInNodeChunks = i;
+                console.log('indexInNodeChunks: ', indexInNodeChunks);
+            }
+        }
+    
+        //detects overlap of a given node chunk with the selection that was made, this is because if we simply searched in the node chunk for the whole text selected, it is likely that it would fail becuase it is only a chunk. 
+        if (type == 'anchor' /*&& !object.isUnified*/) {
+            for (let i=nodeChunks[indexInNodeChunks].length-1; i>=0; i--) {
+                temp = nodeChunks[indexInNodeChunks][i] + temp;
+                searchString = object.textAnnotated.substr(0, temp.length);
+                console.log('anchor|', 'temp: ', temp, 'searchString: ', searchString);
+        
+                /*
+                if (temp == searchString) {
+                    possibleMatches.push(searchString);
+                    found = true;
+                }
+                */
+
+                console.log('anchor search: ', newSearch(temp, searchString));
+                if (newSearch(temp, searchString) != 'failed') {
+                    console.log('possibleMatches.length: ', possibleMatches.length);
+
+                    let j = 0;
+                    let isAlreadyMatched = false;
+                    do {
+                        console.log('possibleMatches[i]: ', possibleMatches[i]);
+                        if (searchString == possibleMatches[i]) {
+                            isAlreadyMatched = true;
+                        }
+                        
+                        else {
+                            if (j == possibleMatches.length) {
+                                possibleMatches.push(searchString);
+                                found = true;
+                            }
+                        }
+                    }
+                    while (j<possibleMatches.length && !isAlreadyMatched && !found);
+                }
+            }                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        
+        }
+        else if (type == 'focus') {
+            for (let i=0; i<nodeChunks[indexInNodeChunks].length; i++) {
+                temp = temp + nodeChunks[indexInNodeChunks][i];
+                searchString = object.textAnnotated.substr(object.textAnnotated.length - temp.length, temp.length);
+                console.log('focus|', 'temp: ', temp, 'searchString: ', searchString);
+            
+                /*
+                if (temp == searchString) {
+                    possibleMatches.push(searchString);
+                    found = true;
+                }
+                */
+
+                console.log('focus search: ', newSearch(temp, searchString));
+                if (newSearch(temp, searchString) != 'failed') {
+                   console.log('possibleMatches.length: ', possibleMatches.length);
+
+                    let j = 0;
+                    let isAlreadyMatched = false;
+                    do {
+                       console.log('possibleMatches[i]: ', possibleMatches[i]);
+                        if (searchString == possibleMatches[i]) {
+                           isAlreadyMatched = true;
+                        }
+                       
+                        else {
+                           if (j == possibleMatches.length) {
+                               possibleMatches.push(searchString);
+                               found = true;
+                           }
+                        }
+                    }
+                    while (j<possibleMatches.length && !isAlreadyMatched && !found);
+                }
+            }                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   
+        }
+
+        if (!found) {
+            console.log('detectBoundaries()| ERROR: could not detect boundary for type: ', type, 'at nodeChunk:',  indexInNodeChunks)
+        }
+        else {searchString = possibleMatches[possibleMatches.length-1]}
+    
+        console.log('searchString: ', searchString);
+
+        //check for new bugs here due to changes made DEFO NEW BUGS HERE LMAO
+        if (!object.isUnified) {
+            //does the searchString span over 2 nodes (html tags in innerHTML used to chunk into nodes will cause search to fail for any given chunk, therefore use innerText) however just setting innerText declaratively causes it to break for other cases.
+            console.log('elemInDoc.innerHTML: ', elemInDoc.innerHTML);
+            console.log('nodeChunks[indexInNodeChunks]: ', nodeChunks[indexInNodeChunks]);
+
+            //if (newSearch(nodeChunks[indexInNodeChunks], searchString) != 'failed') {fullText = elemInDoc.innerText}
+            if(newSearch(elemInDoc.innerHTML, searchString) == 'failed') {fullText = elemInDoc.innerText}
+            else {fullText = elemInDoc.innerHTML}
+        
+            //does anchor/focus begin/end at the beginning/end of the node in question? if so need to use fulltext instead of wholeText
+            console.log('indexInNodeChunks: ', indexInNodeChunks, 'nodeChunks.length: ', nodeChunks.length);
+            if (indexInNodeChunks != 0 && indexInNodeChunks != nodeChunks.length-1 || newSearch(nodeChunks[indexInNodeChunks], searchString) != 'failed') {
+                substringFrom = fullText;
+                console.log('substringFrom if: ', substringFrom);
+            }
+            else {
+                substringFrom = wholeText;
+                console.log('substringFrom else: ', substringFrom);
+            }       
+        }
+    
+        //finds start point for the opening tag in the full text using searchString or object.textAnnotated, uses this start point to calculate the end point
+        if (type == 'anchor' && !object.isUnified) {
+            console.log('fullText: ', fullText, 'searchString: ', searchString);
+            console.log('search: ', newSearch(fullText, searchString));
+            startPoint = newSearch(fullText, searchString);
+            endPoint = startPoint + searchString.length;
+        }
+        else if (type == 'anchor' && object.isUnified) {
+            console.log('wholeText: ', wholeText, 'object.textAnnotated: ', object.textAnnotated);
+            startPoint = newSearch(wholeText, object.textAnnotated);
+            endPoint = startPoint + object.textAnnotated.length;
+        }
+        else if (type == 'focus') {
+            console.log('fullText: ', fullText, 'searchString: ', searchString);
+            startPoint = newSearch(fullText, searchString);
+            endPoint = startPoint + searchString.length;
+        }
+    
+        console.log('points: ', startPoint, endPoint);
+        console.log('**************')
+    
+        //uses start and end points as object keys with the values set as the <span> open and closing tags
+        insertions[startPoint] = `<span class='` + object.annotationId + ` highlight-annotation' style='background-color: rgb(200, 200, 200)'>`;
+        insertions[endPoint] = '</span>';
+    };
+
+    //if highlighting middle elements, dont need to find any boundaries, just highlight the whole element
+    let highlightMidNodes = function(object) {
+        let anchorIndex = undefined;
+        let focusIndex = undefined;
+        for (let i=0; i<nodeChunks.length; i++) {
+            if (object.anchor.wholeText == nodeChunks[i]) {
+                anchorIndex = i;
+            }
+            else if (object.focus.wholeText == nodeChunks[i]) {
+                focusIndex = i;
+            }
+        }
+
+        console.log('indexes: ', anchorIndex, focusIndex);
+
+        for (let i=anchorIndex+1; i<focusIndex; i++) {
+            let childElemInDoc = findElement(type, nodeChunks[i]);
+            childElemInDoc.classList.add(object.annotationId, 'highlight-annotation');
+            childElemInDoc.style.backgroundColor = 'rgb(200, 200, 200)';
+            console.log('childElemInDoc.classList: ', childElemInDoc.classList);
+
+            console.log('middle loop| nodeChunks[i]', nodeChunks[i]); 
+        }
+    }
+
+    //assigning the right arguments for the respective type specified at findInAnnotation()
+    if (type == 'anchor') {
+        detectBoundaries(object.anchor);
+    }
+    else if (type == 'middle') {
+        highlightMidNodes(object);
+    }
+    else if (type == 'focus') {
+        detectBoundaries(object.focus);
+    }
+    else {
+        console.log('ERROR: invalid type: ', type);
+        return;
+    }
+}
+
+//publish button click function
+function publishSubmission() {
+    //sends preliminarily validated data to background script for more in depth validation
+    let sendData = function(annotation, submission) {
+        let resource = 'submission';
+        submission.assignedTo = annotation.annotationId;
+
+        let data = {
+            submission: submission
+        }
+
+        if (annotation.annotationId != '') {
+            data.annotation = annotation;
+            resource = 'both';
+        }
+
+        chrome.runtime.sendMessage({
+            request: 'create>validate', 
+            resource: resource,
+            data: data
+        }, 
+        function(response) {
+            console.log('sent submission for validation, data received: ', JSON.stringify(response.dataReceived, null, 4));
+        });
+
+        findAnnotationInPage(annotation, 'anchor');
+
+        if (!annotation.isUnified) {
+            findAnnotationInPage(annotation, 'middle');
+            findAnnotationInPage(annotation, 'focus');
+        }
+
+        console.log('insertions: ', JSON.stringify(insertions), 'elemInDoc: ', elemInDoc);
+        highlightAnnotation(insertions, elemInDoc);
+        
+        elemInDoc = null;
+        nodeChunks = null;
+        insertions = {}
+
+        location.reload();
+    }
+
+    //checks to see if url given is in correct format, taken from https://stackoverflow.com/questions/5717093/check-if-a-javascript-string-is-a-url
+    let validateUrlFormat = function(string) {
+        let url;
+      
+        try {
+            url = new URL(string);
+        } 
+        catch (_) {
+            return false;  
+        }
+    
+        return url.protocol === 'http:' || url.protocol === 'https:';
+    }
+
+    //validates if input is unchanged or whitespace and other data, then set values to the submission object
+    if (submissionInput.value != '' && submissionInput.value.trim() != '' && submissionInput.value != emptyVal) {
+        submission.submissionText = submissionInput.value;
+
+        if (submission.isSource) {
+            if (validateUrlFormat(sourceInput.value) != false) {
+                submission.sourceLink = sourceInput.value;
+                submission.submissionId = generateId('submission');
+                sendData(annotation, submission);
+            }
+            else {alert('Enter a valid HTTP Link (http://, https://)')}
+        }
+        else {
+            submission.sourceLink = null;
+            submission.submissionId = generateId('submission');
+            sendData(annotation, submission);
+        }
+    }
+    else {alert('Enter a valid submission')}
+}
+
+//doesnt work
+function disableAnchors() {
+    let anchors = document.querySelectorAll('a');
+
+    for (let i=0; i< anchors.length; i++) {
+        anchors[i].classList.remove('re-enable-anchors');
+        anchors[i].classList.add('disable-anchors');
+    }
+}
+
+function reEnableAnchors() {
+    let anchors = document.querySelectorAll('a');
+
+    for (let i=0; i< anchors.length; i++) {
+        anchors[i].classList.remove('disable-anchors');
+        anchors[i].classList.add('re-enable-anchors');
     }
 }
 
@@ -1626,7 +1685,13 @@ function begunSelecting() {
             isAbortSelection = false;
             resetAnnotation();
             if (isExpanded) {
-                styleShadowDom(userInputShadowRoot, ['#selection-quotes', '#exit-button', '#argument-nature-container', '#source-container'], [['display', 'none']]);    
+                styleShadowDom(userInputShadowRoot, [
+                    '#selection-quotes',
+                    '#exit-button', 
+                    '#argument-nature-container', 
+                    '#source-container'
+                ], [['display', 'none']]);
+
                 isExpanded = false;
                 if (isConfirmed) {
                     if (!submission.isSource) {sourceInput.classList.remove('hidden');}
@@ -1701,7 +1766,10 @@ function begunSelecting() {
         ]);
     });
         
-    window.addEventListener('keydown', function(event) {if (event.keyCode === 83) {window.addEventListener('mouseup', doneSelecting)}});
+    window.addEventListener('keydown', function(event) {
+        if (event.keyCode === 83) {window.addEventListener('mouseup', doneSelecting)}
+        disableAnchors();
+    });
 
     window.addEventListener('keyup', function(event) {
         let isMouseUp = false;
@@ -1727,6 +1795,7 @@ function begunSelecting() {
             
             window.removeEventListener('mouseup', doneSelecting);
         }
+        reEnableAnchors();
     });
 }
 
@@ -1788,7 +1857,15 @@ function doneSelecting() {
                             if (finalSelection.length > 50) {selectionMade.innerText = finalSelection.substr(0, 50) + '...';}
                             else {selectionMade.innerText = finalSelection}
                             radioContainer.classList.remove('hidden');
-                            styleShadowDom(userInputShadowRoot, ['#selection-quotes', '#exit-button', '#argument-nature-container', '#source-container'], [['display', 'inline']]);
+
+                            styleShadowDom(userInputShadowRoot, [
+                                '#selection-quotes', 
+                                '#exit-button', 
+                                '#argument-nature-container', 
+                                '#source-container'
+                            ], 
+                            [['display', 'inline']]);
+
                             exitButton.addEventListener('mouseover', exitButtonActive);
                         }
                     });
@@ -1808,6 +1885,7 @@ function doneSelecting() {
             window.addEventListener('mousemove', borderHoveredElement);
             window.addEventListener('mousedown', begunSelecting)
         }
+        disableAnchors();
     });
 
     window.addEventListener('keyup', function(event) {
@@ -1815,6 +1893,7 @@ function doneSelecting() {
             window.removeEventListener('mousemove', borderHoveredElement);
             window.removeEventListener('mousedown', begunSelecting)
         }
+        reEnableAnchors();
     });
 }
 
@@ -1841,15 +1920,23 @@ chrome.runtime.onMessage.addListener(handleContentRequests);
 
 window.addEventListener('load', function() {
     //custom font added parent document for use in shadowDOM
-    let fontRule = document.createElement('style');
-    fontRule.innerText = `
+    parentDocStyle = document.createElement('style');
+    parentDocStyle.innerText = `
         @font-face {
             font-family: 'Revalia';
             src: url(` + chrome.runtime.getURL('fonts/Revalia-Regular.ttf') + `) format('truetype');
         }
+
+        .disable-anchors {
+            pointer-events: none;
+        }
+
+        .re-enable-anchors {
+            pointer-events: auto;
+        }
     `;
 
-    $(fontRule).appendTo('body');
+    $(parentDocStyle).appendTo('body');
     //window.addEventListener('mousedown', begunSelecting);
 
     window.addEventListener('keydown', function(event) {
@@ -1857,6 +1944,7 @@ window.addEventListener('load', function() {
             window.addEventListener('mousemove', borderHoveredElement);
             window.addEventListener('mousedown', begunSelecting);
         }
+        disableAnchors();
     });
 
     window.addEventListener('keyup', function(event) {
@@ -1864,6 +1952,7 @@ window.addEventListener('load', function() {
             window.removeEventListener('mousemove', borderHoveredElement);
             window.removeEventListener('mousedown', begunSelecting);
         }
+        reEnableAnchors();
     });
 
     /*
@@ -1913,9 +2002,8 @@ window.addEventListener('load', function() {
     chrome.runtime.sendMessage({
         request: 'delete',
         resource: 'Annotations',
-        id: 'ANTxe97z32wl'
+        id: 'ANT2vyrad1xp'
     });
-    
 
     chrome.runtime.sendMessage({
         request: 'read',
@@ -1932,12 +2020,15 @@ window.addEventListener('load', function() {
                 findAnnotationInPage(response.dataFetched[i], 'anchor');
 
                 if (!response.dataFetched[i].isUnified) {
-                    //findAnnotationInPage(response.dataFetched[i], 'middle');
+                    findAnnotationInPage(response.dataFetched[i], 'middle');
                     findAnnotationInPage(response.dataFetched[i], 'focus');
                 }
 
                 console.log('insertions: ', JSON.stringify(insertions), 'elemInDoc: ', elemInDoc);
                 highlightAnnotation(insertions, elemInDoc);
+
+                let highlightedElements = document.querySelectorAll('.' + response.dataFetched[i].annotationId);
+                initHighlightedElemEvents(highlightedElements);
                 
                 elemInDoc = null;
                 nodeChunks = null;

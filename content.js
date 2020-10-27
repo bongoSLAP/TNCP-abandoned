@@ -50,7 +50,11 @@ let annotationContainer = undefined;
 let submissionInput = undefined;
 let sourceInput = undefined;
 
-let viewSubmissionContextMenuContainer
+let viewSubmissionContextMenuContainer = undefined;
+let completedSubmissionContainer = undefined;
+let ccompletedSubmissionTail = undefined;
+let completedSubmissionText = undefined;
+let completedSubmissionSource = undefined;
 
 //bools
 let isUserInputDomCreated = false;
@@ -148,16 +152,16 @@ function getParentElement(targetNode) {
     let getNextParent = function(child) {
         let parent = undefined;
 
-        console.log('child.nextElementSibling: ', child.nextElementSibling, 'child.previousElementSibling: ', child.previousElementSibling);
+        //console.log('child.nextElementSibling: ', child.nextElementSibling, 'child.previousElementSibling: ', child.previousElementSibling);
 
         if (child.nextElementSibling != null && child.previousElementSibling != null) {sibling = 'both'}
         else if (child.nextElementSibling != null && child.previousElementSibling == null) {sibling = child.nextElementSibling}
         else if (child.nextElementSibling == null && child.previousElementSibling != null) {sibling = child.previousElementSibling}
         else if (child.nextElementSibling == null && child.previousElementSibling == null) {
-            console.log('both null');
+            //console.log('both null');
             let isFinished = false;
 
-            console.log('child.nodeName: ', child.nodeName, 'child.innerText: ', child.innerText);
+            //console.log('child.nodeName: ', child.nodeName, 'child.innerText: ', child.innerText);
             //block level elements cannot be nested, so if it matches an item in blockLevelTags (list of block level elements), then this is the parent
             for (let i=0; i<blockLevelTags.length; i++) {
                 if (child.nodeName == blockLevelTags[i]) {
@@ -172,22 +176,22 @@ function getParentElement(targetNode) {
                     //return;
                 }
                 else if (!isFinished && i == blockLevelTags.length-1) {
-                    console.log('child is not a block-level tag');
+                    //console.log('child is not a block-level tag');
                     getNextParent(child.parentNode);
                 }
             }
         }
-        console.log('sibling: ', sibling);
+        //console.log('sibling: ', sibling);
 
         if (sibling != 'both' && sibling != 'both null') {
-            console.log('child.parentNode: ', child.parentNode, 'sibling: ', sibling);
+            //console.log('child.parentNode: ', child.parentNode, 'sibling: ', sibling);
             if (newSearch(child.parentNode.innerText, sibling.innerText) != 'failed') {
                 parent = child.parentNode;
                 getNextParent(parent);
             }
             else {
                 finalParent = child;
-                console.log('finalParent: ', finalParent);
+                //console.log('finalParent: ', finalParent);
                 return;
             }
         }
@@ -197,7 +201,7 @@ function getParentElement(targetNode) {
             if (child.nodeName == '#text') {fullText = child.wholeText;}
             else {fullText = child.innerText}
 
-            console.log('fullText: ', fullText);
+            //console.log('fullText: ', fullText);
 
             if (newSearch(fullText, child.nextElementSibling.innerText) != 'failed' && newSearch(fullText, child.previousElementSibling.innerText) != 'failed') {
                 parent = child.parentNode;
@@ -210,7 +214,7 @@ function getParentElement(targetNode) {
             }
         }
         else if (sibling == 'both null') {
-            console.log('child.nodeName: ', child.nodeName, 'child.innerText: ', child.innerText);
+            //console.log('child.nodeName: ', child.nodeName, 'child.innerText: ', child.innerText);
             //if both siblings are null, it is likely that child is a single inline tag nested within an x amount of other inline tags and a block level tag, so repeat for parent
             for (let i=0; i<inlineTags.length; i++) {
                 if (child.nodeName == inlineTags[i]) {
@@ -223,7 +227,7 @@ function getParentElement(targetNode) {
     getNextParent(targetNode);
     if (finalParent == undefined) {console.log('ERROR: conditions not met at getNextParent')}
     console.log('finalParent: ', finalParent);
-    console.log('********************');
+    //console.log('********************');
     return finalParent;
 }
 
@@ -641,6 +645,29 @@ function initAnnotation(object, selection) {
     annotation.annotationId = generateId('annotation');
 }
 
+//calculate offset of clicked element and UI, sets UI position to this offset
+function setUiAtAnnotationPos(span) {
+    let uiProperties = window.getComputedStyle(completedSubmissionContainer, null);
+    let uiYOffset = parseFloat(uiProperties.height.split('px')[0]);
+    let uiXOffset = parseFloat(uiProperties.width.split('px')[0]);
+
+    let uiTailProperties = window.getComputedStyle(completedSubmissionTail, null);
+    let uiTailYOffset = parseFloat(uiTailProperties.borderBottom.split('px')[0]);
+
+    uiYOffset += uiTailYOffset;
+
+    let bodyBounds = document.body.getBoundingClientRect();
+    let elementBounds = span.getBoundingClientRect();
+
+    //console.log('elementBounds: ', elementBounds);
+    //console.log('bodyBounds: ', bodyBounds);
+    
+    styleShadowDom(viewSubmissionShadowRoot, '#view-submission-context-menu-container', [
+        ['top', elementBounds.bottom - bodyBounds.bottom + uiYOffset + 6 + 'px'],
+        ['left', elementBounds.left + elementBounds.width / 2 - uiXOffset / 2 + 'px']
+    ]);
+}
+
 function viewSubmission(span) {
     if (!isViewSubmissionDomCreated) {
         let hostElement = document.createElement('div');
@@ -653,7 +680,7 @@ function viewSubmission(span) {
         let container = document.createElement('div');
         container.id = 'view-submission-context-menu-container';
         container.innerHTML = `
-            <div id="triangle-up"></div>
+            <div id="tail"></div>
             <div id="completed-submission-container">
                 <div id="user-info-container">
                     <p id="user-name-label">User: <span id="user-name">jim</span></p>
@@ -693,7 +720,7 @@ function viewSubmission(span) {
                 z-index: 10000
             }
             
-            #triangle-up {
+            #tail {
                 width: 0;
                 height: 0;
                 margin-bottom: -20px
@@ -709,7 +736,7 @@ function viewSubmission(span) {
             }
             
             @media screen and (min-resolution: 350dpi) {
-                #triangle-up {
+                #tail {
                     margin-left: 22.5px;
                     border-left: 1.25px solid transparent;
                     border-right: 1.25px solid transparent;
@@ -775,7 +802,7 @@ function viewSubmission(span) {
             }
             
             @media screen and (max-resolution: 300dpi) {
-                #triangle-up {
+                #tail {
                     margin-left: 45px;
                     border-left: 2.5px solid transparent;
                     border-right: 2.5px solid transparent;
@@ -841,7 +868,7 @@ function viewSubmission(span) {
             }
             
             @media screen and (max-resolution: 200dpi) {
-                #triangle-up {
+                #tail {
                     margin-left: 102.5px;
                     border-left: 5px solid transparent;
                     border-right: 5px solid transparent;
@@ -909,7 +936,7 @@ function viewSubmission(span) {
             }
             
             @media screen and (max-resolution: 100dpi) {
-                #triangle-up {
+                #tail {
                     margin-left: 180px;
                     border-left: 10px solid transparent;
                     border-right: 10px solid transparent;
@@ -1023,25 +1050,50 @@ function viewSubmission(span) {
         viewSubmissionShadowRoot.appendChild(container);
         isViewSubmissionDomCreated = true;
 
+        //viewSubmissionShadowRoot.querySelector('');
         viewSubmissionContextMenuContainer = viewSubmissionShadowRoot.querySelector('#view-submission-context-menu-container');
+        completedSubmissionContainer = viewSubmissionShadowRoot.querySelector('#completed-submission-container');
+        completedSubmissionTail = viewSubmissionShadowRoot.querySelector('#tail');
+        completedSubmissionText = viewSubmissionShadowRoot.querySelector('#submission-text');
+        completedSubmissionSource = viewSubmissionShadowRoot.querySelector('#submission-source');
     }
 
-    let spanInParent = getParentElement(span);
+    let thisAnnotationId = undefined;
 
-    //calculate offset of clicked element and set UI position to this offset
-    let bodyBounds = document.body.getBoundingClientRect();
-    let elementBounds = spanInParent.getBoundingClientRect();
-    let elementXOffset = elementBounds.top - bodyBounds.top;
-    let elementYOffset = elementBounds.left - bodyBounds.left;
+    setUiAtAnnotationPos(span);
+    window.addEventListener("resize", function() {
+        setUiAtAnnotationPos(span);
+    });
 
-    console.log('offsets: ', elementXOffset, elementYOffset);
+    //finds the id associated with span passed as argument
+    for (let i=0; i<span.classList.length; i++) {
+        if (span.classList[i].substr(0, 3) == 'ANT') {
+            thisAnnotationId = span.classList[i];
+            break;
+        }
+    }
+
+    console.log('thisAnnotationId: ', thisAnnotationId);
+
+    //when functionality for multiple submissions at one annotation is added, this will break as it only fetches one
+    chrome.runtime.sendMessage({
+        request: 'read',
+        quantity: 'one',
+        resource: 'Submissions', 
+        //subResource is not the id in this case because we dont know the submissionId, need to add a mongoCRUD functionality for fetching submission by assignedTo value which would be the annotationId
+        subResource: thisAnnotationId
+    }, 
+    function(response) {
+        console.log('fetching submission assigned to annotation with id: ', thisAnnotationId, 'data fetched: ', JSON.stringify(response.dataFetched, null, 4));
+        console.log('response: ', response);
+
+        //completedSubmissionText
+    }); 
+
     
-    styleShadowDom(viewSubmissionShadowRoot, '#view-submission-context-menu-container', [
-        ['top', elementXOffset - 1240 + 'px'],
-        ['left', elementYOffset + 50 + 'px']
-    ]);
 }
 
+//initialises various events to add functionality to span highlight elements
 function initHighlightedElemEvents(elements) {
     console.log('element: ', elements);
     for (let i=0; i<elements.length; i++) {
@@ -1111,11 +1163,11 @@ function findAnnotationInPage(object, type) {
             elemInDoc = elemInDoc.firstChild;
         }
 
-        console.log('elemInDoc: ', elemInDoc);
+        //console.log('elemInDoc: ', elemInDoc);
     
         //chunking up the element by its HTML tags and removing the split tags from the array
         nodeChunks = elemInDoc.innerHTML.split(/(<([^>]+)>)/g);
-        console.log('pre splice nodeChunks: ', nodeChunks);
+        //console.log('pre splice nodeChunks: ', nodeChunks);
     
         for (let i=0; i<nodeChunks.length; i++) {
             if (nodeChunks[i].match(/(<([^>]+)>)/g, '') != null) {
@@ -1127,13 +1179,13 @@ function findAnnotationInPage(object, type) {
             }
         }
 
-        console.log('wholeText: ', wholeText, 'nodeChunks: ', nodeChunks);
+        //console.log('wholeText: ', wholeText, 'nodeChunks: ', nodeChunks);
 
         //anchor and focus nodes are not neccesarily the first and last nodes in the parent element found in doc
         for (let i=0; i<nodeChunks.length; i++) {
             if (newSearch(nodeChunks[i], wholeText) != 'failed') {
                 indexInNodeChunks = i;
-                console.log('indexInNodeChunks: ', indexInNodeChunks);
+                //console.log('indexInNodeChunks: ', indexInNodeChunks);
             }
         }
     
@@ -1142,23 +1194,16 @@ function findAnnotationInPage(object, type) {
             for (let i=nodeChunks[indexInNodeChunks].length-1; i>=0; i--) {
                 temp = nodeChunks[indexInNodeChunks][i] + temp;
                 searchString = object.textAnnotated.substr(0, temp.length);
-                console.log('anchor|', 'temp: ', temp, 'searchString: ', searchString);
-        
-                /*
-                if (temp == searchString) {
-                    possibleMatches.push(searchString);
-                    found = true;
-                }
-                */
+                //console.log('anchor|', 'temp: ', temp, 'searchString: ', searchString);
 
-                console.log('anchor search: ', newSearch(temp, searchString));
+                //console.log('anchor search: ', newSearch(temp, searchString));
                 if (newSearch(temp, searchString) != 'failed') {
-                    console.log('possibleMatches.length: ', possibleMatches.length);
+                    //console.log('possibleMatches.length: ', possibleMatches.length);
 
                     let j = 0;
                     let isAlreadyMatched = false;
                     do {
-                        console.log('possibleMatches[i]: ', possibleMatches[i]);
+                        //console.log('possibleMatches[i]: ', possibleMatches[i]);
                         if (searchString == possibleMatches[i]) {
                             isAlreadyMatched = true;
                         }
@@ -1178,23 +1223,16 @@ function findAnnotationInPage(object, type) {
             for (let i=0; i<nodeChunks[indexInNodeChunks].length; i++) {
                 temp = temp + nodeChunks[indexInNodeChunks][i];
                 searchString = object.textAnnotated.substr(object.textAnnotated.length - temp.length, temp.length);
-                console.log('focus|', 'temp: ', temp, 'searchString: ', searchString);
-            
-                /*
-                if (temp == searchString) {
-                    possibleMatches.push(searchString);
-                    found = true;
-                }
-                */
+                //console.log('focus|', 'temp: ', temp, 'searchString: ', searchString);
 
-                console.log('focus search: ', newSearch(temp, searchString));
+                //console.log('focus search: ', newSearch(temp, searchString));
                 if (newSearch(temp, searchString) != 'failed') {
-                   console.log('possibleMatches.length: ', possibleMatches.length);
+                   //console.log('possibleMatches.length: ', possibleMatches.length);
 
                     let j = 0;
                     let isAlreadyMatched = false;
                     do {
-                       console.log('possibleMatches[i]: ', possibleMatches[i]);
+                       //console.log('possibleMatches[i]: ', possibleMatches[i]);
                         if (searchString == possibleMatches[i]) {
                            isAlreadyMatched = true;
                         }
@@ -1216,34 +1254,34 @@ function findAnnotationInPage(object, type) {
         }
         else {searchString = possibleMatches[possibleMatches.length-1]}
     
-        console.log('searchString: ', searchString);
+        //console.log('searchString: ', searchString);
 
         //check for new bugs here due to changes made DEFO NEW BUGS HERE LMAO
         if (!object.isUnified) {
             //does the searchString span over 2 nodes (html tags in innerHTML used to chunk into nodes will cause search to fail for any given chunk, therefore use innerText) however just setting innerText declaratively causes it to break for other cases.
-            console.log('elemInDoc.innerHTML: ', elemInDoc.innerHTML);
-            console.log('nodeChunks[indexInNodeChunks]: ', nodeChunks[indexInNodeChunks]);
+            //console.log('elemInDoc.innerHTML: ', elemInDoc.innerHTML);
+            //console.log('nodeChunks[indexInNodeChunks]: ', nodeChunks[indexInNodeChunks]);
 
             //if (newSearch(nodeChunks[indexInNodeChunks], searchString) != 'failed') {fullText = elemInDoc.innerText}
             if(newSearch(elemInDoc.innerHTML, searchString) == 'failed') {fullText = elemInDoc.innerText}
             else {fullText = elemInDoc.innerHTML}
         
             //does anchor/focus begin/end at the beginning/end of the node in question? if so need to use fulltext instead of wholeText
-            console.log('indexInNodeChunks: ', indexInNodeChunks, 'nodeChunks.length: ', nodeChunks.length);
+            //console.log('indexInNodeChunks: ', indexInNodeChunks, 'nodeChunks.length: ', nodeChunks.length);
             if (indexInNodeChunks != 0 && indexInNodeChunks != nodeChunks.length-1 || newSearch(nodeChunks[indexInNodeChunks], searchString) != 'failed') {
                 substringFrom = fullText;
-                console.log('substringFrom if: ', substringFrom);
+                //console.log('substringFrom if: ', substringFrom);
             }
             else {
                 substringFrom = wholeText;
-                console.log('substringFrom else: ', substringFrom);
+                //console.log('substringFrom else: ', substringFrom);
             }       
         }
     
         //finds start point for the opening tag in the full text using searchString or object.textAnnotated, uses this start point to calculate the end point
         if (type == 'anchor' && !object.isUnified) {
             console.log('fullText: ', fullText, 'searchString: ', searchString);
-            console.log('search: ', newSearch(fullText, searchString));
+            //console.log('search: ', newSearch(fullText, searchString));
             startPoint = newSearch(fullText, searchString);
             endPoint = startPoint + searchString.length;
         }
@@ -1279,15 +1317,14 @@ function findAnnotationInPage(object, type) {
             }
         }
 
-        console.log('indexes: ', anchorIndex, focusIndex);
+        //console.log('indexes: ', anchorIndex, focusIndex);
 
         for (let i=anchorIndex+1; i<focusIndex; i++) {
             let childElemInDoc = findElement(type, nodeChunks[i]);
             childElemInDoc.classList.add(object.annotationId, 'highlight-annotation');
             childElemInDoc.style.backgroundColor = 'rgb(200, 200, 200)';
-            console.log('childElemInDoc.classList: ', childElemInDoc.classList);
-
-            console.log('middle loop| nodeChunks[i]', nodeChunks[i]); 
+            //console.log('childElemInDoc.classList: ', childElemInDoc.classList);
+            //console.log('middle loop| nodeChunks[i]', nodeChunks[i]); 
         }
     }
 

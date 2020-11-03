@@ -6,6 +6,8 @@ let punctuation = ['.', '?', '!', ',', ';', ':', '-', '—', ' ']; //include bra
 let insertions = {};
 let elemInDoc = undefined;
 let nodeChunks = undefined;
+let submissionCache = []
+let anchorTag = undefined;
 
 //user data objects
 let annotation = {
@@ -43,7 +45,7 @@ let selectionMenu = undefined;
 let selectionMade = undefined;
 let radioContainer = undefined;
 let radioHeaders = undefined;
-let exitButton = undefined;
+let userInputExitButton = undefined;
 let argumentNatureVals = undefined;
 let sourceVals = undefined;
 let annotationContainer = undefined;
@@ -51,10 +53,12 @@ let submissionInput = undefined;
 let sourceInput = undefined;
 
 let viewSubmissionContextMenuContainer = undefined;
-let completedSubmissionContainer = undefined;
-let ccompletedSubmissionTail = undefined;
-let completedSubmissionText = undefined;
-let completedSubmissionSource = undefined;
+let viewSubmissionContainer = undefined;
+let tail = undefined;
+let viewSubmissionText = undefined;
+let viewSubmissionSource = undefined;
+let viewSubmissionSourceContainer = undefined;
+let viewSubmissionExitButton = undefined;
 
 //bools
 let isUserInputDomCreated = false;
@@ -171,7 +175,7 @@ function getParentElement(targetNode) {
 
                 if (isFinished) {
                     sibling = 'both null';
-                    console.log('finished');
+                    //console.log('finished');
                     break;
                     //return;
                 }
@@ -226,7 +230,7 @@ function getParentElement(targetNode) {
 
     getNextParent(targetNode);
     if (finalParent == undefined) {console.log('ERROR: conditions not met at getNextParent')}
-    console.log('finalParent: ', finalParent);
+    //console.log('finalParent: ', finalParent);
     //console.log('********************');
     return finalParent;
 }
@@ -455,18 +459,26 @@ function setToMousePos(event) {
     ]);
 }
 
-function exitButtonInactive() {
-    exitButton.src = chrome.runtime.getURL('images/exit-button.png');
+function exitButtonInactive(event) {
+    if (event.target.id == 'user-input-exit-button') {userInputExitButton.src = chrome.runtime.getURL('images/exit-button.png')}
+    else if (event.target.id == 'view-submission-exit-button') {viewSubmissionExitButton.src = chrome.runtime.getURL('images/exit-button.png')}
 }
 
-function exitButtonActive() {
-    exitButton.src = chrome.runtime.getURL('images/exit-button-active.png');
-    exitButton.addEventListener('mouseout', exitButtonInactive);
+function exitButtonActive(event) {
+    if (event.target.id == 'user-input-exit-button') {
+        userInputExitButton.src = chrome.runtime.getURL('images/exit-button-active.png');
+        userInputExitButton.addEventListener('mouseout', exitButtonInactive);
+    }
+    else if (event.target.id == 'view-submission-exit-button') {
+        viewSubmissionExitButton.src = chrome.runtime.getURL('images/exit-button-active.png');
+        viewSubmissionExitButton.addEventListener('mouseout', exitButtonInactive);
+    }
 }
 
 //exit button click function
-function exitContextMenu() {
-    userInputContextMenuContainer.classList.add('hidden');
+function exitContextMenu(event) {
+    if (event.target.id == 'user-input-exit-button') {userInputContextMenuContainer.classList.add('hidden')}
+    else if (event.target.id == 'view-submission-exit-button') {viewSubmissionContextMenuContainer.classList.add('hidden')}
 }
 
 //confirm button click function
@@ -647,11 +659,11 @@ function initAnnotation(object, selection) {
 
 //calculate offset of clicked element and UI, sets UI position to this offset
 function setUiAtAnnotationPos(span) {
-    let uiProperties = window.getComputedStyle(completedSubmissionContainer, null);
+    let uiProperties = window.getComputedStyle(viewSubmissionContainer, null);
     let uiYOffset = parseFloat(uiProperties.height.split('px')[0]);
     let uiXOffset = parseFloat(uiProperties.width.split('px')[0]);
 
-    let uiTailProperties = window.getComputedStyle(completedSubmissionTail, null);
+    let uiTailProperties = window.getComputedStyle(tail, null);
     let uiTailYOffset = parseFloat(uiTailProperties.borderBottom.split('px')[0]);
 
     uiYOffset += uiTailYOffset;
@@ -669,7 +681,10 @@ function setUiAtAnnotationPos(span) {
 }
 
 function viewSubmission(span) {
+    //only need to run this set up code the first time a selection is made
     if (!isViewSubmissionDomCreated) {
+
+        //creating, styling and appending shadowDOM to document
         let hostElement = document.createElement('div');
         hostElement.id = 'view-submission-host-element';
         $(hostElement).appendTo('body');
@@ -686,6 +701,7 @@ function viewSubmission(span) {
                     <p id="user-name-label">User: <span id="user-name">jim</span></p>
                     <p id="karma-score-label">Karma: <span id="karma-score">-34</span></p>
                 </div>
+                <img id='view-submission-exit-button' src='` + chrome.runtime.getURL('images/exit-button.png') + `' alt='exit'>
                 <div id="control-panel">
                     <div id="control-panel-buttons">
                         <img class="control-panel-button" id='cycle-submission-button' src='` + chrome.runtime.getURL('images/cycle-submissions.png') + `'>
@@ -706,7 +722,7 @@ function viewSubmission(span) {
                     <p id="submission-text"></p>
                     <div id="submission-source-container">
                         <h4 id="submission-source-label">Source:</h4>
-                        <p id="submission-source"></p>
+                        <a id="submission-source"></a>
                     </div>
                 </div>
             </div>
@@ -730,9 +746,17 @@ function viewSubmission(span) {
                 padding-bottom: 4px;
                 background-color: rgb(240, 240, 240)
             }
+
+            #view-submission-exit-button:hover {
+                cursor: pointer
+            }
             
             .control-panel-button {
                 border-radius: 10%
+            }
+
+            .hidden {
+                display: none
             }
             
             @media screen and (min-resolution: 350dpi) {
@@ -741,6 +765,14 @@ function viewSubmission(span) {
                     border-left: 1.25px solid transparent;
                     border-right: 1.25px solid transparent;
                     border-bottom: 2.5px solid  blue
+                }
+
+                #view-submission-exit-button {
+                    width: 3px;
+                    height: 3px;
+                    float: right;
+                    margin-top: -4.6px;
+                    margin-right: 1px
                 }
             
                 #completed-submission-container {
@@ -762,7 +794,7 @@ function viewSubmission(span) {
                 #control-panel {
                     height: calc(100% - 3.7px);
                     width: 12%;
-                    margin-top: -2px;
+                    margin-top: -1.1px;
                     margin-right: 0px;
                     padding: 2px;
                     border-radius: 0px 0px 2.5px 0px;
@@ -799,6 +831,28 @@ function viewSubmission(span) {
                 #downvote-count {
                     padding-bottom: 1px
                 }
+
+                #submission-text-container {
+                    width: 37.5px;
+                    margin-left: 1px
+                }
+                
+                #submission-text-label {
+                    margin-top: -2px
+                }
+                
+                #submission-source-label {
+                    margin-top: -1px
+                }
+                
+                #submission-text, #submission-source {
+                    margin-top: -2px;
+                    border-radius: 4px
+                }
+                
+                #submission-source {
+                    margin-top: -2.5px
+                }
             }
             
             @media screen and (max-resolution: 300dpi) {
@@ -807,6 +861,14 @@ function viewSubmission(span) {
                     border-left: 2.5px solid transparent;
                     border-right: 2.5px solid transparent;
                     border-bottom: 5px solid red
+                }
+
+                #view-submission-exit-button {
+                    width: 4.4px;
+                    height: 4.4px;
+                    float: right;
+                    margin-top: -7.5px;
+                    margin-right: 2px
                 }
             
                 #completed-submission-container {
@@ -826,9 +888,9 @@ function viewSubmission(span) {
                 }
             
                 #control-panel {
-                    height: calc(100% - 4.8px);
+                    height: calc(100% - 5px);
                     width: 13%;
-                    margin-top: -4px;
+                    margin-top: -3.1px;
                     margin-right: 0px;
                     padding: 2px;
                     border-radius: 0px 0px 5px 0px;
@@ -865,6 +927,24 @@ function viewSubmission(span) {
                 #downvote-count {
                     padding-bottom: 3px
                 }
+
+                #submission-text-container {
+                    margin-left: 2px;
+                    width: 77.5px
+                }
+                
+                #submission-text-label, #submission-source-label {
+                    margin-top: -2px
+                }
+                
+                #submission-text, #submission-source {
+                    margin-top: -3px;
+                    border-radius: 2px
+                }
+
+                #submission-source {
+                    margin-top: -4px
+                }
             }
             
             @media screen and (max-resolution: 200dpi) {
@@ -873,6 +953,14 @@ function viewSubmission(span) {
                     border-left: 5px solid transparent;
                     border-right: 5px solid transparent;
                     border-bottom: 10px solid green
+                }
+
+                #view-submission-exit-button {
+                    width: 9px;
+                    height: 9px;
+                    float: right;
+                    margin-top: -20.5px;
+                    margin-right: 2px
                 }
             
                 #completed-submission-container {
@@ -892,9 +980,9 @@ function viewSubmission(span) {
                 }
             
                 #control-panel {
-                    height: calc(100% - 12px);
+                    height: calc(100% - 11.2px);
                     width: 17%;
-                    margin-top: -10.5px;
+                    margin-top: -10.7px;
                     margin-right: 0px;
                     padding: 2px;
                     border-radius: 0px 0px 5px 0px;
@@ -933,6 +1021,26 @@ function viewSubmission(span) {
                     margin-bottom: 3px;
                     padding-bottom: 0px
                 }
+
+                #submission-text-container {
+                    margin-left: 5px;
+                    width: 215px
+                }
+                
+                #submission-text-label {
+                    margin-bottom: 10px
+                }
+                
+                #submission-source-label {
+                    margin-top: -5px;
+                    margin-bottom: 8.5px
+                }
+                
+                #submission-text, #submission-source {
+                    width: 170px;
+                    margin-top: -6px;
+                    border-radius: 4px
+                }
             }
             
             @media screen and (max-resolution: 100dpi) {
@@ -941,6 +1049,14 @@ function viewSubmission(span) {
                     border-left: 10px solid transparent;
                     border-right: 10px solid transparent;
                     border-bottom: 20px solid yellow
+                }
+
+                #view-submission-exit-button {
+                    width: 15px;
+                    height: 15px;
+                    float: right;
+                    margin-top: -30px;
+                    margin-right: 2.5px
                 }
             
                 #completed-submission-container {
@@ -995,6 +1111,28 @@ function viewSubmission(span) {
                 #downvote-count {
                     padding-bottom: 5px
                 }
+
+                #submission-text-container {
+                    margin-left: 5px;
+                    width: 350px
+                }
+                
+                #submission-text-label {
+                    margin-bottom: 10px
+                }
+                
+                #submission-source-label {
+                    margin-bottom: 10px
+                }
+                
+                #submission-text, #submission-source {
+                    width: 315px;
+                    border-radius: 5px
+                }
+            }
+
+            #submission-text, #submission-source {
+                background-color: white
             }
             
             #user-name-label, #karma-score-label {
@@ -1026,24 +1164,6 @@ function viewSubmission(span) {
             .control-panel-button:hover {
                 background-color: rgb(200, 200, 200)
             }
-            
-            #submission-text-container {
-                margin-left: 5px;
-            }
-            
-            #submission-text-label {
-                margin-bottom: -12px
-            }
-            
-            #submission-source-label {
-                margin-bottom: -10px
-            }
-            
-            #submission-text, #submission-source {
-                margin-right: 47.5px;
-                border-radius: 3px;
-                background-color: white
-            }
         `;
 
         viewSubmissionShadowRoot.appendChild(shadowDomStyles);
@@ -1052,13 +1172,37 @@ function viewSubmission(span) {
 
         //viewSubmissionShadowRoot.querySelector('');
         viewSubmissionContextMenuContainer = viewSubmissionShadowRoot.querySelector('#view-submission-context-menu-container');
-        completedSubmissionContainer = viewSubmissionShadowRoot.querySelector('#completed-submission-container');
-        completedSubmissionTail = viewSubmissionShadowRoot.querySelector('#tail');
-        completedSubmissionText = viewSubmissionShadowRoot.querySelector('#submission-text');
-        completedSubmissionSource = viewSubmissionShadowRoot.querySelector('#submission-source');
+        viewSubmissionContainer = viewSubmissionShadowRoot.querySelector('#completed-submission-container');
+        viewSubmissionText = viewSubmissionShadowRoot.querySelector('#submission-text');
+        viewSubmissionSource = viewSubmissionShadowRoot.querySelector('#submission-source');
+        viewSubmissionSourceContainer = viewSubmissionShadowRoot.querySelector('#submission-source-container');
+        viewSubmissionExitButton = viewSubmissionShadowRoot.querySelector('#view-submission-exit-button');
+        viewSubmissionExitButton.addEventListener('mouseover', exitButtonActive);
+        viewSubmissionExitButton.addEventListener('click', exitContextMenu);
+        tail = viewSubmissionShadowRoot.querySelector('#tail');
     }
 
+    viewSubmissionContextMenuContainer.classList.remove('hidden');
+
     let thisAnnotationId = undefined;
+    let thisSubmission = undefined;
+    let isFinished = false;
+    
+    //fills in elements with the user submitted data
+    let populateFields = function(object) {
+        viewSubmissionText.innerText = object.submissionText;
+        
+        if (object.isSource) {
+            viewSubmissionSourceContainer.classList.remove('hidden');
+            
+            let prettyLink = object.sourceLink.split('/')[2];
+            viewSubmissionSource.innerText = prettyLink;
+            viewSubmissionSource.href = object.sourceLink;
+        }
+        else {
+            viewSubmissionSourceContainer.classList.add('hidden');
+        }
+    };
 
     setUiAtAnnotationPos(span);
     window.addEventListener("resize", function() {
@@ -1073,24 +1217,71 @@ function viewSubmission(span) {
         }
     }
 
-    console.log('thisAnnotationId: ', thisAnnotationId);
+    //search in cache for submission if already fetched
+    if (submissionCache.length > 0) {
+        for (let i=0; i<submissionCache.length; i++) {
+            if (submissionCache[i].assignedTo == thisAnnotationId) {
+                thisSubmission = submissionCache[i];
+                populateFields(thisSubmission);
+                isFinished = true;
+                break;
+            }
+        }
+    }
 
-    //when functionality for multiple submissions at one annotation is added, this will break as it only fetches one
-    chrome.runtime.sendMessage({
-        request: 'read',
-        quantity: 'one',
-        resource: 'Submissions', 
-        //subResource is not the id in this case because we dont know the submissionId, need to add a mongoCRUD functionality for fetching submission by assignedTo value which would be the annotationId
-        subResource: thisAnnotationId
-    }, 
-    function(response) {
-        console.log('fetching submission assigned to annotation with id: ', thisAnnotationId, 'data fetched: ', JSON.stringify(response.dataFetched, null, 4));
-        console.log('response: ', response);
+    //if annotation assignedTo not found in cache, need to fetch from db 
+    if (!isFinished) {
+        //when functionality for multiple submissions at one annotation is added, this will break as it only fetches one
+        chrome.runtime.sendMessage({
+            request: 'read>submission>assignedTo',
+            //quantity: 'one',
+            subResource: thisAnnotationId
+        }, 
+        function(response) {
+            console.log('fetching submission assigned to annotation with id: ', thisAnnotationId, 'data fetched: ', JSON.stringify(response.dataFetched, null, 4));
+            console.log('response: ', response);
 
-        //completedSubmissionText
-    }); 
+            thisSubmission = response.dataFetched;
+            submissionCache.push(response.dataFetched);
+            populateFields(response.dataFetched);
+        }); 
+    }
 
-    
+    //confirming submission link redirect
+    viewSubmissionSource.addEventListener('click', function(event) {
+        if (!window.confirm('Are you sure you want to redirect to the following link?\n' + thisSubmission.sourceLink + '\nThis link may redirect to a malicious site.')) {
+            event.preventDefault();
+        }
+    });
+}
+
+function confirmClickIntention(event) {
+    if (!window.confirm('would you like to follow the link in the article? (if not click cancel and you can view the submission)')) {
+        event.preventDefault();
+    }
+
+    anchorTag.removeEventListener('click', confirm);
+}
+
+//if a highlight-annotation span tag is nested within an anchor tag, there is uncertainty as to whether the user would like to follow the link or open the submission, this function confirms their choice
+function confirmSpanClickedOrLink(element) {
+    let parent = getParentElement(element);
+    let isContainingAnchor = false;
+
+    //only does it for the first anchor found in children, this may not neccesarily be the anchor tag that has the span tag nested within it
+    //need to search for children of the anchorTag variable to see if this is the anchor tag that contains the span (span with class highlight-annotation)
+    for (let i=0; i<parent.children.length; i++) {
+        if (parent.children[i].nodeName == 'A') {
+            anchorTag = parent.children[i];
+            for (let j=0; j<anchorTag.children.length; j++) {
+                if (anchorTag.children[j].nodeName == 'SPAN' && anchorTag.children[j].classList.contains('highlight-annotation')) {
+                    isContainingAnchor = true;
+                }
+            }
+        }
+    }
+
+    if (isContainingAnchor) {anchorTag.addEventListener('click', confirmClickIntention)}
 }
 
 //initialises various events to add functionality to span highlight elements
@@ -1100,6 +1291,7 @@ function initHighlightedElemEvents(elements) {
 
         elements[i].addEventListener('click', function(event) {
             viewSubmission(event.target)
+            confirmSpanClickedOrLink(event.target)
         });
 
         //trigger mouseover feedback event for intial highlighted element but also all related elements to maintain the effect that the highlight is one united string
@@ -1421,25 +1613,6 @@ function publishSubmission() {
     else {alert('Enter a valid submission')}
 }
 
-//doesnt work
-function disableAnchors() {
-    let anchors = document.querySelectorAll('a');
-
-    for (let i=0; i< anchors.length; i++) {
-        anchors[i].classList.remove('re-enable-anchors');
-        anchors[i].classList.add('disable-anchors');
-    }
-}
-
-function reEnableAnchors() {
-    let anchors = document.querySelectorAll('a');
-
-    for (let i=0; i< anchors.length; i++) {
-        anchors[i].classList.remove('disable-anchors');
-        anchors[i].classList.add('re-enable-anchors');
-    }
-}
-
 function begunSelecting() {
     window.removeEventListener('mouseup', doneSelecting);
 
@@ -1480,7 +1653,7 @@ function begunSelecting() {
             </div>
             <div id='selection-menu' class='hidden'>
                 <div class='selection-menu-output'>
-                    <p id='selection-quotes' class='selection-menu-text hidden quotes-font'>‘<span id='selection-made' class='selection-menu-text'></span>’<span><img id='exit-button' class='hidden' src='` + chrome.runtime.getURL('images/exit-button.png') + `' alt='exit' height='15' width='15'></span></p>
+                    <p id='selection-quotes' class='selection-menu-text hidden quotes-font'>‘<span id='selection-made' class='selection-menu-text'></span>’<span><img id='user-input-exit-button' class='hidden' src='` + chrome.runtime.getURL('images/exit-button.png') + `' alt='exit' height='15' width='15'></span></p>
                 </div>
                 <br>
                 <div id='radio-container'>
@@ -1531,12 +1704,12 @@ function begunSelecting() {
                 border-radius: 2.5px 10px 10px 10px;
                 z-index: 9999
             }
-            #exit-button {
+            #user-input-exit-button {
                 float: right;
                 margin-top: 4.5px;
                 margin-right: 5px
             }
-            #exit-button:hover {
+            #user-input-exit-button:hover {
                 cursor: pointer
             }
             
@@ -1699,14 +1872,14 @@ function begunSelecting() {
         selectionMade = userInputShadowRoot.querySelector('#selection-made');
         radioContainer = userInputShadowRoot.querySelector('#radio-container');
         radioHeaders = userInputShadowRoot.querySelectorAll('.radio-headers');
-        exitButton = userInputShadowRoot.querySelector('#exit-button');
+        userInputExitButton = userInputShadowRoot.querySelector('#user-input-exit-button');
         argumentNatureVals = userInputShadowRoot.querySelectorAll('.argument-nature-radios');
         sourceVals = userInputShadowRoot.querySelectorAll('.source-radios');
         annotationContainer = userInputShadowRoot.querySelector('#user-annotation-container');
         submissionInput = userInputShadowRoot.querySelector('#submission-input');
         sourceInput = userInputShadowRoot.querySelector('#source-input');
 
-        exitButton.addEventListener('click', exitContextMenu);
+        userInputExitButton.addEventListener('click', exitContextMenu);
         userInputShadowRoot.querySelector('#confirm-choices').addEventListener('click', confirmChoices);
         userInputShadowRoot.querySelector('#publish-annotation').addEventListener('click', publishSubmission);
 
@@ -1724,7 +1897,7 @@ function begunSelecting() {
             if (isExpanded) {
                 styleShadowDom(userInputShadowRoot, [
                     '#selection-quotes',
-                    '#exit-button', 
+                    '#user-input-exit-button', 
                     '#argument-nature-container', 
                     '#source-container'
                 ], [['display', 'none']]);
@@ -1805,7 +1978,6 @@ function begunSelecting() {
         
     window.addEventListener('keydown', function(event) {
         if (event.keyCode === 83) {window.addEventListener('mouseup', doneSelecting)}
-        disableAnchors();
     });
 
     window.addEventListener('keyup', function(event) {
@@ -1832,7 +2004,6 @@ function begunSelecting() {
             
             window.removeEventListener('mouseup', doneSelecting);
         }
-        reEnableAnchors();
     });
 }
 
@@ -1885,7 +2056,7 @@ function doneSelecting() {
                 charCountText.classList.add('hidden');
                 charCountText.classList.remove('fadeout-anim');
                 selectionMenu.classList.add('fadein-anim');
-                exitButton.classList.add('fadein-anim');
+                userInputExitButton.classList.add('fadein-anim');
 
                 setTimeout(function() {
                     whenNotHovering(userInputContextMenuContainer, function() {
@@ -1897,13 +2068,13 @@ function doneSelecting() {
 
                             styleShadowDom(userInputShadowRoot, [
                                 '#selection-quotes', 
-                                '#exit-button', 
+                                '#user-input-exit-button', 
                                 '#argument-nature-container', 
                                 '#source-container'
                             ], 
                             [['display', 'inline']]);
 
-                            exitButton.addEventListener('mouseover', exitButtonActive);
+                            userInputExitButton.addEventListener('mouseover', exitButtonActive);
                         }
                     });
                     selectionMenu.classList.remove('hidden');   
@@ -1922,7 +2093,6 @@ function doneSelecting() {
             window.addEventListener('mousemove', borderHoveredElement);
             window.addEventListener('mousedown', begunSelecting)
         }
-        disableAnchors();
     });
 
     window.addEventListener('keyup', function(event) {
@@ -1930,7 +2100,6 @@ function doneSelecting() {
             window.removeEventListener('mousemove', borderHoveredElement);
             window.removeEventListener('mousedown', begunSelecting)
         }
-        reEnableAnchors();
     });
 }
 
@@ -1974,14 +2143,12 @@ window.addEventListener('load', function() {
     `;
 
     $(parentDocStyle).appendTo('body');
-    //window.addEventListener('mousedown', begunSelecting);
 
     window.addEventListener('keydown', function(event) {
         if (event.keyCode === 83) {
             window.addEventListener('mousemove', borderHoveredElement);
             window.addEventListener('mousedown', begunSelecting);
         }
-        disableAnchors();
     });
 
     window.addEventListener('keyup', function(event) {
@@ -1989,57 +2156,6 @@ window.addEventListener('load', function() {
             window.removeEventListener('mousemove', borderHoveredElement);
             window.removeEventListener('mousedown', begunSelecting);
         }
-        reEnableAnchors();
-    });
-
-    /*
-    let testData = {
-        "annotationId": "ANTsz9xkt92k",
-        "textAnnotated": "released this week suggested infections may be increasing more slowly than in previous weeks",
-        "isUnified": false,
-        "anchor": {
-            "nodeName": "#text",
-            "nodeType": 3,
-            "wholeText": "It comes after data released this week ",
-            "parentNode": {
-                "nodeName": "P",
-                "nodeType": 1,
-                "parentWholeText": "It comes after data released this week suggested infections may be increasing more slowly than in previous weeks."
-            }
-        },
-        "focus": {
-            "nodeName": "#text",
-            "nodeType": 3,
-            "wholeText": "suggested infections may be increasing more slowly than in previous weeks.",
-            "parentNode": {
-                "nodeName": "A",
-                "nodeType": 1,
-                "parentWholeText": "suggested infections may be increasing more slowly than in previous weeks."
-            }
-        }
-    }
-    
-    //sequence of function calls to find an annotation in the parent document given a specific annotation object (fetched from database)
-    findAnnotationInPage(testData, 'anchor');
-
-    if (!testData.isUnified) {
-        findAnnotationInPage(testData, 'middle');
-        findAnnotationInPage(testData, 'focus');
-    }
-
-    console.log('insertions: ', insertions, 'elemInDoc: ', elemInDoc);
-    highlightAnnotation(insertions, elemInDoc);
-
-    elemInDoc = null;
-    nodeChunks = null;
-    insertions = {};
-    */
-    
-    
-    chrome.runtime.sendMessage({
-        request: 'delete',
-        resource: 'Annotations',
-        id: 'ANT2vyrad1xp'
     });
 
     chrome.runtime.sendMessage({
@@ -2072,5 +2188,15 @@ window.addEventListener('load', function() {
                 insertions = {}
             }
         }
-    }); 
+
+        let selectedAnchorTags = document.querySelectorAll('a.highlight-annotation');
+        console.log('selectedAnchorTags: ', selectedAnchorTags);
+
+        for (let i=0; i<selectedAnchorTags.length; i++) {
+            selectedAnchorTags[i].addEventListener('click', function(event) {
+                anchorTag = selectedAnchorTags[i];
+                confirmClickIntention(event);
+            });
+        }
+    });
 });

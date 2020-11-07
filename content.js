@@ -52,9 +52,9 @@ let annotationContainer = undefined;
 let submissionInput = undefined;
 let sourceInput = undefined;
 
-let viewSubmissionContextMenuContainer = undefined;
-let viewSubmissionContainer = undefined;
 let tail = undefined;
+let viewSubmissionContextMenuContainer = undefined;
+let viewSubmissionInnerContainer = undefined;
 let viewSubmissionText = undefined;
 let viewSubmissionSource = undefined;
 let viewSubmissionSourceContainer = undefined;
@@ -69,6 +69,7 @@ let isExpanded = false;
 let isConfirmed = false;
 let isFocussed = false;
 let isAbortSelection = false;
+let isExitButtonClicked = false;
 
 //messaging callback to send data between .js files
 function handleContentRequests(message, sender, sendResponse) {
@@ -478,7 +479,10 @@ function exitButtonActive(event) {
 //exit button click function
 function exitContextMenu(event) {
     if (event.target.id == 'user-input-exit-button') {userInputContextMenuContainer.classList.add('hidden')}
-    else if (event.target.id == 'view-submission-exit-button') {viewSubmissionContextMenuContainer.classList.add('hidden')}
+    else if (event.target.id == 'view-submission-exit-button') {
+        viewSubmissionContextMenuContainer.classList.add('hidden');
+        isExitButtonClicked = true;
+    }
 }
 
 //confirm button click function
@@ -659,7 +663,7 @@ function initAnnotation(object, selection) {
 
 //calculate offset of clicked element and UI, sets UI position to this offset
 function setUiAtAnnotationPos(span) {
-    let uiProperties = window.getComputedStyle(viewSubmissionContainer, null);
+    let uiProperties = window.getComputedStyle(viewSubmissionInnerContainer, null);
     let uiYOffset = parseFloat(uiProperties.height.split('px')[0]);
     let uiXOffset = parseFloat(uiProperties.width.split('px')[0]);
 
@@ -671,12 +675,17 @@ function setUiAtAnnotationPos(span) {
     let bodyBounds = document.body.getBoundingClientRect();
     let elementBounds = span.getBoundingClientRect();
 
-    //console.log('elementBounds: ', elementBounds);
-    //console.log('bodyBounds: ', bodyBounds);
+    let top = elementBounds.bottom - bodyBounds.bottom + 6;
+    let left = elementBounds.left + elementBounds.width / 2 - uiXOffset / 2;
     
+    //only account for uiYoffset when exit button is not clicked
+    //this is because the body.bottom value will change to account for this offset once the exit button is clicked and the ui is hidden
+    if (!isExitButtonClicked) {top += uiYOffset}
+    else {isExitButtonClicked = false}
+
     styleShadowDom(viewSubmissionShadowRoot, '#view-submission-context-menu-container', [
-        ['top', elementBounds.bottom - bodyBounds.bottom + uiYOffset + 6 + 'px'],
-        ['left', elementBounds.left + elementBounds.width / 2 - uiXOffset / 2 + 'px']
+        ['top', top + 'px'],
+        ['left', left + 'px']
     ]);
 }
 
@@ -1172,7 +1181,7 @@ function viewSubmission(span) {
 
         //viewSubmissionShadowRoot.querySelector('');
         viewSubmissionContextMenuContainer = viewSubmissionShadowRoot.querySelector('#view-submission-context-menu-container');
-        viewSubmissionContainer = viewSubmissionShadowRoot.querySelector('#completed-submission-container');
+        viewSubmissionInnerContainer = viewSubmissionShadowRoot.querySelector('#completed-submission-container');
         viewSubmissionText = viewSubmissionShadowRoot.querySelector('#submission-text');
         viewSubmissionSource = viewSubmissionShadowRoot.querySelector('#submission-source');
         viewSubmissionSourceContainer = viewSubmissionShadowRoot.querySelector('#submission-source-container');
@@ -1181,8 +1190,6 @@ function viewSubmission(span) {
         viewSubmissionExitButton.addEventListener('click', exitContextMenu);
         tail = viewSubmissionShadowRoot.querySelector('#tail');
     }
-
-    viewSubmissionContextMenuContainer.classList.remove('hidden');
 
     let thisAnnotationId = undefined;
     let thisSubmission = undefined;
@@ -1244,8 +1251,11 @@ function viewSubmission(span) {
             thisSubmission = response.dataFetched;
             submissionCache.push(response.dataFetched);
             populateFields(response.dataFetched);
+            viewSubmissionContextMenuContainer.classList.remove('hidden');
         }); 
     }
+
+    viewSubmissionContextMenuContainer.classList.remove('hidden');
 
     //confirming submission link redirect
     viewSubmissionSource.addEventListener('click', function(event) {
@@ -1255,6 +1265,7 @@ function viewSubmission(span) {
     });
 }
 
+//confirmation dialogue box event callback
 function confirmClickIntention(event) {
     if (!window.confirm('would you like to follow the link in the article? (if not click cancel and you can view the submission)')) {
         event.preventDefault();
@@ -1290,8 +1301,9 @@ function initHighlightedElemEvents(elements) {
     for (let i=0; i<elements.length; i++) {
 
         elements[i].addEventListener('click', function(event) {
-            viewSubmission(event.target)
-            confirmSpanClickedOrLink(event.target)
+            let currentAnnotationAtOpenSubmission = event.target;
+            viewSubmission(currentAnnotationAtOpenSubmission);
+            confirmSpanClickedOrLink(currentAnnotationAtOpenSubmission);
         });
 
         //trigger mouseover feedback event for intial highlighted element but also all related elements to maintain the effect that the highlight is one united string
@@ -2198,5 +2210,8 @@ window.addEventListener('load', function() {
                 confirmClickIntention(event);
             });
         }
+
+        let bodyBounds = document.body.getBoundingClientRect();
+        console.log('bodyBounds: ', bodyBounds);
     });
 });

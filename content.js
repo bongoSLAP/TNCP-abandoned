@@ -1,12 +1,12 @@
 let selectionList = [];
-let emptyVal = ''
+let submissionCache = []
 let blockLevelTags = ['P', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'UL', 'OL', 'LI', 'TABLE', 'FORM', 'ARTICLE', 'VIDEO', 'FIGURE', 'NAV', 'ADDRESS', 'ASIDE', 'BLOCKQUOTE', 'CANVAS', 'DD', 'DL', 'DT', 'FIELDSET', 'FIGCAPTION', 'HEADER', 'FOOTER', 'HR', 'MAIN', 'NOSCRIPT', 'PRE', 'SECTION', 'TABLE', 'TFOOT'];
 let inlineTags = ['A', 'SPAN', 'I', 'Q', 'B', 'STRONG', 'SUB', 'SUP', 'LABEL', 'SCRIPT', 'TEXTAREA', 'IMG', 'ABBR', 'ACRONYM', 'BIG', 'BR', 'BIG', 'CITE', 'BUTTON', 'EM', 'INPUT', 'OUTPUT', 'VAR', 'TT', 'TIME', 'SELECT', 'SAMP', 'OUTPUT', 'OBJECT', 'MAP', 'KBD', 'DFN', 'CODE', 'BDO'];
 let punctuation = ['.', '?', '!', ',', ';', ':', '-', '—', ' ']; //include brackets, quotes etc? not sure
 let insertions = {};
+let emptyVal = ''
 let elemInDoc = undefined;
 let nodeChunks = undefined;
-let submissionCache = []
 let anchorTag = undefined;
 
 //user data objects
@@ -116,40 +116,6 @@ function newSearch(searchIn, query) {
     else {return searchOutcome}
 }
 
-/*
-//recursive function to move up the tree of nodes starting from the selected node
-function getParentElement(targetNode) {
-    let parent = undefined;
-
-    //recursion
-    let getNextParent = function(child) {
-        let isFinished = false;
-
-        for (let i=0; i<blockLevelTags.length; i++) {
-            if (child.parentNode.nodeName == blockLevelTags[i]) {
-                parent = child.parentNode;
-                getNextParent(parent);
-                
-                isFinished = true;
-            }
-
-            if (isFinished) {
-                return
-            }
-            else if (!isFinished && i == blockLevelTags.length-1) {
-                console.log('ERROR: tag not accepted');
-            }
-        }
-    }
-
-    getNextParent(targetNode);
-    
-    if (parent == undefined) {console.log('ERROR: conditions not met at getNextParent')}
-    //console.log('parent: ', parent);
-    return parent; 
-}
-*/
-
 function getParentElement(targetNode) {
     let finalParent = undefined;
     let sibling = undefined;
@@ -157,82 +123,86 @@ function getParentElement(targetNode) {
     let getNextParent = function(child) {
         let parent = undefined;
 
-        //console.log('child.nextElementSibling: ', child.nextElementSibling, 'child.previousElementSibling: ', child.previousElementSibling);
+        if (child.nodeName != 'LI') {
+            //check whether there are siblings adjacent to targetNode
+            if (child.nextElementSibling != null && child.previousElementSibling != null) {sibling = 'both'}
+            else if (child.nextElementSibling != null && child.previousElementSibling == null) {sibling = child.nextElementSibling}
+            else if (child.nextElementSibling == null && child.previousElementSibling != null) {sibling = child.previousElementSibling}
+            else if (child.nextElementSibling == null && child.previousElementSibling == null) {
+                let isFinished = false;
 
-        if (child.nextElementSibling != null && child.previousElementSibling != null) {sibling = 'both'}
-        else if (child.nextElementSibling != null && child.previousElementSibling == null) {sibling = child.nextElementSibling}
-        else if (child.nextElementSibling == null && child.previousElementSibling != null) {sibling = child.previousElementSibling}
-        else if (child.nextElementSibling == null && child.previousElementSibling == null) {
-            //console.log('both null');
-            let isFinished = false;
+                //block level elements cannot be nested, so if it matches an item in blockLevelTags (list of block level elements), then this is the parent
+                for (let i=0; i<blockLevelTags.length; i++) {
+                    if (child.nodeName == blockLevelTags[i]) {
+                        finalParent = child;
+                        isFinished = true;
+                    }
 
-            //console.log('child.nodeName: ', child.nodeName, 'child.innerText: ', child.innerText);
-            //block level elements cannot be nested, so if it matches an item in blockLevelTags (list of block level elements), then this is the parent
-            for (let i=0; i<blockLevelTags.length; i++) {
-                if (child.nodeName == blockLevelTags[i]) {
-                    finalParent = child;
-                    isFinished = true;
-                }
-
-                if (isFinished) {
-                    sibling = 'both null';
-                    //console.log('finished');
-                    break;
-                    //return;
-                }
-                else if (!isFinished && i == blockLevelTags.length-1) {
-                    //console.log('child is not a block-level tag');
-                    getNextParent(child.parentNode);
+                    if (isFinished) {
+                        sibling = 'both null';
+                        break;
+                    }
+                    else if (!isFinished && i == blockLevelTags.length-1) {
+                        getNextParent(child.parentNode);
+                    }
                 }
             }
         }
+
         //console.log('sibling: ', sibling);
 
-        if (sibling != 'both' && sibling != 'both null') {
-            //console.log('child.parentNode: ', child.parentNode, 'sibling: ', sibling);
-            if (newSearch(child.parentNode.innerText, sibling.innerText) != 'failed') {
-                parent = child.parentNode;
-                getNextParent(parent);
-            }
-            else {
-                finalParent = child;
-                //console.log('finalParent: ', finalParent);
-                return;
-            }
-        }
-        else if (sibling == 'both') {
-            let fullText = undefined;
+        if (sibling != undefined) {
 
-            if (child.nodeName == '#text') {fullText = child.wholeText;}
-            else {fullText = child.innerText}
-
-            //console.log('fullText: ', fullText);
-
-            if (newSearch(fullText, child.nextElementSibling.innerText) != 'failed' && newSearch(fullText, child.previousElementSibling.innerText) != 'failed') {
-                parent = child.parentNode;
-                getNextParent(parent);
-            }
-            else {
-                if (child.nodeName == '#text') {finalParent = child.parentNode}
-                else {finalParent = child};
-                return;
-            }
-        }
-        else if (sibling == 'both null') {
-            //console.log('child.nodeName: ', child.nodeName, 'child.innerText: ', child.innerText);
-            //if both siblings are null, it is likely that child is a single inline tag nested within an x amount of other inline tags and a block level tag, so repeat for parent
-            for (let i=0; i<inlineTags.length; i++) {
-                if (child.nodeName == inlineTags[i]) {
-                    getNextParent(child.parentNode);
+            //check whether the text in targetNode is present in adjacent (sibling) elements
+            //if so, we havent found the outermost element. it is only when this is not the case that the parent element is found
+            if (sibling != 'both' && sibling != 'both null') {
+                if (newSearch(child.parentNode.innerText, sibling.innerText) != 'failed') {
+                    parent = child.parentNode;
+                    getNextParent(parent);
+                }
+                else {
+                    finalParent = child;
+                    return;
                 }
             }
+            else if (sibling == 'both') {
+                let fullText = undefined;
+
+                if (child.nodeName == '#text') {fullText = child.wholeText;}
+                else {fullText = child.innerText}
+
+                console.log('child.nextElementSibling: ', child.nextElementSibling);
+                if (newSearch(fullText, child.nextElementSibling.innerText) != 'failed' && newSearch(fullText, child.previousElementSibling.innerText) != 'failed') {
+                    parent = child.parentNode;
+                    getNextParent(parent);
+                }
+                else {
+                    if (child.nodeName == '#text') {finalParent = child.parentNode}
+                    else {finalParent = child};
+                    return;
+                }
+            }
+            else if (sibling == 'both null') {
+                //if both siblings are null, it is likely that child is a single inline tag nested within an x amount of other inline tags and a block level tag, so repeat for parent
+                for (let i=0; i<inlineTags.length; i++) {
+                    if (child.nodeName == inlineTags[i]) {
+                        getNextParent(child.parentNode);
+                    }
+                }
+            }
+        }
+        else {
+
+            //if child is an li we can assume that parent will be a ul so its much less complicated
+            if (child.parentNode.nodeName == 'UL') {
+                finalParent = child;
+            }
+            else {getNextParent(child.parentNode)}
         }
     }
 
     getNextParent(targetNode);
     if (finalParent == undefined) {console.log('ERROR: conditions not met at getNextParent')}
-    //console.log('finalParent: ', finalParent);
-    //console.log('********************');
     return finalParent;
 }
 
@@ -620,7 +590,6 @@ function initAnnotation(object, selection) {
     }
 
     //if selections spans multiple elements, then capture a snapshot of data for focus node to object
-    //console.log(getParentElement(findElement('anchor', annotation.anchor)).children.length)
     if (getParentElement(findElement('anchor', annotation.anchor)).children.length >= 1) {
         annotation.isUnified = false;
         annotation.focus = {
@@ -1251,6 +1220,7 @@ function viewSubmission(span) {
             thisSubmission = response.dataFetched;
             submissionCache.push(response.dataFetched);
             populateFields(response.dataFetched);
+
             viewSubmissionContextMenuContainer.classList.remove('hidden');
         }); 
     }
@@ -1265,34 +1235,55 @@ function viewSubmission(span) {
     });
 }
 
-//confirmation dialogue box event callback
-function confirmClickIntention(event) {
-    if (!window.confirm('would you like to follow the link in the article? (if not click cancel and you can view the submission)')) {
-        event.preventDefault();
-    }
-
-    anchorTag.removeEventListener('click', confirm);
+//confirmation dialog box promise
+function confirmClickPromise(msg) {
+    return new Promise(function(resolve, reject) {
+        let confirmed = window.confirm(msg);
+        
+        return confirmed ? resolve(true) : reject(false);
+    });
 }
 
 //if a highlight-annotation span tag is nested within an anchor tag, there is uncertainty as to whether the user would like to follow the link or open the submission, this function confirms their choice
 function confirmSpanClickedOrLink(element) {
-    let parent = getParentElement(element);
-    let isContainingAnchor = false;
+    return new Promise(function(resolve, reject) {
+        let parent = getParentElement(element);
+        let isContainingAnchor = false;
 
-    //only does it for the first anchor found in children, this may not neccesarily be the anchor tag that has the span tag nested within it
-    //need to search for children of the anchorTag variable to see if this is the anchor tag that contains the span (span with class highlight-annotation)
-    for (let i=0; i<parent.children.length; i++) {
-        if (parent.children[i].nodeName == 'A') {
-            anchorTag = parent.children[i];
-            for (let j=0; j<anchorTag.children.length; j++) {
-                if (anchorTag.children[j].nodeName == 'SPAN' && anchorTag.children[j].classList.contains('highlight-annotation')) {
-                    isContainingAnchor = true;
+        //eventlistener callback so that that the eventlistener can still be removed (stops a bug from happening in which dialog box event isnt removed and it pops up each times per function call)
+        let confirmationCallback = function(event) {
+            confirmClickPromise(
+                'would you like to follow the link in the article? (if not click cancel and you can view the submission)'
+                ).then(function() {
+                    resolve();
+                }).catch(function() {
+                    event.preventDefault();
+                    reject();
+                });
+
+            anchorTag.removeEventListener('click', confirmationCallback);
+        };
+
+        //finds inital anchor tag that nests parent element
+        //searches for children of the anchor tag to see if this is the tag that nests the span (span with class highlight-annotation)
+        for (let i=0; i<parent.children.length; i++) {
+            if (parent.children[i].nodeName == 'A') {
+                anchorTag = parent.children[i];
+                for (let j=0; j<anchorTag.children.length; j++) {
+                    if (anchorTag.children[j].nodeName == 'SPAN' && anchorTag.children[j].classList.contains('highlight-annotation')) {
+                        isContainingAnchor = true;
+                    }
                 }
             }
         }
-    }
 
-    if (isContainingAnchor) {anchorTag.addEventListener('click', confirmClickIntention)}
+        //open link in new tab
+        anchorTag.target = '_blank';
+
+        if (isContainingAnchor) {
+            anchorTag.addEventListener('click', confirmationCallback);
+        }
+    }); 
 }
 
 //initialises various events to add functionality to span highlight elements
@@ -1302,8 +1293,9 @@ function initHighlightedElemEvents(elements) {
 
         elements[i].addEventListener('click', function(event) {
             let currentAnnotationAtOpenSubmission = event.target;
-            viewSubmission(currentAnnotationAtOpenSubmission);
-            confirmSpanClickedOrLink(currentAnnotationAtOpenSubmission);
+
+            //promise is needed to ensure that the submission will only open if the user presses 'cancel' in confirm dialog
+            confirmSpanClickedOrLink(currentAnnotationAtOpenSubmission).catch(function() {viewSubmission(currentAnnotationAtOpenSubmission)})
         });
 
         //trigger mouseover feedback event for intial highlighted element but also all related elements to maintain the effect that the highlight is one united string
@@ -1366,12 +1358,9 @@ function findAnnotationInPage(object, type) {
         if (elemInDoc.innerText == elemInDoc.firstChild.innerText) {
             elemInDoc = elemInDoc.firstChild;
         }
-
-        //console.log('elemInDoc: ', elemInDoc);
     
         //chunking up the element by its HTML tags and removing the split tags from the array
         nodeChunks = elemInDoc.innerHTML.split(/(<([^>]+)>)/g);
-        //console.log('pre splice nodeChunks: ', nodeChunks);
     
         for (let i=0; i<nodeChunks.length; i++) {
             if (nodeChunks[i].match(/(<([^>]+)>)/g, '') != null) {
@@ -1383,13 +1372,10 @@ function findAnnotationInPage(object, type) {
             }
         }
 
-        //console.log('wholeText: ', wholeText, 'nodeChunks: ', nodeChunks);
-
         //anchor and focus nodes are not neccesarily the first and last nodes in the parent element found in doc
         for (let i=0; i<nodeChunks.length; i++) {
             if (newSearch(nodeChunks[i], wholeText) != 'failed') {
                 indexInNodeChunks = i;
-                //console.log('indexInNodeChunks: ', indexInNodeChunks);
             }
         }
     
@@ -1398,16 +1384,12 @@ function findAnnotationInPage(object, type) {
             for (let i=nodeChunks[indexInNodeChunks].length-1; i>=0; i--) {
                 temp = nodeChunks[indexInNodeChunks][i] + temp;
                 searchString = object.textAnnotated.substr(0, temp.length);
-                //console.log('anchor|', 'temp: ', temp, 'searchString: ', searchString);
 
-                //console.log('anchor search: ', newSearch(temp, searchString));
                 if (newSearch(temp, searchString) != 'failed') {
-                    //console.log('possibleMatches.length: ', possibleMatches.length);
 
                     let j = 0;
                     let isAlreadyMatched = false;
                     do {
-                        //console.log('possibleMatches[i]: ', possibleMatches[i]);
                         if (searchString == possibleMatches[i]) {
                             isAlreadyMatched = true;
                         }
@@ -1427,16 +1409,12 @@ function findAnnotationInPage(object, type) {
             for (let i=0; i<nodeChunks[indexInNodeChunks].length; i++) {
                 temp = temp + nodeChunks[indexInNodeChunks][i];
                 searchString = object.textAnnotated.substr(object.textAnnotated.length - temp.length, temp.length);
-                //console.log('focus|', 'temp: ', temp, 'searchString: ', searchString);
 
-                //console.log('focus search: ', newSearch(temp, searchString));
                 if (newSearch(temp, searchString) != 'failed') {
-                   //console.log('possibleMatches.length: ', possibleMatches.length);
-
                     let j = 0;
                     let isAlreadyMatched = false;
+
                     do {
-                       //console.log('possibleMatches[i]: ', possibleMatches[i]);
                         if (searchString == possibleMatches[i]) {
                            isAlreadyMatched = true;
                         }
@@ -1458,34 +1436,22 @@ function findAnnotationInPage(object, type) {
         }
         else {searchString = possibleMatches[possibleMatches.length-1]}
     
-        //console.log('searchString: ', searchString);
 
         //check for new bugs here due to changes made DEFO NEW BUGS HERE LMAO
         if (!object.isUnified) {
-            //does the searchString span over 2 nodes (html tags in innerHTML used to chunk into nodes will cause search to fail for any given chunk, therefore use innerText) however just setting innerText declaratively causes it to break for other cases.
-            //console.log('elemInDoc.innerHTML: ', elemInDoc.innerHTML);
-            //console.log('nodeChunks[indexInNodeChunks]: ', nodeChunks[indexInNodeChunks]);
-
-            //if (newSearch(nodeChunks[indexInNodeChunks], searchString) != 'failed') {fullText = elemInDoc.innerText}
+            //does the searchString span over 2 nodes (html tags in innerHTML used to chunk into nodes will cause search to fail for any given chunk, therefore use innerText)
+            //however just setting innerText declaratively causes it to break for other cases.
             if(newSearch(elemInDoc.innerHTML, searchString) == 'failed') {fullText = elemInDoc.innerText}
             else {fullText = elemInDoc.innerHTML}
         
             //does anchor/focus begin/end at the beginning/end of the node in question? if so need to use fulltext instead of wholeText
-            //console.log('indexInNodeChunks: ', indexInNodeChunks, 'nodeChunks.length: ', nodeChunks.length);
-            if (indexInNodeChunks != 0 && indexInNodeChunks != nodeChunks.length-1 || newSearch(nodeChunks[indexInNodeChunks], searchString) != 'failed') {
-                substringFrom = fullText;
-                //console.log('substringFrom if: ', substringFrom);
-            }
-            else {
-                substringFrom = wholeText;
-                //console.log('substringFrom else: ', substringFrom);
-            }       
+            if (indexInNodeChunks != 0 && indexInNodeChunks != nodeChunks.length-1 || newSearch(nodeChunks[indexInNodeChunks], searchString) != 'failed') {substringFrom = fullText}
+            else {substringFrom = wholeText}       
         }
     
         //finds start point for the opening tag in the full text using searchString or object.textAnnotated, uses this start point to calculate the end point
         if (type == 'anchor' && !object.isUnified) {
             console.log('fullText: ', fullText, 'searchString: ', searchString);
-            //console.log('search: ', newSearch(fullText, searchString));
             startPoint = newSearch(fullText, searchString);
             endPoint = startPoint + searchString.length;
         }
@@ -1521,14 +1487,10 @@ function findAnnotationInPage(object, type) {
             }
         }
 
-        //console.log('indexes: ', anchorIndex, focusIndex);
-
         for (let i=anchorIndex+1; i<focusIndex; i++) {
             let childElemInDoc = findElement(type, nodeChunks[i]);
             childElemInDoc.classList.add(object.annotationId, 'highlight-annotation');
             childElemInDoc.style.backgroundColor = 'rgb(200, 200, 200)';
-            //console.log('childElemInDoc.classList: ', childElemInDoc.classList);
-            //console.log('middle loop| nodeChunks[i]', nodeChunks[i]); 
         }
     }
 
@@ -2204,10 +2166,11 @@ window.addEventListener('load', function() {
         let selectedAnchorTags = document.querySelectorAll('a.highlight-annotation');
         console.log('selectedAnchorTags: ', selectedAnchorTags);
 
+        //THIS CONFIRMCLICKPROMISE FUNCTION CALL MAY NOW BREAK
         for (let i=0; i<selectedAnchorTags.length; i++) {
             selectedAnchorTags[i].addEventListener('click', function(event) {
                 anchorTag = selectedAnchorTags[i];
-                confirmClickIntention(event);
+                confirmClickPromise(event);
             });
         }
 

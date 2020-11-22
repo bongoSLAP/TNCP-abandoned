@@ -73,7 +73,6 @@ let isConfirmed = false;
 let isFocussed = false;
 let isAbortSelection = false;
 let isExitButtonClicked = false;
-let isKeyEventLoaded = false;
 let isKeyHeld = false;
 
 //messaging callback to send data between .js files
@@ -378,7 +377,7 @@ function autoCompSelection() {
 function styleShadowDom(root, selector, properties) {
     let newDeclaration = undefined;
 
-    if (!properties[0].includes('left') && !properties[0].includes('rgba(230, 230, 230, 0.8)') && !properties[0].includes('display-inline')) {console.log('styleShadowDom args', arguments)}
+    //if (!properties[0].includes('left') && !properties[0].includes('rgba(230, 230, 230, 0.8)') && !properties[0].includes('display-inline')) {console.log('styleShadowDom args', arguments)}
 
     //multiple types of selectors can be used
     let checkDataType = function(thisSelector) {
@@ -1288,12 +1287,12 @@ function confirmSpanClickedOrLink(element) { //element param unused now?
 
             confirmClickPromise(
                 'would you like to follow the link in the article? (if not click cancel and you can view the submission)'
-                ).then(function() {
-                    resolve();
-                }).catch(function() {
-                    event.preventDefault();
-                    reject();
-                });
+            ).then(function() {
+                resolve();
+            }).catch(function() {
+                event.preventDefault();
+                reject();
+            });
         };
 
         anchorTag.addEventListener('click', confirmationCallback);
@@ -1661,9 +1660,26 @@ function publishSubmission() {
     else {alert('Enter a valid submission')}
 }
 
+function keyEventLoadPromise() {
+    return new Promise(function(resolve, reject) {
+        setTimeout(function() {
+            resolve();
+        }, 500);
+    });
+}
+
+function begunSelectingKeyDown(event) {
+    console.log('begunSelectingKeyDown called');
+    if (event.keyCode === 83) {
+        isKeyHeld = true;
+        window.addEventListener('mouseup', doneSelecting);
+    }
+};
+
 function begunSelecting() {
     console.log('***********');
     window.removeEventListener('mouseup', doneSelecting);
+    window.removeEventListener('keydown', initLoadKeyDown);
 
     //only need to run this set up code the first time a selection is made
     if (!isUserInputDomCreated) {
@@ -1956,6 +1972,8 @@ function begunSelecting() {
             isFocussed = false;
             isAbortSelection = false;
             resetAnnotation();
+            window.removeEventListener('keydown', doneSelectingKeyDown);
+
             if (isExpanded) {
                 styleShadowDom(userInputShadowRoot, [
                     '#selection-quotes',
@@ -1971,12 +1989,7 @@ function begunSelecting() {
                 }
 
                 userInputContextMenuContainer.classList.remove('expand-anim');
-                charCountText.classList.add('fadein-anim');
-    
-                setTimeout(function() {
-                    charCountText.classList.remove('hidden');
-                    charCountText.classList.remove('fadein-anim');
-                }, 150);
+                charCountContainer.classList.add('hidden');
             }
         });
     }
@@ -1987,75 +2000,74 @@ function begunSelecting() {
         isFocussed = true;
     });
 
-    console.log('transparenting');
     styleShadowDom(userInputShadowRoot, '#user-input-context-menu-container', [['background-color', 'rgba(230, 230, 230, 0.0)']]);
     userInputLoading.classList.remove('hidden');
+
+    //displays the current character count of selection being made
+    let updateCharCount = function() {
+        let countLimit = 100; 
+        let rgb = '';
+        selectionList = [];
+
+        let thisSelection = autoCompSelection();
+        let charCount = thisSelection.length;
+        
+        userInputShadowRoot.querySelector('#char-count-value').innerText = charCount;
+
+        if (charCount > countLimit) {
+            rgb = 'rgba(255, 96, 96, 0.8)';
+            isOverLimit = true;
+        }
+        else {
+            rgb = 'rgba(230, 230, 230, 0.8)';
+            isOverLimit = false;
+        }
+
+        console.log('styling opaque')
+        styleShadowDom(userInputShadowRoot, '#user-input-context-menu-container', [['background-color', rgb]]);
+    };
+
+    let selectIsMade = function() {
+        console.log('select is made');
+        console.log('isFocussed: ', isFocussed, 'isExpanded: ', isExpanded)
+        if (!isFocussed && !isExpanded) {
+            whenNotHovering(userInputContextMenuContainer, function() {
+                window.addEventListener('mousemove', setToMousePos);
+            });
+
+            keyEventLoadPromise().then(function() {
+                console.log('YES');
+                userInputLoading.classList.add('hidden');
+                charCountContainer.classList.remove('hidden');
+                
+                updateCharCount();
+                updateCharCountInterval = setInterval(updateCharCount, 100);
+            });
+        }
+    };
 
     //checks to see whether mouse events lead to a selection being made or just normal click
     let checkSelectMade = function() {
         whenNotHovering(userInputContextMenuContainer, function() {
             let initialSelection = window.getSelection().toString();
 
+            console.log('initialSelection.length: ', initialSelection.length, 'isAbortSelection: ', isAbortSelection);
             if (initialSelection.length > 0 && !isAbortSelection) {
                 isSelectMade = true;
                 userInputContextMenuContainer.classList.remove('hidden');
+                selectIsMade();
+                clearInterval(checkSelectMadeInterval);
             }
             else {
                 isSelectMade = false;
             }
+
+            console.log('isSelectMade: ', isSelectMade);
         });
     };
 
     checkSelectMade();
-    checkSelectMadeInterval = setInterval(checkSelectMade, 50);
-
-
-    //this now works, doesnt matter that loading icon when key already held and new selection made appears for shorter amount of time as this is actually correspondant to its function
-    //it only needs to appear for the full .5 sec when selection is made after fresh s key press
-    //however when selection is made after fresh s key press quickly after a previous selection is made, there appears to be no delay, perhaps because of the timing on the setIntervals?
-    //need to fix this bug ^ and make loading icon dissapear when the charcount background is made visible, also need to unhide charcount text at this point
-    if (isKeyHeld) {
-        isKeyEventLoaded = false;
-
-        setTimeout(function() {
-            isKeyEventLoaded = true;
-        }, 500);
-    }
-
-    //displays the current character count of selection being made
-    let updateCharCount = function() {
-        if (isSelectMade && !isFocussed && !isExpanded) {
-            if (isKeyEventLoaded) {
-                let countLimit = 100; 
-                let rgb = '';
-                selectionList = [];
-
-                let thisSelection = autoCompSelection();
-                let charCount = thisSelection.length;
-                
-                userInputShadowRoot.querySelector('#char-count-value').innerText = charCount;
-
-                if (charCount > countLimit) {
-                    rgb = 'rgba(255, 96, 96, 0.8)';
-                    isOverLimit = true;
-                }
-                else {
-                    rgb = 'rgba(230, 230, 230, 0.8)';
-                    isOverLimit = false;
-                }
-
-                console.log('updatecharcount colouring');
-                styleShadowDom(userInputShadowRoot, '#user-input-context-menu-container', [['background-color', rgb]]);
-            }
-
-            whenNotHovering(userInputContextMenuContainer, function() {
-                window.addEventListener('mousemove', setToMousePos);
-            });
-        }
-    };
-
-    updateCharCount();
-    updateCharCountInterval = setInterval(updateCharCount, 100);
+    if (!isSelectMade) {checkSelectMadeInterval = setInterval(checkSelectMade, 50)};
 
     //allows user to 'click out' of context menu
     whenNotHovering(userInputContextMenuContainer, function() {
@@ -2074,24 +2086,12 @@ function begunSelecting() {
     window.addEventListener('keydown', keyDown);
     */
 
-    window.addEventListener('keydown', function(event) {
-        isKeyEventLoaded = false;
-
-        setTimeout(function() {
-            isKeyEventLoaded = true;
-        }, 500);
-
-        if (event.keyCode === 83) {
-            isKeyHeld = true;
-            window.addEventListener('mouseup', doneSelecting);
-        }
-    });
+    window.addEventListener('keydown', begunSelectingKeyDown);
 
     let keyUpDelay = function(event) {
         let isMouseUp = false;
         if (event.keyCode === 83) {
             isKeyHeld = false;
-            isKeyEventLoaded = false;
             if (!isExpanded) {
                 //some delay added to check whether user meant to let mouse up but they let s key up first
                 window.addEventListener('mouseup', function checkMouseUp() {
@@ -2122,16 +2122,23 @@ function begunSelecting() {
     window.addEventListener('keyup', keyUpDelay);
 }
 
+function doneSelectingKeyDown(event) {
+    if (event.keyCode === 83) {
+        isKeyHeld = true;
+        window.addEventListener('mousemove', borderHoveredElement);
+        window.addEventListener('mousedown', begunSelecting);
+    }
+};
+
 //selection callback function
 function doneSelecting() {
     console.log('done selecting');
     window.removeEventListener('mousemove', setToMousePos);
     window.removeEventListener('mousedown', begunSelecting);
-    clearInterval(checkSelectMadeInterval);
-    clearInterval(updateCharCountInterval);
-    isKeyEventLoaded = false;
+    window.removeEventListener('keydown', begunSelectingKeyDown);
 
-    //userInputLoading.classList.add('hidden');
+    console.log('clearing interval');
+    clearInterval(updateCharCountInterval);
 
     //if selection more than 100 chars, then appropriate animation displayed
     if (isOverLimit) {
@@ -2144,7 +2151,7 @@ function doneSelecting() {
                 userInputContextMenuContainer.classList.add('hidden');
                 userInputContextMenuContainer.classList.remove('fadeout-anim');
                 userInputContextMenuContainer.classList.remove('shake-anim');
-                styleShadowDom(userInputShadowRoot, '#user-input-context-menu-container', [['background-color', 'rgb(230, 230, 230, 1.0)']]);
+                styleShadowDom(userInputShadowRoot, '#user-input-context-menu-container', [['background-color', 'rgba(230, 230, 230, 1.0)']]);
             }, 150);
         }, 350);
     }
@@ -2167,15 +2174,17 @@ function doneSelecting() {
             });
             
             console.log('expanding')
-            charCountText.classList.add('fadeout-anim');
+            charCountContainer.classList.add('fadeout-anim');
             userInputContextMenuContainer.classList.add('expand-anim');
-            styleShadowDom(userInputShadowRoot, '#user-input-context-menu-container', [['background-color', 'rgb(230, 230, 230, 1.0)']]);
+
+            console.log('styling solid')
+            styleShadowDom(userInputShadowRoot, '#user-input-context-menu-container', [['background-color', 'rgba(230, 230, 230, 1.0)']]);
             
             isExpanded = true;
 
             setTimeout(function() {
-                charCountText.classList.add('hidden');
-                charCountText.classList.remove('fadeout-anim');
+                charCountContainer.classList.add('hidden');
+                charCountContainer.classList.remove('fadeout-anim');
                 selectionMenu.classList.add('fadein-anim');
                 userInputExitButton.classList.add('fadein-anim');
 
@@ -2232,24 +2241,11 @@ function doneSelecting() {
     });
     */
 
-    window.addEventListener('keydown', function(event) {
-        isKeyEventLoaded = false;
-
-        setTimeout(function() {
-            isKeyEventLoaded = true;
-        }, 500);
-
-        if (event.keyCode === 83) {
-            isKeyHeld = true;
-            window.addEventListener('mousemove', borderHoveredElement);
-            window.addEventListener('mousedown', begunSelecting);
-        }
-    });
+    window.addEventListener('keydown', doneSelectingKeyDown);
 
     window.addEventListener('keyup', function(event) {
         if (event.keyCode === 83) {
             isKeyHeld = false;
-            isKeyEventLoaded = false;
             window.removeEventListener('mousemove', borderHoveredElement);
             window.removeEventListener('mousedown', begunSelecting)
         }
@@ -2277,7 +2273,17 @@ function borderHoveredElement() {
 //event listeners
 chrome.runtime.onMessage.addListener(handleContentRequests);
 
+function initLoadKeyDown(event) {
+    if (event.keyCode === 83) {
+        isKeyHeld = true;
+        window.addEventListener('mousemove', borderHoveredElement);
+        window.addEventListener('mousedown', begunSelecting);
+    } 
+}
+
 window.addEventListener('load', function() {
+    console.log('doc loaded');
+
     //custom font added parent document for use in shadowDOM
     parentDocStyle = document.createElement('style');
     parentDocStyle.innerText = `
@@ -2309,24 +2315,11 @@ window.addEventListener('load', function() {
     });
     */
 
-    window.addEventListener('keydown', function(event) {
-        isKeyEventLoaded = false;
-
-        setTimeout(function() {
-            isKeyEventLoaded = true;
-        }, 500);
-
-        if (event.keyCode === 83) {
-            isKeyHeld = true;
-            window.addEventListener('mousemove', borderHoveredElement);
-            window.addEventListener('mousedown', begunSelecting);
-        }
-    });
+    window.addEventListener('keydown', initLoadKeyDown);
 
     window.addEventListener('keyup', function(event) {
         if (event.keyCode === 83) {
             isKeyHeld = false;
-            isKeyEventLoaded = false;
             window.removeEventListener('mousemove', borderHoveredElement);
             window.removeEventListener('mousedown', begunSelecting);
         }

@@ -73,7 +73,7 @@ let isConfirmed = false;
 let isFocussed = false;
 let isAbortSelection = false;
 let isExitButtonClicked = false;
-let isKeyHeld = false;
+let isKeyEventLoaded = false;
 
 //messaging callback to send data between .js files
 function handleContentRequests(message, sender, sendResponse) {
@@ -1662,18 +1662,23 @@ function publishSubmission() {
 
 function keyEventLoadPromise() {
     return new Promise(function(resolve, reject) {
+        let isMouseUpBeforeLoad = false;
+        let checkMouseUpBeforeLoad = function() {isMouseUpBeforeLoad = true};
+
+        window.addEventListener('mouseup', checkMouseUpBeforeLoad);
+
         setTimeout(function() {
-            resolve();
+            if (!isMouseUpBeforeLoad) {resolve()}
+            else {
+                window.removeEventListener('mouseup', checkMouseUpBeforeLoad);
+                reject();
+            }
         }, 500);
     });
 }
 
 function begunSelectingKeyDown(event) {
-    console.log('begunSelectingKeyDown called');
-    if (event.keyCode === 83) {
-        isKeyHeld = true;
-        window.addEventListener('mouseup', doneSelecting);
-    }
+    if (event.keyCode === 83) {window.addEventListener('mouseup', doneSelecting)}
 };
 
 function begunSelecting() {
@@ -2036,12 +2041,16 @@ function begunSelecting() {
             });
 
             keyEventLoadPromise().then(function() {
-                console.log('YES');
+                isKeyEventLoaded = true;
                 userInputLoading.classList.add('hidden');
                 charCountContainer.classList.remove('hidden');
                 
                 updateCharCount();
                 updateCharCountInterval = setInterval(updateCharCount, 100);
+            }).catch(function() {
+                console.log('mouse let up before load');
+                isKeyEventLoaded = false;
+                userInputContextMenuContainer.classList.add('hidden');
             });
         }
     };
@@ -2091,7 +2100,6 @@ function begunSelecting() {
     let keyUpDelay = function(event) {
         let isMouseUp = false;
         if (event.keyCode === 83) {
-            isKeyHeld = false;
             if (!isExpanded) {
                 //some delay added to check whether user meant to let mouse up but they let s key up first
                 window.addEventListener('mouseup', function checkMouseUp() {
@@ -2124,7 +2132,6 @@ function begunSelecting() {
 
 function doneSelectingKeyDown(event) {
     if (event.keyCode === 83) {
-        isKeyHeld = true;
         window.addEventListener('mousemove', borderHoveredElement);
         window.addEventListener('mousedown', begunSelecting);
     }
@@ -2137,7 +2144,6 @@ function doneSelecting() {
     window.removeEventListener('mousedown', begunSelecting);
     window.removeEventListener('keydown', begunSelectingKeyDown);
 
-    console.log('clearing interval');
     clearInterval(updateCharCountInterval);
 
     //if selection more than 100 chars, then appropriate animation displayed
@@ -2245,7 +2251,6 @@ function doneSelecting() {
 
     window.addEventListener('keyup', function(event) {
         if (event.keyCode === 83) {
-            isKeyHeld = false;
             window.removeEventListener('mousemove', borderHoveredElement);
             window.removeEventListener('mousedown', begunSelecting)
         }
@@ -2275,7 +2280,6 @@ chrome.runtime.onMessage.addListener(handleContentRequests);
 
 function initLoadKeyDown(event) {
     if (event.keyCode === 83) {
-        isKeyHeld = true;
         window.addEventListener('mousemove', borderHoveredElement);
         window.addEventListener('mousedown', begunSelecting);
     } 
@@ -2319,7 +2323,6 @@ window.addEventListener('load', function() {
 
     window.addEventListener('keyup', function(event) {
         if (event.keyCode === 83) {
-            isKeyHeld = false;
             window.removeEventListener('mousemove', borderHoveredElement);
             window.removeEventListener('mousedown', begunSelecting);
         }

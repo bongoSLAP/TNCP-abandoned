@@ -504,7 +504,7 @@ function confirmChoices() {
         }
     }
 
-    //triggers a series of animations to progress to the next screen
+    //triggers animations to progress to the next screen
     if (isArgNatureValid && isSourceValid) {
         submission.argumentNature = selectedVals[0];
         
@@ -1660,6 +1660,7 @@ function publishSubmission() {
     else {alert('Enter a valid submission')}
 }
 
+//check whether mouse let up before key event load
 function keyEventLoadPromise() {
     return new Promise(function(resolve, reject) {
         let isMouseUpBeforeLoad = false;
@@ -1673,7 +1674,7 @@ function keyEventLoadPromise() {
                 window.removeEventListener('mouseup', checkMouseUpBeforeLoad);
                 reject();
             }
-        }, 500);
+        }, 350);
     });
 }
 
@@ -2032,6 +2033,7 @@ function begunSelecting() {
         styleShadowDom(userInputShadowRoot, '#user-input-context-menu-container', [['background-color', rgb]]);
     };
 
+    //check whether mouse let up before key event load
     let selectIsMade = function() {
         console.log('select is made');
         console.log('isFocussed: ', isFocussed, 'isExpanded: ', isExpanded)
@@ -2146,84 +2148,95 @@ function doneSelecting() {
 
     clearInterval(updateCharCountInterval);
 
-    //if selection more than 100 chars, then appropriate animation displayed
-    if (isOverLimit) {
-        userInputContextMenuContainer.classList.add('shake-anim');
-
-        setTimeout(function() {
-            userInputContextMenuContainer.classList.add('fadeout-anim');
-
-            setTimeout(function() {
-                userInputContextMenuContainer.classList.add('hidden');
-                userInputContextMenuContainer.classList.remove('fadeout-anim');
-                userInputContextMenuContainer.classList.remove('shake-anim');
-                styleShadowDom(userInputShadowRoot, '#user-input-context-menu-container', [['background-color', 'rgba(230, 230, 230, 1.0)']]);
-            }, 150);
-        }, 350);
-    }
-    else {
-        if (isSelectMade) {
-            let finalSelection = '';
-            annotation.urlOfArticle = window.location.href;
-            submission.urlOfArticle = window.location.href;
-
-            whenNotHovering(userInputContextMenuContainer, function() {
-                //triple clicks cause weird bugs
-                //if (event.detail === 3) {userInputContextMenuContainer.classList.add('hidden')}
-
-                if (!isFocussed) {
-                    let selectionObj = window.getSelection();
-
-                    finalSelection = autoCompSelection();
-                    initAnnotation(selectionObj, finalSelection);
-                }
-            });
-            
-            console.log('expanding')
-            charCountContainer.classList.add('fadeout-anim');
-            userInputContextMenuContainer.classList.add('expand-anim');
-
-            console.log('styling solid')
-            styleShadowDom(userInputShadowRoot, '#user-input-context-menu-container', [['background-color', 'rgba(230, 230, 230, 1.0)']]);
-            
-            isExpanded = true;
+    //hide ui if let up and not loaded
+    if (isKeyEventLoaded) {
+        //if selection more than 100 chars, then appropriate animation displayed
+        if (isOverLimit) {
+            userInputContextMenuContainer.classList.add('shake-anim');
 
             setTimeout(function() {
-                charCountContainer.classList.add('hidden');
-                charCountContainer.classList.remove('fadeout-anim');
-                selectionMenu.classList.add('fadein-anim');
-                userInputExitButton.classList.add('fadein-anim');
+                userInputContextMenuContainer.classList.add('fadeout-anim');
 
                 setTimeout(function() {
-                    whenNotHovering(userInputContextMenuContainer, function() {
-                        if (!isFocussed) {
-
-                            //displays first 50 chars of selection to save space
-                            if (finalSelection.length > 50) {selectionMade.innerText = finalSelection.substr(0, 50) + '...';}
-                            else {selectionMade.innerText = finalSelection}
-                            radioContainer.classList.remove('hidden');
-
-                            styleShadowDom(userInputShadowRoot, [
-                                '#selection-quotes', 
-                                '#user-input-exit-button', 
-                                '#argument-nature-container', 
-                                '#source-container'
-                            ], 
-                            [['display', 'inline']]);
-
-                            userInputExitButton.addEventListener('mouseover', exitButtonActive);
-                        }
-                    });
-
-                    //console.log('selection menu .hidden class removed');
-                    selectionMenu.classList.remove('hidden');   
-                }, 150)
-            }, 150)
+                    userInputContextMenuContainer.classList.add('hidden');
+                    userInputContextMenuContainer.classList.remove('fadeout-anim');
+                    userInputContextMenuContainer.classList.remove('shake-anim');
+                    styleShadowDom(userInputShadowRoot, '#user-input-context-menu-container', [['background-color', 'rgba(230, 230, 230, 1.0)']]);
+                }, 150);
+            }, 350);
         }
         else {
-            userInputContextMenuContainer.classList.add('hidden')
+            if (isSelectMade) {
+                let finalSelection = '';
+                annotation.urlOfArticle = window.location.href;
+                submission.urlOfArticle = window.location.href;
+
+                whenNotHovering(userInputContextMenuContainer, function() {
+                    //triple clicks cause weird bugs
+                    //if (event.detail === 3) {userInputContextMenuContainer.classList.add('hidden')}
+
+                    if (!isFocussed) {
+                        let selectionObj = window.getSelection();
+
+                        finalSelection = autoCompSelection();
+                        initAnnotation(selectionObj, finalSelection);
+                    }
+                });
+                
+                //15ms delay to smooth out async key load promise functionality
+                setTimeout(function() {
+                    //expand ui
+                    charCountContainer.classList.add('fadeout-anim');
+                    userInputContextMenuContainer.classList.add('expand-anim');
+    
+                    styleShadowDom(userInputShadowRoot, '#user-input-context-menu-container', [['background-color', 'rgba(230, 230, 230, 1.0)']]);
+                    
+                    isExpanded = true;
+    
+                    setTimeout(function() {
+                        charCountContainer.classList.add('hidden');
+                        charCountContainer.classList.remove('fadeout-anim');
+                        selectionMenu.classList.add('fadein-anim');
+                        userInputExitButton.classList.add('fadein-anim');
+    
+                        setTimeout(function() {
+                            whenNotHovering(userInputContextMenuContainer, function() {
+                                if (!isFocussed) {
+    
+                                    //displays first 50 chars of selection to save space
+                                    if (finalSelection.length > 50) {selectionMade.innerText = finalSelection.substr(0, 50) + '...';}
+                                    else {selectionMade.innerText = finalSelection}
+                                    radioContainer.classList.remove('hidden');
+    
+                                    styleShadowDom(userInputShadowRoot, 
+                                        [
+                                            '#selection-quotes', 
+                                            '#user-input-exit-button', 
+                                            '#argument-nature-container', 
+                                            '#source-container'
+                                        ], 
+                                    [['display', 'inline']]);
+
+                                    userInputExitButton.addEventListener('mouseover', exitButtonActive);
+                                }
+                            });
+    
+                            selectionMenu.classList.remove('hidden');   
+                        }, 150)
+                    }, 150)
+                }, 15);
+            }
+            else {userInputContextMenuContainer.classList.add('hidden')}
         }
     }
+    else {
+        userInputContextMenuContainer.classList.add('fadeout-anim');
+        setTimeout(function() {
+            userInputContextMenuContainer.classList.add('hidden');
+            userInputContextMenuContainer.classList.remove('fadeout-anim');
+        }, 150)
+    }
+    
 
     selectionList = [];
     

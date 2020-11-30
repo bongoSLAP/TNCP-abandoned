@@ -543,28 +543,28 @@ function confirmChoices() {
 function findElement(type, targetNode) {
     let searchArea = [];
     let found = false;
-    let wholeText = undefined;
-    let isUsingParent = false;
+    //let wholeText = undefined;
+    //let isUsingParent = false;
 
     console.log('targetNode at findElement(): ', targetNode);
 
-    if (targetNode.nodeName == '#text') {isUsingParent = true}
-    console.log('isUsingParent: ', isUsingParent);
+    //if (targetNode.nodeName == '#text') {isUsingParent = true}
+    //console.log('isUsingParent: ', isUsingParent);
 
     //if finding the anchor and focus nodes in document, use annotation data to find element, if finding middle elements, use the elemInDoc value that was found from the previous findElement() call in findAnnotation(object, 'anchor')
     if (type != 'middle') {
-        if (isUsingParent) {property = targetNode.parentNode.nodeName}
-        else {property = targetNode.nodeName}
+        //if (isUsingParent) {property = targetNode.parentNode.nodeName}
+        //else {property = targetNode.nodeName}
 
-        searchArea = document.querySelectorAll(property.toLowerCase());
+        searchArea = document.querySelectorAll(targetNode.nodeName.toLowerCase());
 
         for (let i=0; i<searchArea.length; i++) {
-            if (isUsingParent) {wholeText = targetNode.parentNode.parentWholeText}
-            else {wholeText = targetNode.wholeText}
+            //if (isUsingParent) {wholeText = targetNode.parentNode.parentWholeText}
+            //else {wholeText = targetNode.wholeText}
 
-            console.log('wholeText: ', wholeText);
+            console.log('targetNode.wholeText: ', targetNode.wholeText);
 
-            if (searchArea[i].innerText == wholeText) {
+            if (searchArea[i].innerText == targetNode.wholeText) {
                 found = true;
                 return searchArea[i];
             }
@@ -599,47 +599,42 @@ function resetAnnotation() {
 
 //initialises the annotation object to take a snapshot of actual values situated in the DOM
 function initAnnotation(object, selection) {
-    //console.log('object in initAnnotation: ', object);
-    annotation.textAnnotated = selection;
+    let snapshotSelectionData = function(property) {
+        let subProperty = undefined;
+        let fullText = undefined;
 
-    annotation.anchor = {
-        nodeName: object.anchorNode.nodeName,
-        nodeType: object.anchorNode.nodeType,
-        wholeText: object.anchorNode.wholeText,
-        parentNode: null
+        if (property.nodeName == '#text') {
+            subProperty = property.parentNode;
+            fullText = subProperty.innerText;
+        }
+        else {
+            subProperty = property;
+            fullText = property.wholeText;
+        }
+    
+        return {
+            nodeName: subProperty.nodeName,
+            nodeType: subProperty.nodeType,
+            wholeText: fullText
+        };
     };
 
-    if (object.anchorNode.parentNode.nodeName != 'BODY') {
-        annotation.anchor.parentNode = {
-            nodeName: object.anchorNode.parentNode.nodeName,
-            nodeType: object.anchorNode.parentNode.nodeType,
-            parentWholeText: object.anchorNode.parentNode.innerText
-        };
+    annotation.anchor = snapshotSelectionData(object.anchorNode);
+    console.log('annotation.anchor: ', annotation.anchor);
+
+    //if selections spans multiple elements, then capture a snapshot of data for focus node to object. this condition needs to be better (i dont know why this works)
+    if (getParentElement(findElement('anchor', annotation.anchor)).children.length >= 1) {
+        annotation.focus = snapshotSelectionData(object.focusNode);
+        annotation.isContainingChildren = false;
     }
+    else {delete annotation.focus}
 
     if (object.anchorNode.wholeText != object.focusNode.wholeText) {annotation.isUnified = false}
 
-    //if selections spans multiple elements, then capture a snapshot of data for focus node to object
-    //this condition needs to be better (i dont know why this works)
-    //findElement function has changed, may cause issues here
-    if (getParentElement(findElement('anchor', annotation.anchor)).children.length >= 1) {
-        annotation.isContainingChildren = false;
-        annotation.focus = {
-            nodeName: object.focusNode.nodeName,
-            nodeType: object.focusNode.nodeType,
-            wholeText: object.focusNode.wholeText,
-            parentNode: null
-        };
+    annotation.textAnnotated = selection;
+    annotation.annotationId = generateId('annotation');
 
-        if (object.focusNode.parentNode.nodeName != 'BODY') {
-            annotation.focus.parentNode = {
-                nodeName: object.focusNode.parentNode.nodeName,
-                nodeType: object.focusNode.parentNode.nodeType,
-                parentWholeText: object.focusNode.parentNode.innerText
-            };
-        }
-    }
-    else {delete annotation.focus}
+    console.log('initAnnotation: ', annotation);
 
     /*
     let nodeList = getAllNodes(object);
@@ -658,10 +653,6 @@ function initAnnotation(object, selection) {
     }
     else {delete annotation.nodeList}
     */
-
-    annotation.annotationId = generateId('annotation');
-
-    console.log('initAnnotation: ', annotation);
 }
 
 //calculate offset of clicked element and UI, sets UI position to this offset
@@ -1423,15 +1414,15 @@ function findAnnotationInPage(object, type) {
         let fullText = undefined;
         let temp = '';
         let indexInNodeChunks = undefined;
-        let wholeText = undefined;
+        let wholeText = targetNode.wholeText;
         let possibleMatches = [];
         let found = false;
 
         console.log('targetNode at detectBoundaries(): ', targetNode);
 
         //need to use entire wholeText which is not neccesarily #text node
-        if (targetNode.nodeName == '#text') {wholeText = targetNode.parentNode.parentWholeText}
-        else {wholeText = targetNode.wholeText}
+        //if (targetNode.nodeName == '#text') {wholeText = targetNode.parentNode.parentWholeText}
+        //else {wholeText = targetNode.wholeText}
 
         let escapedWholeText = escapeSymbolsToNameCode(wholeText);
 

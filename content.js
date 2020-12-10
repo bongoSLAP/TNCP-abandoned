@@ -218,150 +218,6 @@ function getParentElement(targetNode) {
     return finalParent;
 }
 
-//need to find the entirety of the text in nodes selected in order to calculate a start point carry out autocomplete function
-function searchForContext(targetNode, selection) {
-    let fullText = targetNode.wholeText;
-
-    //if it couldnt be found then use parent
-    if (newSearch(fullText, selection.trim()) == 'failed') {     
-        fullText = getParentElement(targetNode).innerText;
-    }
-
-    let indexFound = newSearch(fullText, selection.trim());
-    return [fullText, indexFound];
-}
-
-//is the furthest element in the tree where the anchor and focus nodes are both contained in a text element
-function testRange(range) {
-    let isFinished = false;
-    for (let i=0; i<blockLevelTags.length; i++) {
-        if (range.commonAncestorContainer.nodeName == blockLevelTags[i]) {
-            isFinished = true;
-        }
-
-        if (isFinished) {
-            return true;
-        }                              //needs length-1 here
-        else if (!isFinished && i == blockLevelTags.length) {
-            return false;
-        }
-    }
-}
-
-//autocompletes the first and last words of the selection
-function completeFirstWord(targetNode, selection) {
-    let context = searchForContext(targetNode, selection);
-    let startPoint = context[1];
-    let fullText = context[0];
-    let found = false;
-
-    if (fullText.charAt(startPoint-1) != ' ' && startPoint != 0) {
-        while (!found && startPoint > 0) {
-            for (let i=0; i<punctuation.length; i++) {
-                if (fullText.charAt(startPoint-1) == punctuation[i]) {
-                    found = true
-                    break;
-                }
-            }
-
-            if (!found) {
-                selection = fullText.charAt(startPoint-1).concat(selection);
-                startPoint--;
-            }
-        }
-    }
-    
-    return selection;
-}
-
-function completeLastWord(targetNode, selection) {
-    let context = searchForContext(targetNode, selection);
-    let startPoint = context[1];
-    let endPoint = startPoint + selection.length;
-    let fullText = context[0];
-    let found = false;
-
-    if (fullText.charAt(endPoint) != ' ' && fullText.charAt(endPoint-1) != ' ') {
-        while (!found && endPoint < fullText.length) {
-            for (let i=0; i<punctuation.length; i++) {
-                if (fullText.charAt(endPoint) == punctuation[i]) {
-                    found = true
-                    break;
-                }
-            }
-
-            if (!found) {
-                selection = selection.concat(fullText.charAt(endPoint));
-                endPoint++;
-            }
-        }
-    }
-
-    return selection;
-}
-
-//pushes the elements inbetween the anchor and focus to the selectionList array
-function pushFilteredElems(staticArray) {
-    if (staticArray.length > 2) {
-        for (let i=1; i<staticArray.length-1; i++) {
-            selectionList.push(staticArray[i].innerText);
-        }
-    }
-}
-
-//filters out non block level tags
-function filterSelectedNodes(liveList) {
-    let staticArray = [];
-    let textTags = ['P', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'LI'];
-
-    for (let i=0; i<liveList.length; i++) {
-        for (let j=0; j<textTags.length; j++) {
-            if (liveList[i].tagName == textTags[j]) {staticArray.push(liveList[i])}
-        }
-    }
-
-    return staticArray;
-}
-
-//gets a live list of nodes that make up the selection
-function getAllNodes(object) {
-    let liveNodeList = object.getRangeAt(0).cloneContents().querySelectorAll('*');
-    return filterSelectedNodes(liveNodeList);
-}
-
-//autocompletes boundary words (anchor + focus), and concatenates each node into a single string
-function autoCompSelection() {
-    let thisSelectionObj = window.getSelection();
-    let selection = thisSelectionObj.toString();
-    let autoCompOutcome = undefined;
-    
-    if (!thisSelectionObj.isCollapsed) {
-        //if selection stays within the same element or not
-        if (thisSelectionObj.anchorNode == thisSelectionObj.focusNode || testRange(thisSelectionObj.getRangeAt(0)) == true) {
-            autoCompOutcome = completeFirstWord(thisSelectionObj.anchorNode, completeLastWord(thisSelectionObj.anchorNode, selection.trim()));
-        }
-        else if (thisSelectionObj.anchorNode != thisSelectionObj.focusNode) {
-            let staticNodeArray = getAllNodes(thisSelectionObj);
-
-            //if selection went up the page from starting point or down the page from starting point
-            if (thisSelectionObj.anchorNode.wholeText.search(staticNodeArray[staticNodeArray.length-1].innerText) == -1) {
-                selectionList.push(completeFirstWord(thisSelectionObj.anchorNode, staticNodeArray[0].innerText));
-                pushFilteredElems(staticNodeArray);
-                selectionList.push(completeLastWord(thisSelectionObj.focusNode, staticNodeArray[staticNodeArray.length-1].innerText));
-            }
-            else {
-                selectionList.push(completeFirstWord(thisSelectionObj.focusNode, staticNodeArray[0].innerText));
-                pushFilteredElems(staticNodeArray);
-                selectionList.push(completeLastWord(thisSelectionObj.anchorNode, staticNodeArray[staticNodeArray.length-1].innerText));
-            }  
-            
-            //concatenating text values of filtered selected elements
-            autoCompOutcome = selectionList.join(' ');
-        }           
-    }
-    return autoCompOutcome;
-}
-
 //for easily applying multiple styles to shadowDOM
 function styleShadowDom(root, selector, properties) {
     let newDeclaration = undefined;
@@ -1620,6 +1476,155 @@ function publishSubmission() {
     else {alert('Enter a valid submission')}
 }
 
+//autocompletes boundary words (anchor + focus), and concatenates each node into a single string
+const AUTOCOMPLETETOOL = (function() {
+    //filters out non block level tags
+    const filterSelectedNodes = function(liveList) {
+        let staticArray = [];
+        let textTags = ['P', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'LI'];
+
+        for (let i=0; i<liveList.length; i++) {
+            for (let j=0; j<textTags.length; j++) {
+                if (liveList[i].tagName == textTags[j]) {staticArray.push(liveList[i])}
+            }
+        }
+
+        return staticArray;
+    };
+
+    //gets a live list of nodes that make up the selection
+    const getAllNodes = function(object) {
+        let liveNodeList = object.getRangeAt(0).cloneContents().querySelectorAll('*');
+        return filterSelectedNodes(liveNodeList);
+    };
+
+    //pushes the elements inbetween the anchor and focus to the selectionList array
+    const pushFilteredElems = function(staticArray) {
+        if (staticArray.length > 2) {
+            for (let i=1; i<staticArray.length-1; i++) {
+                selectionList.push(staticArray[i].innerText);
+            }
+        }
+    };
+
+    //need to find the entirety of the text in nodes selected in order to calculate a start point carry out autocomplete function
+    const searchForContext = function(targetNode, selection) {
+        let fullText = targetNode.wholeText;
+
+        //if it couldnt be found then use parent
+        if (newSearch(fullText, selection.trim()) == 'failed') {     
+            fullText = getParentElement(targetNode).innerText;
+        }
+
+        let indexFound = newSearch(fullText, selection.trim());
+        return [fullText, indexFound];
+    };
+
+    //is the furthest element in the tree where the anchor and focus nodes are both contained in a text element
+    const testRange = function(range) {
+        let isFinished = false;
+        for (let i=0; i<blockLevelTags.length; i++) {
+            if (range.commonAncestorContainer.nodeName == blockLevelTags[i]) {
+                isFinished = true;
+            }
+
+            if (isFinished) {
+                return true;
+            }                              //needs length-1 here
+            else if (!isFinished && i == blockLevelTags.length) {
+                return false;
+            }
+        }
+    }
+
+    //autocompletes the first and last words of the selection
+    const completeFirstWord = function(targetNode, selection) {
+        let context = searchForContext(targetNode, selection);
+        let startPoint = context[1];
+        let fullText = context[0];
+        let found = false;
+
+        if (fullText.charAt(startPoint-1) != ' ' && startPoint != 0) {
+            while (!found && startPoint > 0) {
+                for (let i=0; i<punctuation.length; i++) {
+                    if (fullText.charAt(startPoint-1) == punctuation[i]) {
+                        found = true
+                        break;
+                    }
+                }
+
+                if (!found) {
+                    selection = fullText.charAt(startPoint-1).concat(selection);
+                    startPoint--;
+                }
+            }
+        }
+        
+        return selection;
+    };
+
+    const completeLastWord = function(targetNode, selection) {
+        let context = searchForContext(targetNode, selection);
+        let startPoint = context[1];
+        let endPoint = startPoint + selection.length;
+        let fullText = context[0];
+        let found = false;
+
+        if (fullText.charAt(endPoint) != ' ' && fullText.charAt(endPoint-1) != ' ') {
+            while (!found && endPoint < fullText.length) {
+                for (let i=0; i<punctuation.length; i++) {
+                    if (fullText.charAt(endPoint) == punctuation[i]) {
+                        found = true
+                        break;
+                    }
+                }
+
+                if (!found) {
+                    selection = selection.concat(fullText.charAt(endPoint));
+                    endPoint++;
+                }
+            }
+        }
+
+        return selection;
+    };
+
+    return {
+        autoCompSelection: function() {
+            let thisSelectionObj = window.getSelection();
+            let selection = thisSelectionObj.toString();
+            let autoCompOutcome = undefined;
+            
+            if (!thisSelectionObj.isCollapsed) {
+                //if selection stays within the same element or not
+                if (thisSelectionObj.anchorNode == thisSelectionObj.focusNode || testRange(thisSelectionObj.getRangeAt(0)) == true) {
+                    autoCompOutcome = completeFirstWord(thisSelectionObj.anchorNode, completeLastWord(thisSelectionObj.anchorNode, selection.trim()));
+                }
+                else if (thisSelectionObj.anchorNode != thisSelectionObj.focusNode) {
+                    let staticNodeArray = getAllNodes(thisSelectionObj);
+
+                    //if selection went up the page from starting point or down the page from starting point
+                    if (thisSelectionObj.anchorNode.wholeText.search(staticNodeArray[staticNodeArray.length-1].innerText) == -1) {
+                        selectionList.push(completeFirstWord(thisSelectionObj.anchorNode, staticNodeArray[0].innerText));
+                        pushFilteredElems(staticNodeArray);
+                        selectionList.push(completeLastWord(thisSelectionObj.focusNode, staticNodeArray[staticNodeArray.length-1].innerText));
+                    }
+                    else {
+                        selectionList.push(completeFirstWord(thisSelectionObj.focusNode, staticNodeArray[0].innerText));
+                        pushFilteredElems(staticNodeArray);
+                        selectionList.push(completeLastWord(thisSelectionObj.anchorNode, staticNodeArray[staticNodeArray.length-1].innerText));
+                    }  
+                    
+                    //concatenating text values of filtered selected elements
+                    autoCompOutcome = selectionList.join(' ');
+                }           
+            }
+
+            return autoCompOutcome;
+        }
+    }
+}());
+
 const MAINMOUSEEVENTS = (function() {
 
     //add more global booleans used in begunSelecting() here
@@ -1992,7 +1997,7 @@ const MAINMOUSEEVENTS = (function() {
                 let rgb = '';
                 selectionList = [];
 
-                let thisSelection = autoCompSelection();
+                let thisSelection = AUTOCOMPLETETOOL.autoCompSelection();
                 let charCount = thisSelection.length;
                 
                 userInputShadowRoot.querySelector('#char-count-value').innerText = charCount;
@@ -2198,7 +2203,7 @@ const MAINMOUSEEVENTS = (function() {
                             if (!booleanObject.isFocussed) {
                                 let selectionObj = window.getSelection();
         
-                                finalSelection = autoCompSelection();
+                                finalSelection = AUTOCOMPLETETOOL.autoCompSelection();
                                 initAnnotation(selectionObj, finalSelection);
                             }
                         });

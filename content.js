@@ -101,8 +101,7 @@ function newSearch(searchIn, query) {
         string = string.replace(/(\r\n|\n|\r)/gm, '');
 
         //special chars can be selected and the search will still work (may need to add more chars here)
-        string = string.replace(/.[*+?^${}()|[\]\\]/g, '\\$&');
-        return string;
+        return string.replace(/.[*+?^${}()|[\]\\]/g, '\\$&');
     };
 
     let regExp = new RegExp(escapeRegExp(query));
@@ -1535,7 +1534,7 @@ const AUTOCOMPLETETOOL = (function() {
                 return false;
             }
         }
-    }
+    };
 
     //autocompletes the first and last words of the selection
     const completeFirstWord = function(targetNode, selection) {
@@ -1593,13 +1592,10 @@ const AUTOCOMPLETETOOL = (function() {
         autoCompSelection: function() {
             let thisSelectionObj = window.getSelection();
             let selection = thisSelectionObj.toString();
-            let autoCompOutcome = undefined;
             
             if (!thisSelectionObj.isCollapsed) {
                 //if selection stays within the same element or not
-                if (thisSelectionObj.anchorNode == thisSelectionObj.focusNode || testRange(thisSelectionObj.getRangeAt(0)) == true) {
-                    autoCompOutcome = completeFirstWord(thisSelectionObj.anchorNode, completeLastWord(thisSelectionObj.anchorNode, selection.trim()));
-                }
+                if (thisSelectionObj.anchorNode == thisSelectionObj.focusNode || testRange(thisSelectionObj.getRangeAt(0)) == true) {return completeFirstWord(thisSelectionObj.anchorNode, completeLastWord(thisSelectionObj.anchorNode, selection.trim()))}
                 else if (thisSelectionObj.anchorNode != thisSelectionObj.focusNode) {
                     let staticNodeArray = getAllNodes(thisSelectionObj);
 
@@ -1616,41 +1612,41 @@ const AUTOCOMPLETETOOL = (function() {
                     }  
                     
                     //concatenating text values of filtered selected elements
-                    autoCompOutcome = selectionList.join(' ');
+                    return selectionList.join(' ');
                 }           
             }
-
-            return autoCompOutcome;
         }
     }
 }());
 
 const MAINMOUSEEVENTS = (function() {
-
     //add more global booleans used in begunSelecting() here
     let booleans = {
         isSelectMade: false,
         isOverLimit: false,
         isExpanded: false,
-        isFocussed: false
+        isFocussed: false,
+        isKeyDownRunOnce: false
     };
     
     //add more (if any) global event callbacks used in begunSelecting()
     const doneSelectingKeyDown = function(event) {
-        if (event.keyCode === 83) {
+        if (event.keyCode === 83 && !MAINMOUSEEVENTS.variables.booleans.isKeyDownRunOnce) {
+            MAINMOUSEEVENTS.variables.booleans.isKeyDownRunOnce = true;
             window.addEventListener('mousemove', borderHoveredElement);
             window.addEventListener('mousedown', function() {MAINMOUSEEVENTS.begunSelecting(MAINMOUSEEVENTS.variables.booleans)});
             window.removeEventListener('keydown', doneSelectingKeyDown);
         }
-    }
+    };
 
-    const begunSelectingKeyDown = function(event) {
-        if (event.keyCode === 83) {
-            console.log('vars: ', MAINMOUSEEVENTS.variables.booleans);
-            window.addEventListener('mouseup', function() {MAINMOUSEEVENTS.doneSelecting(MAINMOUSEEVENTS.variables.booleans)})
+    const begunSelectingKeyDown = function(event, interval) {
+        if (event.keyCode === 83 && !MAINMOUSEEVENTS.variables.booleans.isKeyDownRunOnce) {
+            MAINMOUSEEVENTS.variables.booleans.isKeyDownRunOnce = true;
+            //console.log('vars: ', MAINMOUSEEVENTS.variables.booleans);
+            window.addEventListener('mouseup', function() {MAINMOUSEEVENTS.doneSelecting(MAINMOUSEEVENTS.variables.booleans, interval)})
             window.removeEventListener('keydown', begunSelectingKeyDown);
         }
-    }
+    };
 
     const resetAnnotation = function() {
         annotation = {
@@ -1673,10 +1669,10 @@ const MAINMOUSEEVENTS = (function() {
             }
         },
         begunSelecting: function(booleans) {
-            //console.log('begun selecting');
-            window.removeEventListener('mouseup', MAINMOUSEEVENTS.doneSelecting);
+            console.log('begun selecting');
             window.removeEventListener('keydown', initLoadKeyDown);
-            
+            //window.removeEventListener('mouseup', MAINMOUSEEVENTS.doneSelecting);
+
             //console.log('arguments in begunSelecting: ', booleans);
             let booleanObject = booleans;
 
@@ -2088,10 +2084,13 @@ const MAINMOUSEEVENTS = (function() {
                 ]);
             });
 
-            window.addEventListener('keydown', begunSelectingKeyDown);
+            window.addEventListener('keydown', function(event) {
+                begunSelectingKeyDown(event, updateCharCountInterval);
+            });
 
             const keyUpDelay = function(event) {
                 let isMouseUp = false;
+                booleanObject.isKeyDownRunOnce = true;
                 if (event.keyCode === 83) {
                     if (!booleanObject.isExpanded) {
                         //some delay added to check whether user meant to let mouse up but they let s key up first
@@ -2111,21 +2110,22 @@ const MAINMOUSEEVENTS = (function() {
                                     userInputContextMenuContainer.classList.remove('fadeout-anim');
                                 }, 150);
                             }
-                            else {doneSelecting(MAINMOUSEEVENTS.variables.booleans)}
+                            else {doneSelecting(MAINMOUSEEVENTS.variables.booleans, updateCharCountInterval)}
                         }, 350);
                     }
                     
-                    window.removeEventListener('mouseup', MAINMOUSEEVENTS.doneSelecting);
+                    //window.removeEventListener('mouseup', MAINMOUSEEVENTS.doneSelecting);
                     window.removeEventListener('keyup', keyUpDelay);
                 }
             };
 
             window.addEventListener('keyup', keyUpDelay);
+            window.removeEventListener('mousedown', MAINMOUSEEVENTS.begunSelecting);
         },
         doneSelecting: function(booleans, interval) {
-            //console.log('done selecting');
+            console.log('done selecting');
             window.removeEventListener('mousemove', setToMousePos);
-            window.removeEventListener('mousedown', MAINMOUSEEVENTS.begunSelecting);
+            //window.removeEventListener('mousedown', MAINMOUSEEVENTS.begunSelecting);
         
             //console.log('arguments in doneSelecting: ', booleans);
             let booleanObject = booleans;
@@ -2270,9 +2270,12 @@ const MAINMOUSEEVENTS = (function() {
             window.addEventListener('keyup', function(event) {
                 if (event.keyCode === 83) {
                     window.removeEventListener('mousemove', borderHoveredElement);
-                    window.removeEventListener('mousedown', MAINMOUSEEVENTS.begunSelecting)
+                    //window.removeEventListener('mousedown', MAINMOUSEEVENTS.begunSelecting)
+                    booleanObject.isKeyDownRunOnce = false;
                 }
             });
+
+            window.removeEventListener('mouseup', MAINMOUSEEVENTS.doneSelecting);
         }
     };
 }());
@@ -2298,15 +2301,9 @@ function borderHoveredElement() {
 //event listeners
 chrome.runtime.onMessage.addListener(handleContentRequests);
 
-function initLoadKeyDown(event) {
-    if (event.keyCode === 83) {
-        window.addEventListener('mousemove', borderHoveredElement);
-        window.addEventListener('mousedown', function() {MAINMOUSEEVENTS.begunSelecting(MAINMOUSEEVENTS.variables.booleans)});
-    } 
-}
-
 window.addEventListener('load', function() {
     console.log('doc loaded');
+    let isKeyDownRunOnce = false;
 
     //custom font added parent document for use in shadowDOM
     parentDocStyle = document.createElement('style');
@@ -2319,12 +2316,22 @@ window.addEventListener('load', function() {
 
     $(parentDocStyle).appendTo('body');
 
+    //dont need initLoadKeyDown function??? maybe use begunSelectingKeyDown function in IIFE?
+    const initLoadKeyDown = function(event) {
+        if (event.keyCode === 83 && !isKeyDownRunOnce) {
+            isKeyDownRunOnce = true;
+            window.addEventListener('mousemove', borderHoveredElement);
+            window.addEventListener('mousedown', function() {MAINMOUSEEVENTS.begunSelecting(MAINMOUSEEVENTS.variables.booleans)});
+        }
+    }
+
     window.addEventListener('keydown', initLoadKeyDown);
 
     window.addEventListener('keyup', function(event) {
-        if (event.keyCode === 83) {
+        if (event.keyCode === 83 && !isKeyDownRunOnce) {
+            isKeyDownRunOnce = true;
             window.removeEventListener('mousemove', borderHoveredElement);
-            window.removeEventListener('mousedown', MAINMOUSEEVENTS.begunSelecting);
+            //window.removeEventListener('mousedown', MAINMOUSEEVENTS.begunSelecting);
         }
     });
 

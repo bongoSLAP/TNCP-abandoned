@@ -1628,25 +1628,8 @@ const MAINMOUSEEVENTS = (function() {
         isFocussed: false,
         isKeyDownRunOnce: false
     };
-    
-    //add more (if any) global event callbacks used in begunSelecting()
-    const doneSelectingKeyDown = function(event) {
-        if (event.keyCode === 83 && !MAINMOUSEEVENTS.variables.booleans.isKeyDownRunOnce) {
-            MAINMOUSEEVENTS.variables.booleans.isKeyDownRunOnce = true;
-            window.addEventListener('mousemove', borderHoveredElement);
-            window.addEventListener('mousedown', function() {MAINMOUSEEVENTS.begunSelecting(MAINMOUSEEVENTS.variables.booleans)});
-            window.removeEventListener('keydown', doneSelectingKeyDown);
-        }
-    };
 
-    const begunSelectingKeyDown = function(event, interval) {
-        if (event.keyCode === 83 && !MAINMOUSEEVENTS.variables.booleans.isKeyDownRunOnce) {
-            MAINMOUSEEVENTS.variables.booleans.isKeyDownRunOnce = true;
-            //console.log('vars: ', MAINMOUSEEVENTS.variables.booleans);
-            window.addEventListener('mouseup', function() {MAINMOUSEEVENTS.doneSelecting(MAINMOUSEEVENTS.variables.booleans, interval)})
-            window.removeEventListener('keydown', begunSelectingKeyDown);
-        }
-    };
+    let updateCharCountInterval = undefined;
 
     const resetAnnotation = function() {
         annotation = {
@@ -1662,22 +1645,46 @@ const MAINMOUSEEVENTS = (function() {
         console.log('resetting');
     };
 
+    //add more (if any) global event callbacks used in begunSelecting()
+
+    const initLoadKeyDown = function(event) {
+        if (event.keyCode === 83 && !MAINMOUSEEVENTS.variables.booleans.isKeyDownRunOnce) {
+            MAINMOUSEEVENTS.variables.booleans.isKeyDownRunOnce = true;
+            window.addEventListener('mousedown', MAINMOUSEEVENTS.begunSelecting);
+            window.addEventListener('keyup', initLoadKeyUp);
+            console.log('initLoadKeyDown');
+        }
+    };
+
+    window.addEventListener('keydown', initLoadKeyDown);
+    
+    const initLoadKeyUp = function(event) {
+        if (event.keyCode === 83) {
+            MAINMOUSEEVENTS.variables.booleans.isKeyDownRunOnce = false;
+            window.removeEventListener('mousedown', MAINMOUSEEVENTS.begunSelecting);
+            //window.removeEventListener('keydown', initLoadKeyDown);
+            //window.removeEventListener('keyup', initLoadKeyUp);
+            console.log('initLoadKeyUp');
+        }
+    };
+
+    console.log('runs once')
+
     return {
         get variables() {
             return {
-                booleans
+                booleans,
+                updateCharCountInterval
             }
         },
-        begunSelecting: function(booleans) {
+        begunSelecting: function() {
             console.log('begun selecting');
-            window.removeEventListener('keydown', initLoadKeyDown);
-            //window.removeEventListener('mouseup', MAINMOUSEEVENTS.doneSelecting);
 
             //console.log('arguments in begunSelecting: ', booleans);
-            let booleanObject = booleans;
+            let booleanObject = MAINMOUSEEVENTS.variables.booleans;
+            console.log('booleanObject: ', booleanObject);
 
             let checkSelectMadeInterval = undefined;
-            let updateCharCountInterval = undefined;
 
             //only need to run this set up code the first time a selection is made
             if (!isUserInputDomCreated) {
@@ -2019,7 +2026,7 @@ const MAINMOUSEEVENTS = (function() {
                 const keyEventLoadPromise = function() {
                     return new Promise(function(resolve, reject) {
                         let isMouseUpBeforeLoad = false;
-                        let checkMouseUpBeforeLoad = function() {isMouseUpBeforeLoad = true};
+                        const checkMouseUpBeforeLoad = function() {isMouseUpBeforeLoad = true};
         
                         window.addEventListener('mouseup', checkMouseUpBeforeLoad);
         
@@ -2084,13 +2091,8 @@ const MAINMOUSEEVENTS = (function() {
                 ]);
             });
 
-            window.addEventListener('keydown', function(event) {
-                begunSelectingKeyDown(event, updateCharCountInterval);
-            });
-
             const keyUpDelay = function(event) {
                 let isMouseUp = false;
-                booleanObject.isKeyDownRunOnce = true;
                 if (event.keyCode === 83) {
                     if (!booleanObject.isExpanded) {
                         //some delay added to check whether user meant to let mouse up but they let s key up first
@@ -2110,27 +2112,25 @@ const MAINMOUSEEVENTS = (function() {
                                     userInputContextMenuContainer.classList.remove('fadeout-anim');
                                 }, 150);
                             }
-                            else {doneSelecting(MAINMOUSEEVENTS.variables.booleans, updateCharCountInterval)}
+                            else {doneSelecting()}
                         }, 350);
                     }
-                    
-                    //window.removeEventListener('mouseup', MAINMOUSEEVENTS.doneSelecting);
                     window.removeEventListener('keyup', keyUpDelay);
                 }
             };
 
             window.addEventListener('keyup', keyUpDelay);
-            window.removeEventListener('mousedown', MAINMOUSEEVENTS.begunSelecting);
+
+            window.addEventListener('mouseup', MAINMOUSEEVENTS.doneSelecting);
         },
-        doneSelecting: function(booleans, interval) {
+        doneSelecting: function() {
             console.log('done selecting');
             window.removeEventListener('mousemove', setToMousePos);
-            //window.removeEventListener('mousedown', MAINMOUSEEVENTS.begunSelecting);
         
             //console.log('arguments in doneSelecting: ', booleans);
-            let booleanObject = booleans;
+            let booleanObject = MAINMOUSEEVENTS.variables.booleans
         
-            clearInterval(interval);
+            clearInterval(MAINMOUSEEVENTS.variables.updateCharCountInterval);
 
             //initialises the annotation object to take a snapshot of actual values situated in the DOM
             const initAnnotation = function(object, selection) {
@@ -2261,19 +2261,7 @@ const MAINMOUSEEVENTS = (function() {
                     userInputContextMenuContainer.classList.remove('fadeout-anim');
                 }, 150)
             }
-            
-        
             selectionList = [];
-        
-            window.addEventListener('keydown', doneSelectingKeyDown);
-        
-            window.addEventListener('keyup', function(event) {
-                if (event.keyCode === 83) {
-                    window.removeEventListener('mousemove', borderHoveredElement);
-                    //window.removeEventListener('mousedown', MAINMOUSEEVENTS.begunSelecting)
-                    booleanObject.isKeyDownRunOnce = false;
-                }
-            });
 
             window.removeEventListener('mouseup', MAINMOUSEEVENTS.doneSelecting);
         }
@@ -2303,7 +2291,6 @@ chrome.runtime.onMessage.addListener(handleContentRequests);
 
 window.addEventListener('load', function() {
     console.log('doc loaded');
-    let isKeyDownRunOnce = false;
 
     //custom font added parent document for use in shadowDOM
     parentDocStyle = document.createElement('style');
@@ -2315,25 +2302,6 @@ window.addEventListener('load', function() {
     `;
 
     $(parentDocStyle).appendTo('body');
-
-    //dont need initLoadKeyDown function??? maybe use begunSelectingKeyDown function in IIFE?
-    const initLoadKeyDown = function(event) {
-        if (event.keyCode === 83 && !isKeyDownRunOnce) {
-            isKeyDownRunOnce = true;
-            window.addEventListener('mousemove', borderHoveredElement);
-            window.addEventListener('mousedown', function() {MAINMOUSEEVENTS.begunSelecting(MAINMOUSEEVENTS.variables.booleans)});
-        }
-    }
-
-    window.addEventListener('keydown', initLoadKeyDown);
-
-    window.addEventListener('keyup', function(event) {
-        if (event.keyCode === 83 && !isKeyDownRunOnce) {
-            isKeyDownRunOnce = true;
-            window.removeEventListener('mousemove', borderHoveredElement);
-            //window.removeEventListener('mousedown', MAINMOUSEEVENTS.begunSelecting);
-        }
-    });
 
     /*
     chrome.runtime.sendMessage({

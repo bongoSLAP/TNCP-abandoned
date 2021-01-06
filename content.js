@@ -1,13 +1,4 @@
-//let selectionList = [];
-//let submissionCache = []
 let blockLevelTags = ['P', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'UL', 'OL', 'TABLE', 'FORM', 'ARTICLE', 'VIDEO', 'FIGURE', 'NAV', 'ADDRESS', 'ASIDE', 'BLOCKQUOTE', 'CANVAS', 'DD', 'DL', 'DT', 'FIELDSET', 'FIGCAPTION', 'HEADER', 'FOOTER', 'HR', 'MAIN', 'NOSCRIPT', 'PRE', 'SECTION', 'TABLE', 'TFOOT'];
-//let inlineTags = ['A', 'SPAN', 'I', 'Q', 'B', 'STRONG', 'SUB', 'SUP', 'LABEL', 'SCRIPT', 'TEXTAREA', 'IMG', 'ABBR', 'ACRONYM', 'BIG', 'BR', 'BIG', 'CITE', 'BUTTON', 'EM', 'INPUT', 'OUTPUT', 'VAR', 'TT', 'TIME', 'SELECT', 'SAMP', 'OUTPUT', 'OBJECT', 'MAP', 'KBD', 'DFN', 'CODE', 'BDO'];
-//let punctuation = ['.', '?', '!', ',', ';', ':', '-', '—', ' ']; //include brackets, quotes etc? not sure
-//let emptyVal = ''
-//let elemInDoc = undefined;
-//let nodeChunks = undefined;
-//let insertions = {};
-//let anchorTag = undefined;
 
 //user data objects
 let annotation = {
@@ -29,342 +20,813 @@ let submission = {
     sourceLink: undefined
 };
 
-//parent DOM elements
-//let parentDocStyle = undefined;
-
-//shadow DOM vars/elements
-let userInputShadowRoot = undefined;
-
-let userInputContextMenuContainer = undefined;
-let charCountContainer = undefined;
-let charCountText = undefined;
-let selectionMenu = undefined;
-let selectionMade = undefined;
-let radioContainer = undefined;
-let radioHeaders = undefined;
-let userInputExitButton = undefined;
-let argumentNatureVals = undefined;
-let sourceVals = undefined;
-let annotationContainer = undefined;
-let submissionInput = undefined;
-let sourceInput = undefined;
-let userInputLoading = undefined;
-
 let viewSubmissionShadowRoot = undefined;
-
-let tail = undefined;
-let viewSubmissionContextMenuContainer = undefined;
-let viewSubmissionInnerContainer = undefined;
-let viewSubmissionText = undefined;
-let viewSubmissionSource = undefined;
-let viewSubmissionSourceContainer = undefined;
-let viewSubmissionExitButton = undefined;
-
-//bools
 
 //init function for these 2 shadow doms to remove these vars?
 let isUserInputDomCreated = false;
 let isViewSubmissionDomCreated = false;
-
-//let isSelectMade = false;
-//let isOverLimit = false;
-//let isExpanded = false;
-//let isConfirmed = false;
-//let isFocussed = false;
-//let isAbortSelection = false;
 let isExitButtonClicked = false;
-//let isKeyEventLoaded = false;
 
-//messaging callback to send data between .js files
-function handleContentRequests(message, sender, sendResponse) {
-    if (message.request === 'update>headline') {
-        let headlineList = document.getElementsByTagName('h1');
-        sendResponse({headerValue: headlineList[0].innerText});
-    }
-}
+const UTILITYFUNCTIONS = (function() {
+    return {
+        exitButtonActive: function(event) {
+            let inputExitButton = INPUTSHADOWDOM.shadowRoot.querySelector('#user-input-exit-button');
+            let outputExitButton = OUTPUTSHADOWDOM.shadowRoot.querySelector('#view-submission-exit-button');
 
-//generates a random unique id
-function generateId(type) {
-    let id = Math.random().toString(36).substr(2, 9);
+            const exitButtonInactive = function(event) {            
+                if (event.target.id == 'user-input-exit-button') {inputExitButton.src = chrome.runtime.getURL('images/exit-button.png')}
+                else if (event.target.id == 'view-submission-exit-button') {outputExitButton.src = chrome.runtime.getURL('images/exit-button.png')}
+            };
+        
+            if (event.target.id == 'user-input-exit-button') {
+                inputExitButton.src = chrome.runtime.getURL('images/exit-button-active.png');
+                inputExitButton.addEventListener('mouseout', exitButtonInactive);
+            }
+            else if (event.target.id == 'view-submission-exit-button') {
+                outputExitButton.src = chrome.runtime.getURL('images/exit-button-active.png');
+                outputExitButton.addEventListener('mouseout', exitButtonInactive);
+            }
+        },
+        //exit button click function
+        exitContextMenu: function(event) {
+            console.log('AAAAAA');
+            let inputDomContainer = INPUTSHADOWDOM.shadowRoot.querySelector('#user-input-context-menu-container');
+            let outputDomContainer = OUTPUTSHADOWDOM.shadowRoot.querySelector('#view-submission-context-menu-container');
 
-    //need to check is id already in database? if no then:
+            if (event.target.id == 'user-input-exit-button') {
+                inputDomContainer.classList.add('hidden')
+            }
+            else if (event.target.id == 'view-submission-exit-button') {
+                outputDomContainer.classList.add('hidden');
+                isExitButtonClicked = true;
+            }
+        },
+        //messaging callback to send data between .js files
+        handleContentRequests: function(message, sender, sendResponse) {
+            if (message.request === 'update>headline') {
+                let headlineList = document.getElementsByTagName('h1');
+                sendResponse({headerValue: headlineList[0].innerText});
+            }
+        },
+        //generates a random unique id
+        generateId: function(type) {
+            let id = Math.random().toString(36).substr(2, 9);
 
-    if (type == 'annotation') {return 'ANT' + id}
-    else if (type == 'submission') {return 'SUB' + id}
-    else {console.log('ERROR: Invalid type')}
-}
+            //need to check is id already in database? if no then:
 
-//looks to find the point in which the selected text begins in the 'this' whole text
-function newSearch(searchIn, query) {
-    
-    //line breaks, special chars etc cause errors in searchForContext()
-    const escapeRegExp = function(string) {
-        //filtering out line breaks etc
-        string = string.replace(/(\r\n|\n|\r)/gm, '');
+            if (type == 'annotation') {return 'ANT' + id}
+            else if (type == 'submission') {return 'SUB' + id}
+            else {console.log('ERROR: Invalid type')}
+        },
+        //looks to find the point in which the selected text begins in the 'this' whole text
+        newSearch: function(searchIn, query) {
+            
+            //line breaks, special chars etc cause errors in searchForContext()
+            const escapeRegExp = function(string) {
+                //filtering out line breaks etc
+                string = string.replace(/(\r\n|\n|\r)/gm, '');
 
-        //special chars can be selected and the search will still work (may need to add more chars here)
-        return string.replace(/.[*+?^${}()|[\]\\]/g, '\\$&');
-    };
+                //special chars can be selected and the search will still work (may need to add more chars here)
+                return string.replace(/.[*+?^${}()|[\]\\]/g, '\\$&');
+            };
 
-    let regExp = new RegExp(escapeRegExp(query));
-    let searchOutcome = searchIn.search(regExp);
+            let regExp = new RegExp(escapeRegExp(query));
+            let searchOutcome = searchIn.search(regExp);
 
-    if (searchOutcome == -1) {
-        return 'failed';
-    }
-    else {return searchOutcome}
-}
-
-function getParentElement(targetNode) {
-    //console.log('targetNode: ', targetNode);
-    //console.log('=========================================');
-    let finalParent = undefined;
-    let inlineTags = ['A', 'SPAN', 'I', 'Q', 'B', 'STRONG', 'SUB', 'SUP', 'LABEL', 'SCRIPT', 'TEXTAREA', 'IMG', 'ABBR', 'ACRONYM', 'BIG', 'BR', 'BIG', 'CITE', 'BUTTON', 'EM', 'INPUT', 'OUTPUT', 'VAR', 'TT', 'TIME', 'SELECT', 'SAMP', 'OUTPUT', 'OBJECT', 'MAP', 'KBD', 'DFN', 'CODE', 'BDO'];
-
-    const getNextParent = function(child) {
-        //console.log('#############################');
-        let parent = undefined;
-        let sibling = undefined;
-
-        //console.log('child before: ', child);
-
-        //this li condition casuing the issue i think
-        if (child.nodeName != 'LI') {
-            //check whether there are siblings adjacent to targetNode
-            if (child.nextElementSibling != null && child.previousElementSibling != null) {sibling = 'both'}
-            else if (child.nextElementSibling != null && child.previousElementSibling == null) {sibling = child.nextElementSibling}
-            else if (child.nextElementSibling == null && child.previousElementSibling != null) {sibling = child.previousElementSibling}
-            else if (child.nextElementSibling == null && child.previousElementSibling == null) {
-                let isFinished = false;
-                //console.log('both null');
-
-                //console.log('child.nodeName at both null: ', child.nodeName);
-                //block level elements cannot be nested, so if it matches an item in blockLevelTags (list of block level elements), then this is the parent
-                for (let i=0; i<blockLevelTags.length; i++) {
-                    if (child.nodeName == blockLevelTags[i]) {
+            if (searchOutcome == -1) {
+                return 'failed';
+            }
+            else {return searchOutcome}
+        },
+        getParentElement: function(targetNode) {
+            //console.log('targetNode: ', targetNode);
+            //console.log('=========================================');
+            let finalParent = undefined;
+            let inlineTags = ['A', 'SPAN', 'I', 'Q', 'B', 'STRONG', 'SUB', 'SUP', 'LABEL', 'SCRIPT', 'TEXTAREA', 'IMG', 'ABBR', 'ACRONYM', 'BIG', 'BR', 'BIG', 'CITE', 'BUTTON', 'EM', 'INPUT', 'OUTPUT', 'VAR', 'TT', 'TIME', 'SELECT', 'SAMP', 'OUTPUT', 'OBJECT', 'MAP', 'KBD', 'DFN', 'CODE', 'BDO'];
+        
+            const getNextParent = function(child) {
+                //console.log('#############################');
+                let parent = undefined;
+                let sibling = undefined;
+        
+                //console.log('child before: ', child);
+        
+                //this li condition casuing the issue i think
+                if (child.nodeName != 'LI') {
+                    //check whether there are siblings adjacent to targetNode
+                    if (child.nextElementSibling != null && child.previousElementSibling != null) {sibling = 'both'}
+                    else if (child.nextElementSibling != null && child.previousElementSibling == null) {sibling = child.nextElementSibling}
+                    else if (child.nextElementSibling == null && child.previousElementSibling != null) {sibling = child.previousElementSibling}
+                    else if (child.nextElementSibling == null && child.previousElementSibling == null) {
+                        let isFinished = false;
+                        //console.log('both null');
+        
+                        //console.log('child.nodeName at both null: ', child.nodeName);
+                        //block level elements cannot be nested, so if it matches an item in blockLevelTags (list of block level elements), then this is the parent
+                        for (let i=0; i<blockLevelTags.length; i++) {
+                            if (child.nodeName == blockLevelTags[i]) {
+                                finalParent = child;
+                                isFinished = true;
+                                //console.log('finished true')
+                            }
+        
+                            if (isFinished) {
+                                sibling = 'both null';
+                                break;
+                            }
+                            else if (!isFinished && i == blockLevelTags.length-1) {
+                                //console.log('fetching next parent elem')
+                                getNextParent(child.parentNode);
+                            }
+                        }
+                    }
+                }
+        
+               //console.log('sibling: ', sibling);
+        
+                if (sibling != undefined) {
+        
+                    //check whether the text in targetNode is present in adjacent (sibling) elements
+                    //if so, we havent found the outermost element. it is only when this is not the case that the parent element is found
+                    if (sibling != 'both' && sibling != 'both null') {
+                        if (UTILITYFUNCTIONS.newSearch(child.parentNode.innerText, sibling.innerText) != 'failed') {
+                            parent = child.parentNode;
+                            getNextParent(parent);
+                        }
+                        else {
+                            finalParent = child;
+                            return;
+                        }
+                    }
+                    else if (sibling == 'both') {
+                        //console.log('is both');
+                        let fullText = undefined;
+        
+                        //may run into issues here in future beacause of .parentNode not sure
+                        if (child.parentNode.nodeName == '#text') {fullText = child.parentNode.wholeText;}
+                        else {fullText = child.parentNode.innerText}
+        
+                        //console.log('both sibling search: ', newSearch(fullText, child.nextElementSibling.innerText), newSearch(fullText, child.previousElementSibling.innerText));
+                        if (UTILITYFUNCTIONS.newSearch(fullText, child.nextElementSibling.innerText) != 'failed' && UTILITYFUNCTIONS.newSearch(fullText, child.previousElementSibling.innerText) != 'failed') {
+                            parent = child.parentNode;
+                            getNextParent(parent);
+                        }
+                        else {
+                            if (child.nodeName == '#text') {finalParent = child.parentNode}
+                            else {finalParent = child};
+                            return;
+                        }
+                    }
+                    else if (sibling == 'both null') {
+                        //if both siblings are null, it is likely that child is a single inline tag nested within an x amount of other inline tags and a block level tag, so repeat for parent
+                        for (let i=0; i<inlineTags.length; i++) {
+                            //console.log('child.nodeName: ', child.nodeName, 'inlineTags[i]', inlineTags[i]);
+                            if (child.nodeName == inlineTags[i]) {
+                                getNextParent(child.parentNode);
+                            }
+                        }
+                    }
+                }
+                else {
+                    //if child is an li we can assume that parent will be a ul so its much less complicated
+        
+                    //console.log('child at li condition: ', child);
+                    if (child.parentNode.nodeName == 'UL') {
                         finalParent = child;
-                        isFinished = true;
-                        //console.log('finished true')
                     }
-
-                    if (isFinished) {
-                        sibling = 'both null';
-                        break;
-                    }
-                    else if (!isFinished && i == blockLevelTags.length-1) {
-                        //console.log('fetching next parent elem')
-                        getNextParent(child.parentNode);
-                    }
+                    else {getNextParent(child.parentNode)}
                 }
             }
-        }
-
-       //console.log('sibling: ', sibling);
-
-        if (sibling != undefined) {
-
-            //check whether the text in targetNode is present in adjacent (sibling) elements
-            //if so, we havent found the outermost element. it is only when this is not the case that the parent element is found
-            if (sibling != 'both' && sibling != 'both null') {
-                if (newSearch(child.parentNode.innerText, sibling.innerText) != 'failed') {
-                    parent = child.parentNode;
-                    getNextParent(parent);
+        
+            getNextParent(targetNode);
+            if (finalParent == undefined) {console.log('ERROR: conditions not met at getNextParent')}
+            return finalParent;
+        },
+        //for easily applying multiple styles to shadowDOM
+        styleShadowDom: function(root, selector, properties) {
+            let newDeclaration = undefined;
+        
+            //multiple types of selectors can be used
+            const checkDataType = function(thisSelector) {
+                if (typeof thisSelector === 'number') {
+                    if (thisSelector > 0 && thisSelector < root.styleSheets[0].cssRules.length-1) {newDeclaration = root.styleSheets[0].cssRules[thisSelector].style}
+                    else {
+                        console.log("ERROR: the index '" + thisSelector + " is out of range.")
+                        return;
+                    }
+                }
+                else if (typeof thisSelector === 'string') {
+                    for (let i=0; i<root.styleSheets[0].cssRules.length; i++) {
+                        if (thisSelector == root.styleSheets[0].cssRules[i].selectorText) {
+                            newDeclaration = root.styleSheets[0].cssRules[i].style
+                            break;
+                        }0
+                        
+                        if (i == root.styleSheets[0].cssRules.length-1) {
+                            console.log("ERROR: the selector '" + thisSelector + "' does not exist.");
+                            return;
+                        }
+                    }
                 }
                 else {
-                    finalParent = child;
+                    console.log("ERROR: the datatype of selector '" + thisSelector + "' is invalid.")
                     return;
                 }
             }
-            else if (sibling == 'both') {
-                //console.log('is both');
-                let fullText = undefined;
 
-                //may run into issues here in future beacause of .parentNode not sure
-                if (child.parentNode.nodeName == '#text') {fullText = child.parentNode.wholeText;}
-                else {fullText = child.parentNode.innerText}
-
-                //console.log('both sibling search: ', newSearch(fullText, child.nextElementSibling.innerText), newSearch(fullText, child.previousElementSibling.innerText));
-                if (newSearch(fullText, child.nextElementSibling.innerText) != 'failed' && newSearch(fullText, child.previousElementSibling.innerText) != 'failed') {
-                    parent = child.parentNode;
-                    getNextParent(parent);
+            //the individual properties are set here
+            const applyChanges = function() {
+                if (properties.length == 0) {console.log('ERROR: empty property array given')}
+                else if (properties.length == 1) {
+                    newDeclaration.setProperty(properties[0][0], properties[0][1])
                 }
                 else {
-                    if (child.nodeName == '#text') {finalParent = child.parentNode}
-                    else {finalParent = child};
-                    return;
-                }
-            }
-            else if (sibling == 'both null') {
-                //if both siblings are null, it is likely that child is a single inline tag nested within an x amount of other inline tags and a block level tag, so repeat for parent
-                for (let i=0; i<inlineTags.length; i++) {
-                    //console.log('child.nodeName: ', child.nodeName, 'inlineTags[i]', inlineTags[i]);
-                    if (child.nodeName == inlineTags[i]) {
-                        getNextParent(child.parentNode);
+                    for (let j=0; j<properties.length; j++) {
+                        newDeclaration.setProperty(properties[j][0], properties[j][1]);
                     }
                 }
             }
-        }
-        else {
-            //if child is an li we can assume that parent will be a ul so its much less complicated
 
-            //console.log('child at li condition: ', child);
-            if (child.parentNode.nodeName == 'UL') {
-                finalParent = child;
+            //allows for multiple selectors to be used
+            if (Array.isArray(selector)) {
+                for (let j=0; j<selector.length; j++) {
+                    checkDataType(selector[j]);
+                    applyChanges();
+                }
             }
-            else {getNextParent(child.parentNode)}
-        }
-    }
-
-    getNextParent(targetNode);
-    if (finalParent == undefined) {console.log('ERROR: conditions not met at getNextParent')}
-    return finalParent;
-}
-
-//for easily applying multiple styles to shadowDOM
-function styleShadowDom(root, selector, properties) {
-    let newDeclaration = undefined;
-  
-    //multiple types of selectors can be used
-    const checkDataType = function(thisSelector) {
-        if (typeof thisSelector === 'number') {
-            if (thisSelector > 0 && thisSelector < root.styleSheets[0].cssRules.length-1) {newDeclaration = root.styleSheets[0].cssRules[thisSelector].style}
             else {
-                console.log("ERROR: the index '" + thisSelector + " is out of range.")
-                return;
+                checkDataType(selector);
+                applyChanges();
             }
-        }
-        else if (typeof thisSelector === 'string') {
-            for (let i=0; i<root.styleSheets[0].cssRules.length; i++) {
-                if (thisSelector == root.styleSheets[0].cssRules[i].selectorText) {
-                    newDeclaration = root.styleSheets[0].cssRules[i].style
-                    break;
-                }0
-                
-                if (i == root.styleSheets[0].cssRules.length-1) {
-                    console.log("ERROR: the selector '" + thisSelector + "' does not exist.");
+        },
+        //finds the nodes in the parent docoument using the snapshots of data in the annotation object (cant call methods on the annotation object data as it is just strings and arrays etc not actual nodes)
+        findElement: function(type, targetNode) {
+            let searchArea = [];
+            let found = false;
+            //let wholeText = undefined;
+            //let isUsingParent = false;
+
+            //console.log('targetNode at findElement(): ', targetNode);
+
+            if (targetNode.nodeName == '#text') {isUsingParent = true}
+            //console.log('isUsingParent: ', isUsingParent);
+
+            //if finding the anchor and focus nodes in document, use annotation data to find element, if finding middle elements, use the elemInDoc value that was found from the previous findElement() call in findAnnotation(object, 'anchor')
+            if (type != 'middle') {
+                if (isUsingParent) {property = targetNode.parentNode.nodeName}
+                else {property = targetNode.nodeName}
+
+                searchArea = document.querySelectorAll(property.toLowerCase());
+
+                for (let i=0; i<searchArea.length; i++) {
+                    if (isUsingParent) {wholeText = targetNode.parentNode.parentWholeText}
+                    else {wholeText = targetNode.wholeText}
+
+                    //console.log('targetNode.wholeText: ', targetNode.wholeText);
+
+                    if (searchArea[i].innerText == wholeText) {
+                        found = true;
+                        return searchArea[i];
+                    }
+                }
+
+                if (!found) {
+                    console.log('findElement()| ERROR: could not find annotation: ', targetNode)
                     return;
                 }
             }
-        }
-        else {
-            console.log("ERROR: the datatype of selector '" + thisSelector + "' is invalid.")
-            return;
-        }
-    }
-
-    //the individual properties are set here
-    const applyChanges = function() {
-        if (properties.length == 0) {console.log('ERROR: empty property array given')}
-        else if (properties.length == 1) {
-            newDeclaration.setProperty(properties[0][0], properties[0][1])
-        }
-        else {
-            for (let j=0; j<properties.length; j++) {
-                newDeclaration.setProperty(properties[j][0], properties[j][1]);
+            else {
+                console.log('findElement| elemInDoc.children: ', elemInDoc.children);
+                for (let i=0; i<elemInDoc.children.length; i++) {
+                    if (elemInDoc.children[i].innerText == targetNode) {
+                        return elemInDoc.children[i];
+                    }
+                }
             }
         }
-    }
+    };
+}());
 
-    //allows for multiple selectors to be used
-    if (Array.isArray(selector)) {
-        for (let j=0; j<selector.length; j++) {
-            checkDataType(selector[j]);
-            applyChanges();
+const OUTPUTSHADOWDOM = (function() {
+    //creating, styling and appending shadowDOM to document
+    let hostElement = document.createElement('div');
+    hostElement.id = 'view-submission-host-element';
+    document.querySelector('body').appendChild(hostElement);
+
+    let shadowHost = hostElement;
+    let shadowRoot = shadowHost.attachShadow({mode: 'open'}); 
+    
+    let container = document.createElement('div');
+    container.id = 'view-submission-context-menu-container';
+    container.innerHTML = `
+        <div id="tail"></div>
+        <div id="completed-submission-container">
+            <div id="user-info-container">
+                <p id="user-name-label">User: <span id="user-name">jim</span></p>
+                <p id="karma-score-label">Karma: <span id="karma-score">-34</span></p>
+            </div>
+            <img id='view-submission-exit-button' src='` + chrome.runtime.getURL('images/exit-button.png') + `' alt='exit'>
+            <div id="control-panel">
+                <div id="control-panel-buttons">
+                    <img class="control-panel-button" id='cycle-submission-button' src='` + chrome.runtime.getURL('images/cycle-submissions.png') + `'>
+                    <img class="control-panel-button" id='upvote-button' src='` + chrome.runtime.getURL('images/upvote.png') + `'>
+                    <img class="control-panel-button" id='downvote-button' src='` + chrome.runtime.getURL('images/downvote.png') + `'>
+                    <img class="control-panel-button" id='helpful-button' src='` + chrome.runtime.getURL('images/helpful.png') + `'>
+                    <img class="control-panel-button" id='report-button'  src='` + chrome.runtime.getURL('images/report.png') + `'>
+                </div>
+                <div id="control-panel-counters">
+                    <p class="control-panel-counter" id="cycle-submission-count"></p>
+                    <p class="control-panel-counter" id="upvote-count"></p>
+                    <p class="control-panel-counter" id="downvote-count"></p>
+                    <p class="control-panel-counter" id="helpful-count"></p>
+                </div>
+            </div>
+            <div id="submission-text-container">
+                <h3 id="submission-text-label">Submission:</h3>
+                <p id="submission-text"></p>
+                <div id="submission-source-container">
+                    <h4 id="submission-source-label">Source:</h4>
+                    <a id="submission-source"></a>
+                </div>
+            </div>
+        </div>
+    `;
+
+    let shadowDomStyles = document.createElement('style');
+    shadowDomStyles.innerText = `
+        #view-submission-context-menu-container {
+            position: relative;
+            font-family: Tahoma, Geneva, sans-serif;
+            z-index: 10000
         }
-    }
-    else {
-        checkDataType(selector);
-        applyChanges();
-    }
-}
+        
+        #tail {
+            width: 0;
+            height: 0;
+            margin-bottom: -20px
+        }
+        
+        #completed-submission-container {
+            padding-bottom: 4px;
+            background-color: rgb(240, 240, 240)
+        }
 
-function exitButtonInactive(event) {
-    if (event.target.id == 'user-input-exit-button') {userInputExitButton.src = chrome.runtime.getURL('images/exit-button.png')}
-    else if (event.target.id == 'view-submission-exit-button') {viewSubmissionExitButton.src = chrome.runtime.getURL('images/exit-button.png')}
-}
+        #view-submission-exit-button:hover {
+            cursor: pointer
+        }
+        
+        .control-panel-button {
+            border-radius: 10%
+        }
 
-function exitButtonActive(event) {
-    if (event.target.id == 'user-input-exit-button') {
-        userInputExitButton.src = chrome.runtime.getURL('images/exit-button-active.png');
-        userInputExitButton.addEventListener('mouseout', exitButtonInactive);
-    }
-    else if (event.target.id == 'view-submission-exit-button') {
-        viewSubmissionExitButton.src = chrome.runtime.getURL('images/exit-button-active.png');
-        viewSubmissionExitButton.addEventListener('mouseout', exitButtonInactive);
-    }
-}
+        .hidden {
+            display: none
+        }
+        
+        @media screen and (min-resolution: 350dpi) {
+            #tail {
+                margin-left: 22.5px;
+                border-left: 1.25px solid transparent;
+                border-right: 1.25px solid transparent;
+                border-bottom: 2.5px solid rgb(220, 220, 220)
+            }
 
-//exit button click function
-function exitContextMenu(event) {
-    if (event.target.id == 'user-input-exit-button') {
-        userInputContextMenuContainer.classList.add('hidden')
-        //userInputExitButton.removeEventListener('click', exitContextMenu);
-    }
-    else if (event.target.id == 'view-submission-exit-button') {
-        viewSubmissionContextMenuContainer.classList.add('hidden');
-        isExitButtonClicked = true;
-        //viewSubmissionExitButton.removeEventListener('click', exitContextMenu);
-    }
-}
+            #view-submission-exit-button {
+                width: 3px;
+                height: 3px;
+                float: right;
+                margin-top: -4.6px;
+                margin-right: 1px
+            }
+        
+            #completed-submission-container {
+                height: 31.25px;
+                width: 50px;
+                border-radius: 2.5px;
+                font-size: 2.5px
+            }
+        
+            #user-info-container {
+                height: 11%;
+                width: 100%;
+                margin-top: 20px;
+                border-radius: 2.5px 2.5px 0px 0px;
+                border-bottom: 0.25px solid rgb(200, 200, 200);
+                background-color: rgb(220, 220, 220)
+            }
+        
+            #control-panel {
+                height: calc(100% - 3.7px);
+                width: 12%;
+                margin-top: -1.1px;
+                margin-right: 0px;
+                padding: 2px;
+                border-radius: 0px 0px 2.5px 0px;
+                background-color: rgb(220, 220, 220);
+                float: right
+            }
+        
+            #control-panel-counters {
+                margin-right: -1px
+            }
+        
+            .control-panel-button {
+                width: 3px;
+                height: 3px;
+                padding: 0.25px;
+                padding-top: 1.25px;
+                padding-bottom: 1.25px
+            }
+        
+            .control-panel-counter {
+                text-align: center;
+                margin-bottom: 0.5px
+            }
+        
+            #cycle-submission-count {
+                margin-top: 2px;
+                padding-bottom: 0.25px
+            }
+        
+            #upvote-count {
+                padding-bottom: 0.25px
+            }
+            
+            #downvote-count {
+                padding-bottom: 1px
+            }
 
-//finds the nodes in the parent docoument using the snapshots of data in the annotation object (cant call methods on the annotation object data as it is just strings and arrays etc not actual nodes)
-function findElement(type, targetNode) {
-    let searchArea = [];
-    let found = false;
-    //let wholeText = undefined;
-    //let isUsingParent = false;
+            #submission-text-container {
+                width: 37.5px;
+                margin-left: 1px
+            }
+            
+            #submission-text-label {
+                margin-top: -2px
+            }
+            
+            #submission-source-label {
+                margin-top: -1px
+            }
+            
+            #submission-text, #submission-source {
+                margin-top: -2px;
+                border-radius: 4px
+            }
+            
+            #submission-source {
+                margin-top: -2.5px
+            }
+        }
+        
+        @media screen and (max-resolution: 300dpi) {
+            #tail {
+                margin-left: 45px;
+                border-left: 2.5px solid transparent;
+                border-right: 2.5px solid transparent;
+                border-bottom: 5px solid rgb(220, 220, 220)
+            }
 
-    //console.log('targetNode at findElement(): ', targetNode);
+            #view-submission-exit-button {
+                width: 4.4px;
+                height: 4.4px;
+                float: right;
+                margin-top: -7.5px;
+                margin-right: 2px
+            }
+        
+            #completed-submission-container {
+                height: 62.5px;
+                width: 100px;
+                border-radius: 5px;
+                font-size: 4px;
+            }
+        
+            #user-info-container {
+                height: 7%;
+                width: 100%;
+                margin-top: 20px;
+                border-radius: 5px 5px 0px 0px;
+                border-bottom: 0.5px solid rgb(200, 200, 200);
+                background-color: rgb(220, 220, 220)
+            }
+        
+            #control-panel {
+                height: calc(100% - 5px);
+                width: 13%;
+                margin-top: -3.1px;
+                margin-right: 0px;
+                padding: 2px;
+                border-radius: 0px 0px 5px 0px;
+                background-color: rgb(220, 220, 220);
+                float: right
+            }
+        
+            #control-panel-counters {
+                margin-right: 0px
+            }
+        
+            .control-panel-button {
+                width: 6px;
+                height: 6px;
+                padding: 0.5px;
+                padding-top: 2.75px;
+                padding-bottom: 2.75px
+            }
+        
+            .control-panel-counter {
+                text-align: center;
+                margin-bottom: 0px
+            }
+        
+            #cycle-submission-count {
+                margin-top: 3px;
+                padding-bottom: 3px
+            }
+        
+            #upvote-count {
+                padding-bottom: 2.5px
+            }
+            
+            #downvote-count {
+                padding-bottom: 3px
+            }
 
-    if (targetNode.nodeName == '#text') {isUsingParent = true}
-    //console.log('isUsingParent: ', isUsingParent);
+            #submission-text-container {
+                margin-left: 2px;
+                width: 77.5px
+            }
+            
+            #submission-text-label, #submission-source-label {
+                margin-top: -2px
+            }
+            
+            #submission-text, #submission-source {
+                margin-top: -3px;
+                border-radius: 2px
+            }
 
-    //if finding the anchor and focus nodes in document, use annotation data to find element, if finding middle elements, use the elemInDoc value that was found from the previous findElement() call in findAnnotation(object, 'anchor')
-    if (type != 'middle') {
-        if (isUsingParent) {property = targetNode.parentNode.nodeName}
-        else {property = targetNode.nodeName}
+            #submission-source {
+                margin-top: -4px
+            }
+        }
+        
+        @media screen and (max-resolution: 200dpi) {
+            #tail {
+                margin-left: 102.5px;
+                border-left: 5px solid transparent;
+                border-right: 5px solid transparent;
+                border-bottom: 10px solid rgb(220, 220, 220)
+            }
 
-        searchArea = document.querySelectorAll(property.toLowerCase());
+            #view-submission-exit-button {
+                width: 9px;
+                height: 9px;
+                float: right;
+                margin-top: -20.5px;
+                margin-right: 2px
+            }
+        
+            #completed-submission-container {
+                height: 150px;
+                width: 225px;
+                border-radius: 5px;
+                font-size: 0.7em
+            }
+        
+            #user-info-container {
+                height: 7%;
+                width: 100%;
+                margin-top: 20px;
+                border-radius: 5px 5px 0px 0px;
+                border-bottom: 0.5px solid rgb(200, 200, 200);
+                background-color: rgb(220, 220, 220)
+            }
+        
+            #control-panel {
+                height: calc(100% - 11.2px);
+                width: 17%;
+                margin-top: -10.7px;
+                margin-right: 0px;
+                padding: 2px;
+                border-radius: 0px 0px 5px 0px;
+                background-color: rgb(220, 220, 220);
+                float: right
+            }
+        
+            .control-panel-button {
+                width: 16px;
+                height: 16px;
+                padding: 1px;
+                padding-top: 5.5px;
+                padding-bottom: 5.5px
+            }
+        
+            #control-panel-counters {
+                margin-right: 2px
+            }
+        
+            .control-panel-counter {
+                text-align: center;
+                margin-bottom: 8px
+            }
+        
+            #cycle-submission-count {
+                margin-top: 6px;
+                padding-bottom: 0px
+            }
+        
+            #upvote-count {
+                margin-top: 7px;
+                margin-bottom: 0px
+            }
+            
+            #downvote-count {
+                margin-bottom: 3px;
+                padding-bottom: 0px
+            }
 
-        for (let i=0; i<searchArea.length; i++) {
-            if (isUsingParent) {wholeText = targetNode.parentNode.parentWholeText}
-            else {wholeText = targetNode.wholeText}
+            #submission-text-container {
+                margin-left: 5px;
+                width: 215px
+            }
+            
+            #submission-text-label {
+                margin-bottom: 10px
+            }
+            
+            #submission-source-label {
+                margin-top: -5px;
+                margin-bottom: 8.5px
+            }
+            
+            #submission-text, #submission-source {
+                width: 170px;
+                margin-top: -6px;
+                border-radius: 4px
+            }
+        }
+        
+        @media screen and (max-resolution: 100dpi) {
+            #tail {
+                margin-left: 180px;
+                border-left: 10px solid transparent;
+                border-right: 10px solid transparent;
+                border-bottom: 20px solid rgb(220, 220, 220)
+            }
 
-            //console.log('targetNode.wholeText: ', targetNode.wholeText);
+            #view-submission-exit-button {
+                width: 15px;
+                height: 15px;
+                float: right;
+                margin-top: -30px;
+                margin-right: 2.5px
+            }
+        
+            #completed-submission-container {
+                height: 250px;
+                width: 400px;
+                border-radius: 10px;
+                font-size: 1em
+            }
+        
+            #user-info-container {
+                height: 7%;
+                width: 100%;
+                margin-top: 20px;
+                border-radius: 10px 10px 0px 0px;
+                border-bottom: 0.5px solid rgb(200, 200, 200);
+                background-color: rgb(220, 220, 220)
+            }
+        
+            #control-panel {
+                height: calc(100% - 18.5px);
+                width: 17%;
+                margin-top: -13.5px;
+                margin-right: 0px;
+                padding: 2px;
+                border-radius: 0px 0px 10px 0px;
+                background-color: rgb(220, 220, 220);
+                float: right
+            }
+        
+            .control-panel-button {
+                width: 35px;
+                height: 35px;
+                padding: 2px;
+                padding-top: 5.5px;
+                padding-bottom: 5.5px
+            }
+        
+            #control-panel-counters {
+                margin-right: 4px;
+            }
+        
+            .control-panel-counter {
+                text-align: center;
+                margin-bottom: 8px
+            }
+        
+            #cycle-submission-count {
+                margin-top: 12px;
+                padding-bottom: 6px
+            }
+            
+            #downvote-count {
+                padding-bottom: 5px
+            }
 
-            if (searchArea[i].innerText == wholeText) {
-                found = true;
-                return searchArea[i];
+            #submission-text-container {
+                margin-left: 5px;
+                width: 350px
+            }
+            
+            #submission-text-label {
+                margin-bottom: 10px
+            }
+            
+            #submission-source-label {
+                margin-bottom: 10px
+            }
+            
+            #submission-text, #submission-source {
+                width: 315px;
+                border-radius: 5px
             }
         }
 
-        if (!found) {
-            console.log('findElement()| ERROR: could not find annotation: ', targetNode)
-            return;
+        #submission-text, #submission-source {
+            background-color: white
         }
-    }
-    else {
-        console.log('findElement| elemInDoc.children: ', elemInDoc.children);
-        for (let i=0; i<elemInDoc.children.length; i++) {
-            if (elemInDoc.children[i].innerText == targetNode) {
-                return elemInDoc.children[i];
-            }
+        
+        #user-name-label, #karma-score-label {
+            width: 50%;
+            text-align: center;
+            margin-top: 0px
         }
-    }
-}
+        
+        #user-name-label {
+            float: left
+        }
+        
+        #karma-score-label {
+            float: right
+        }
+        
+        #control-panel-buttons, #control-panel-counters {
+            display: inline-grid
+        }
+        
+        #control-panel-buttons {
+            float: left
+        }
+        
+        #control-panel-counters {
+            float: right
+        }
+        
+        .control-panel-button:hover {
+            background-color: rgb(200, 200, 200)
+        }
+    `;
+
+    shadowRoot.appendChild(shadowDomStyles);
+    shadowRoot.appendChild(container);
+    isViewSubmissionDomCreated = true;
+
+    //OUTPUTSHADOWDOM.queryShadowDom('', , '')
+
+    //viewSubmissionShadowRoot.querySelector('');
+    //OUTPUTSHADOWDOM.queryShadowDom('contextMenuContainer', false, '#view-submission-context-menu-container')
+    //OUTPUTSHADOWDOM.queryShadowDom('innerContainer', false, '#completed-submission-container')
+    //OUTPUTSHADOWDOM.queryShadowDom('submissionText', false, '#submission-text')
+    //OUTPUTSHADOWDOM.queryShadowDom('submissionSource', false, '#submission-source')
+    //OUTPUTSHADOWDOM.queryShadowDom('sourceContainer', false, '#submission-source-container')
+    //OUTPUTSHADOWDOM.queryShadowDom('exitButton', false, '#view-submission-exit-button')
+
+    let exitButton = shadowRoot.querySelector('#view-submission-exit-button');
+    exitButton.addEventListener('mouseover', UTILITYFUNCTIONS.exitButtonActive);
+    exitButton.addEventListener('click', UTILITYFUNCTIONS.exitContextMenu);
+
+    shadowRoot.querySelector('#view-submission-context-menu-container').classList.add('hidden');
+
+    return {shadowRoot};
+}());
 
 const OPENDATAINPAGESCRIPT = (function() {
     let submissionCache = []
     let thisAnnotationId = undefined;
     let thisSubmission = undefined;
     let isFinished = false;
+    let isInitClick = false;
 
     //calculate offset of clicked element and UI, sets UI position to this offset
     const setUiAtAnnotationPos = function(span) {
-        let uiProperties = window.getComputedStyle(viewSubmissionInnerContainer, null);
+        let uiProperties = window.getComputedStyle(OUTPUTSHADOWDOM.shadowRoot.querySelector('#completed-submission-container'), null);
         let uiYOffset = parseFloat(uiProperties.height.split('px')[0]);
         let uiXOffset = parseFloat(uiProperties.width.split('px')[0]);
     
+        let tail = OUTPUTSHADOWDOM.shadowRoot.querySelector('#tail');
         let uiTailProperties = window.getComputedStyle(tail, null);
         let uiTailYOffset = parseFloat(uiTailProperties.borderBottom.split('px')[0]);
     
@@ -375,13 +837,23 @@ const OPENDATAINPAGESCRIPT = (function() {
     
         let top = elementBounds.bottom - bodyBounds.bottom + 6;
         let left = elementBounds.left + elementBounds.width / 2 - uiXOffset / 2;
+
+        /*
+        console.log('top: ', top);
+        console.log('uiYOffset: ', uiYOffset);
+        console.log('bodyBounds.bottom: ', bodyBounds.bottom);
+        console.log('isInitClick: ', isInitClick);
+        */
+
+        if (!isInitClick) {top -= uiYOffset + 4}
         
         //only account for uiYoffset when exit button is not clicked
         //this is because the body.bottom value will change to account for this offset once the exit button is clicked and the ui is hidden
+        console.log('isExitButtonClicked: ', isExitButtonClicked);
         if (!isExitButtonClicked) {top += uiYOffset}
         else {isExitButtonClicked = false}
     
-        styleShadowDom(viewSubmissionShadowRoot, '#view-submission-context-menu-container', [
+        UTILITYFUNCTIONS.styleShadowDom(OUTPUTSHADOWDOM.shadowRoot, '#view-submission-context-menu-container', [
             ['top', top + 'px'],
             ['left', left + 'px']
         ]);
@@ -389,528 +861,38 @@ const OPENDATAINPAGESCRIPT = (function() {
 
     //fills in elements with the user submitted data
     const populateFields = function(object) {
-        viewSubmissionText.innerText = object.submissionText;
+        let sourceContainer = OUTPUTSHADOWDOM.shadowRoot.querySelector('#submission-source-container');
+        OUTPUTSHADOWDOM.shadowRoot.querySelector('#submission-text').innerText = object.submissionText;
         
         if (object.isSource) {
-            viewSubmissionSourceContainer.classList.remove('hidden');
+            sourceContainer.classList.remove('hidden');
             
             let prettyLink = object.sourceLink.split('/')[2];
-            viewSubmissionSource.innerText = prettyLink;
-            viewSubmissionSource.href = object.sourceLink;
+            let submissionSource = OUTPUTSHADOWDOM.shadowRoot.querySelector('#submission-source');
+            submissionSource.innerText = prettyLink;
+            submissionSource.href = object.sourceLink;
         }
         else {
-            viewSubmissionSourceContainer.classList.add('hidden');
+            sourceContainer.classList.add('hidden');
         }
     };
 
     return {
         viewSubmission: function(span) {
+            let outputMenuContainer = OUTPUTSHADOWDOM.shadowRoot.querySelector('#view-submission-context-menu-container');
 
             //only need to run this set up code the first time a selection is made
             if (!isViewSubmissionDomCreated) {
 
-                //creating, styling and appending shadowDOM to document
-                let hostElement = document.createElement('div');
-                hostElement.id = 'view-submission-host-element';
-                $(hostElement).appendTo('body');
-
-                let shadowHost = hostElement;
-                viewSubmissionShadowRoot = shadowHost.attachShadow({mode: 'open'}); 
                 
-                let container = document.createElement('div');
-                container.id = 'view-submission-context-menu-container';
-                container.innerHTML = `
-                    <div id="tail"></div>
-                    <div id="completed-submission-container">
-                        <div id="user-info-container">
-                            <p id="user-name-label">User: <span id="user-name">jim</span></p>
-                            <p id="karma-score-label">Karma: <span id="karma-score">-34</span></p>
-                        </div>
-                        <img id='view-submission-exit-button' src='` + chrome.runtime.getURL('images/exit-button.png') + `' alt='exit'>
-                        <div id="control-panel">
-                            <div id="control-panel-buttons">
-                                <img class="control-panel-button" id='cycle-submission-button' src='` + chrome.runtime.getURL('images/cycle-submissions.png') + `'>
-                                <img class="control-panel-button" id='upvote-button' src='` + chrome.runtime.getURL('images/upvote.png') + `'>
-                                <img class="control-panel-button" id='downvote-button' src='` + chrome.runtime.getURL('images/downvote.png') + `'>
-                                <img class="control-panel-button" id='helpful-button' src='` + chrome.runtime.getURL('images/helpful.png') + `'>
-                                <img class="control-panel-button" id='report-button'  src='` + chrome.runtime.getURL('images/report.png') + `'>
-                            </div>
-                            <div id="control-panel-counters">
-                                <p class="control-panel-counter" id="cycle-submission-count"></p>
-                                <p class="control-panel-counter" id="upvote-count"></p>
-                                <p class="control-panel-counter" id="downvote-count"></p>
-                                <p class="control-panel-counter" id="helpful-count"></p>
-                            </div>
-                        </div>
-                        <div id="submission-text-container">
-                            <h3 id="submission-text-label">Submission:</h3>
-                            <p id="submission-text"></p>
-                            <div id="submission-source-container">
-                                <h4 id="submission-source-label">Source:</h4>
-                                <a id="submission-source"></a>
-                            </div>
-                        </div>
-                    </div>
-                `;
-
-                let shadowDomStyles = document.createElement('style');
-                shadowDomStyles.innerText = `
-                    #view-submission-context-menu-container {
-                        position: relative;
-                        font-family: Tahoma, Geneva, sans-serif;
-                        z-index: 10000
-                    }
-                    
-                    #tail {
-                        width: 0;
-                        height: 0;
-                        margin-bottom: -20px
-                    }
-                    
-                    #completed-submission-container {
-                        padding-bottom: 4px;
-                        background-color: rgb(240, 240, 240)
-                    }
-
-                    #view-submission-exit-button:hover {
-                        cursor: pointer
-                    }
-                    
-                    .control-panel-button {
-                        border-radius: 10%
-                    }
-
-                    .hidden {
-                        display: none
-                    }
-                    
-                    @media screen and (min-resolution: 350dpi) {
-                        #tail {
-                            margin-left: 22.5px;
-                            border-left: 1.25px solid transparent;
-                            border-right: 1.25px solid transparent;
-                            border-bottom: 2.5px solid rgb(220, 220, 220)
-                        }
-
-                        #view-submission-exit-button {
-                            width: 3px;
-                            height: 3px;
-                            float: right;
-                            margin-top: -4.6px;
-                            margin-right: 1px
-                        }
-                    
-                        #completed-submission-container {
-                            height: 31.25px;
-                            width: 50px;
-                            border-radius: 2.5px;
-                            font-size: 2.5px
-                        }
-                    
-                        #user-info-container {
-                            height: 11%;
-                            width: 100%;
-                            margin-top: 20px;
-                            border-radius: 2.5px 2.5px 0px 0px;
-                            border-bottom: 0.25px solid rgb(200, 200, 200);
-                            background-color: rgb(220, 220, 220)
-                        }
-                    
-                        #control-panel {
-                            height: calc(100% - 3.7px);
-                            width: 12%;
-                            margin-top: -1.1px;
-                            margin-right: 0px;
-                            padding: 2px;
-                            border-radius: 0px 0px 2.5px 0px;
-                            background-color: rgb(220, 220, 220);
-                            float: right
-                        }
-                    
-                        #control-panel-counters {
-                            margin-right: -1px
-                        }
-                    
-                        .control-panel-button {
-                            width: 3px;
-                            height: 3px;
-                            padding: 0.25px;
-                            padding-top: 1.25px;
-                            padding-bottom: 1.25px
-                        }
-                    
-                        .control-panel-counter {
-                            text-align: center;
-                            margin-bottom: 0.5px
-                        }
-                    
-                        #cycle-submission-count {
-                            margin-top: 2px;
-                            padding-bottom: 0.25px
-                        }
-                    
-                        #upvote-count {
-                            padding-bottom: 0.25px
-                        }
-                        
-                        #downvote-count {
-                            padding-bottom: 1px
-                        }
-
-                        #submission-text-container {
-                            width: 37.5px;
-                            margin-left: 1px
-                        }
-                        
-                        #submission-text-label {
-                            margin-top: -2px
-                        }
-                        
-                        #submission-source-label {
-                            margin-top: -1px
-                        }
-                        
-                        #submission-text, #submission-source {
-                            margin-top: -2px;
-                            border-radius: 4px
-                        }
-                        
-                        #submission-source {
-                            margin-top: -2.5px
-                        }
-                    }
-                    
-                    @media screen and (max-resolution: 300dpi) {
-                        #tail {
-                            margin-left: 45px;
-                            border-left: 2.5px solid transparent;
-                            border-right: 2.5px solid transparent;
-                            border-bottom: 5px solid rgb(220, 220, 220)
-                        }
-
-                        #view-submission-exit-button {
-                            width: 4.4px;
-                            height: 4.4px;
-                            float: right;
-                            margin-top: -7.5px;
-                            margin-right: 2px
-                        }
-                    
-                        #completed-submission-container {
-                            height: 62.5px;
-                            width: 100px;
-                            border-radius: 5px;
-                            font-size: 4px;
-                        }
-                    
-                        #user-info-container {
-                            height: 7%;
-                            width: 100%;
-                            margin-top: 20px;
-                            border-radius: 5px 5px 0px 0px;
-                            border-bottom: 0.5px solid rgb(200, 200, 200);
-                            background-color: rgb(220, 220, 220)
-                        }
-                    
-                        #control-panel {
-                            height: calc(100% - 5px);
-                            width: 13%;
-                            margin-top: -3.1px;
-                            margin-right: 0px;
-                            padding: 2px;
-                            border-radius: 0px 0px 5px 0px;
-                            background-color: rgb(220, 220, 220);
-                            float: right
-                        }
-                    
-                        #control-panel-counters {
-                            margin-right: 0px
-                        }
-                    
-                        .control-panel-button {
-                            width: 6px;
-                            height: 6px;
-                            padding: 0.5px;
-                            padding-top: 2.75px;
-                            padding-bottom: 2.75px
-                        }
-                    
-                        .control-panel-counter {
-                            text-align: center;
-                            margin-bottom: 0px
-                        }
-                    
-                        #cycle-submission-count {
-                            margin-top: 3px;
-                            padding-bottom: 3px
-                        }
-                    
-                        #upvote-count {
-                            padding-bottom: 2.5px
-                        }
-                        
-                        #downvote-count {
-                            padding-bottom: 3px
-                        }
-
-                        #submission-text-container {
-                            margin-left: 2px;
-                            width: 77.5px
-                        }
-                        
-                        #submission-text-label, #submission-source-label {
-                            margin-top: -2px
-                        }
-                        
-                        #submission-text, #submission-source {
-                            margin-top: -3px;
-                            border-radius: 2px
-                        }
-
-                        #submission-source {
-                            margin-top: -4px
-                        }
-                    }
-                    
-                    @media screen and (max-resolution: 200dpi) {
-                        #tail {
-                            margin-left: 102.5px;
-                            border-left: 5px solid transparent;
-                            border-right: 5px solid transparent;
-                            border-bottom: 10px solid rgb(220, 220, 220)
-                        }
-
-                        #view-submission-exit-button {
-                            width: 9px;
-                            height: 9px;
-                            float: right;
-                            margin-top: -20.5px;
-                            margin-right: 2px
-                        }
-                    
-                        #completed-submission-container {
-                            height: 150px;
-                            width: 225px;
-                            border-radius: 5px;
-                            font-size: 0.7em
-                        }
-                    
-                        #user-info-container {
-                            height: 7%;
-                            width: 100%;
-                            margin-top: 20px;
-                            border-radius: 5px 5px 0px 0px;
-                            border-bottom: 0.5px solid rgb(200, 200, 200);
-                            background-color: rgb(220, 220, 220)
-                        }
-                    
-                        #control-panel {
-                            height: calc(100% - 11.2px);
-                            width: 17%;
-                            margin-top: -10.7px;
-                            margin-right: 0px;
-                            padding: 2px;
-                            border-radius: 0px 0px 5px 0px;
-                            background-color: rgb(220, 220, 220);
-                            float: right
-                        }
-                    
-                        .control-panel-button {
-                            width: 16px;
-                            height: 16px;
-                            padding: 1px;
-                            padding-top: 5.5px;
-                            padding-bottom: 5.5px
-                        }
-                    
-                        #control-panel-counters {
-                            margin-right: 2px
-                        }
-                    
-                        .control-panel-counter {
-                            text-align: center;
-                            margin-bottom: 8px
-                        }
-                    
-                        #cycle-submission-count {
-                            margin-top: 6px;
-                            padding-bottom: 0px
-                        }
-                    
-                        #upvote-count {
-                            margin-top: 7px;
-                            margin-bottom: 0px
-                        }
-                        
-                        #downvote-count {
-                            margin-bottom: 3px;
-                            padding-bottom: 0px
-                        }
-
-                        #submission-text-container {
-                            margin-left: 5px;
-                            width: 215px
-                        }
-                        
-                        #submission-text-label {
-                            margin-bottom: 10px
-                        }
-                        
-                        #submission-source-label {
-                            margin-top: -5px;
-                            margin-bottom: 8.5px
-                        }
-                        
-                        #submission-text, #submission-source {
-                            width: 170px;
-                            margin-top: -6px;
-                            border-radius: 4px
-                        }
-                    }
-                    
-                    @media screen and (max-resolution: 100dpi) {
-                        #tail {
-                            margin-left: 180px;
-                            border-left: 10px solid transparent;
-                            border-right: 10px solid transparent;
-                            border-bottom: 20px solid rgb(220, 220, 220)
-                        }
-
-                        #view-submission-exit-button {
-                            width: 15px;
-                            height: 15px;
-                            float: right;
-                            margin-top: -30px;
-                            margin-right: 2.5px
-                        }
-                    
-                        #completed-submission-container {
-                            height: 250px;
-                            width: 400px;
-                            border-radius: 10px;
-                            font-size: 1em
-                        }
-                    
-                        #user-info-container {
-                            height: 7%;
-                            width: 100%;
-                            margin-top: 20px;
-                            border-radius: 10px 10px 0px 0px;
-                            border-bottom: 0.5px solid rgb(200, 200, 200);
-                            background-color: rgb(220, 220, 220)
-                        }
-                    
-                        #control-panel {
-                            height: calc(100% - 18.5px);
-                            width: 17%;
-                            margin-top: -13.5px;
-                            margin-right: 0px;
-                            padding: 2px;
-                            border-radius: 0px 0px 10px 0px;
-                            background-color: rgb(220, 220, 220);
-                            float: right
-                        }
-                    
-                        .control-panel-button {
-                            width: 35px;
-                            height: 35px;
-                            padding: 2px;
-                            padding-top: 5.5px;
-                            padding-bottom: 5.5px
-                        }
-                    
-                        #control-panel-counters {
-                            margin-right: 4px;
-                        }
-                    
-                        .control-panel-counter {
-                            text-align: center;
-                            margin-bottom: 8px
-                        }
-                    
-                        #cycle-submission-count {
-                            margin-top: 12px;
-                            padding-bottom: 6px
-                        }
-                        
-                        #downvote-count {
-                            padding-bottom: 5px
-                        }
-
-                        #submission-text-container {
-                            margin-left: 5px;
-                            width: 350px
-                        }
-                        
-                        #submission-text-label {
-                            margin-bottom: 10px
-                        }
-                        
-                        #submission-source-label {
-                            margin-bottom: 10px
-                        }
-                        
-                        #submission-text, #submission-source {
-                            width: 315px;
-                            border-radius: 5px
-                        }
-                    }
-
-                    #submission-text, #submission-source {
-                        background-color: white
-                    }
-                    
-                    #user-name-label, #karma-score-label {
-                        width: 50%;
-                        text-align: center;
-                        margin-top: 0px
-                    }
-                    
-                    #user-name-label {
-                        float: left
-                    }
-                    
-                    #karma-score-label {
-                        float: right
-                    }
-                    
-                    #control-panel-buttons, #control-panel-counters {
-                        display: inline-grid
-                    }
-                    
-                    #control-panel-buttons {
-                        float: left
-                    }
-                    
-                    #control-panel-counters {
-                        float: right
-                    }
-                    
-                    .control-panel-button:hover {
-                        background-color: rgb(200, 200, 200)
-                    }
-                `;
-
-                viewSubmissionShadowRoot.appendChild(shadowDomStyles);
-                viewSubmissionShadowRoot.appendChild(container);
-                isViewSubmissionDomCreated = true;
-
-                //viewSubmissionShadowRoot.querySelector('');
-                viewSubmissionContextMenuContainer = viewSubmissionShadowRoot.querySelector('#view-submission-context-menu-container');
-                viewSubmissionInnerContainer = viewSubmissionShadowRoot.querySelector('#completed-submission-container');
-                viewSubmissionText = viewSubmissionShadowRoot.querySelector('#submission-text');
-                viewSubmissionSource = viewSubmissionShadowRoot.querySelector('#submission-source');
-                viewSubmissionSourceContainer = viewSubmissionShadowRoot.querySelector('#submission-source-container');
-                viewSubmissionExitButton = viewSubmissionShadowRoot.querySelector('#view-submission-exit-button');
-                viewSubmissionExitButton.addEventListener('mouseover', exitButtonActive);
-                viewSubmissionExitButton.addEventListener('click', exitContextMenu);
-                tail = viewSubmissionShadowRoot.querySelector('#tail');
             }
 
             setUiAtAnnotationPos(span);
             window.addEventListener("resize", function() {
                 setUiAtAnnotationPos(span);
             });
+
+            isInitClick = true;
 
             //finds the id associated with span passed as argument
             for (let i=0; i<span.classList.length; i++) {
@@ -948,15 +930,15 @@ const OPENDATAINPAGESCRIPT = (function() {
                     thisSubmission = response.dataFetched;
                     submissionCache.push(response.dataFetched);
                     populateFields(response.dataFetched);
-
-                    viewSubmissionContextMenuContainer.classList.remove('hidden');
+                    
+                    outputMenuContainer.classList.remove('hidden');
                 }); 
             }
 
-            viewSubmissionContextMenuContainer.classList.remove('hidden');
+            outputMenuContainer.classList.remove('hidden');
 
             //confirming submission link redirect
-            viewSubmissionSource.addEventListener('click', function(event) {
+            OUTPUTSHADOWDOM.shadowRoot.querySelector('#submission-source').addEventListener('click', function(event) {
                 if (!window.confirm('Are you sure you want to redirect to the following link?\n' + thisSubmission.sourceLink + '\nThis link may redirect to a malicious site.')) {
                     event.preventDefault();
                 }
@@ -984,7 +966,7 @@ const HIGHLIGHTDATATINPAGESCRIPT = (function() {
             };
 
             for (let property in nameCodeCharObj) {
-                if (newSearch(string, property) != 'failed') {
+                if (UTILITYFUNCTIONS.newSearch(string, property) != 'failed') {
                     string = string.replace(property, nameCodeCharObj[property]);
                 }
             }
@@ -1012,13 +994,13 @@ const HIGHLIGHTDATATINPAGESCRIPT = (function() {
 
             let escapedWholeText = escapeSymbolsToNameCode(wholeText);
 
-            elemInDoc = findElement(type, targetNode);
+            elemInDoc = UTILITYFUNCTIONS.findElement(type, targetNode);
             console.log('elemInDoc: ', elemInDoc);
 
             //must find outermost (parent) element in order to get the entirety of the text, this is because if the start and end points are attained from differing full texts, it will break the highlightAnnotation() function because the insertions object is not reset per call of the findAnnotationInPage() function
             //if (elemInDoc.innerText != wholeText) {
                 //console.log('YES')
-                elemInDoc = getParentElement(elemInDoc);
+                elemInDoc = UTILITYFUNCTIONS.getParentElement(elemInDoc);
             //}
                 
             console.log('elemInDoc: ', elemInDoc);
@@ -1041,9 +1023,9 @@ const HIGHLIGHTDATATINPAGESCRIPT = (function() {
             //anchor and focus nodes are not neccesarily the first and last nodes in the parent element found in doc
             for (let i=0; i<nodeChunks.length; i++) {
                 console.log('nodeChunks[i]: ', nodeChunks[i], 'escapedWholeText: ', escapedWholeText);
-                console.log('search: ', newSearch(nodeChunks[i], escapedWholeText));
+                console.log('search: ', UTILITYFUNCTIONS.newSearch(nodeChunks[i], escapedWholeText));
 
-                if (newSearch(nodeChunks[i], escapedWholeText) != 'failed') {
+                if (UTILITYFUNCTIONS.newSearch(nodeChunks[i], escapedWholeText) != 'failed') {
                     indexInNodeChunks = i;
                 }
             }
@@ -1056,7 +1038,7 @@ const HIGHLIGHTDATATINPAGESCRIPT = (function() {
                     temp = nodeChunks[indexInNodeChunks][i] + temp;
                     searchString = object.textAnnotated.substr(0, temp.length);
 
-                    if (newSearch(temp, searchString) != 'failed') {
+                    if (UTILITYFUNCTIONS.newSearch(temp, searchString) != 'failed') {
 
                         let j = 0;
                         let isAlreadyMatched = false;
@@ -1081,7 +1063,7 @@ const HIGHLIGHTDATATINPAGESCRIPT = (function() {
                     temp = temp + nodeChunks[indexInNodeChunks][i];
                     searchString = object.textAnnotated.substr(object.textAnnotated.length - temp.length, temp.length);
 
-                    if (newSearch(temp, searchString) != 'failed') {
+                    if (UTILITYFUNCTIONS.newSearch(temp, searchString) != 'failed') {
                         let j = 0;
                         let isAlreadyMatched = false;
 
@@ -1114,11 +1096,11 @@ const HIGHLIGHTDATATINPAGESCRIPT = (function() {
 
                 //does the searchString span over 2 nodes (html tags in innerHTML used to chunk into nodes will cause search to fail for any given chunk, therefore use innerText)
                 //however just setting innerText declaratively causes it to break for other cases.
-                if(newSearch(elemInDoc.innerHTML, searchString) == 'failed') {fullText = elemInDoc.innerText}
+                if(UTILITYFUNCTIONS.newSearch(elemInDoc.innerHTML, searchString) == 'failed') {fullText = elemInDoc.innerText}
                 else {fullText = elemInDoc.innerHTML}
             
                 //does anchor/focus begin/end at the beginning/end of the node in question? if so need to use fulltext instead of wholeText
-                if (indexInNodeChunks != 0 && indexInNodeChunks != nodeChunks.length-1 || newSearch(nodeChunks[indexInNodeChunks], searchString) != 'failed') {substringFrom = fullText}
+                if (indexInNodeChunks != 0 && indexInNodeChunks != nodeChunks.length-1 || UTILITYFUNCTIONS.newSearch(nodeChunks[indexInNodeChunks], searchString) != 'failed') {substringFrom = fullText}
                 else {substringFrom = wholeText}       
             }
         
@@ -1126,20 +1108,20 @@ const HIGHLIGHTDATATINPAGESCRIPT = (function() {
             if (type == 'anchor' && !object.isContainingChildren) {
                 console.log('type == anchor && !object.isContainingChildren');
                 console.log('fullText: ', fullText, 'searchString: ', searchString);
-                startPoint = newSearch(fullText, searchString);
+                startPoint = UTILITYFUNCTIONS.newSearch(fullText, searchString);
                 endPoint = startPoint + searchString.length;
             }
             else if (type == 'anchor' && object.isContainingChildren) {
                 console.log('type == anchor && object.isContainingChildren');
                 console.log('wholeText: ', wholeText, 'object.textAnnotated: ', object.textAnnotated);
-                startPoint = newSearch(wholeText, object.textAnnotated);
+                startPoint = UTILITYFUNCTIONS.newSearch(wholeText, object.textAnnotated);
                 endPoint = startPoint + object.textAnnotated.length;
             }
             else if (type == 'focus') {
                 console.log('type == focus');
                 console.log('possibleMatches: ', possibleMatches);
                 console.log('fullText: ', fullText, 'searchString: ', searchString);
-                startPoint = newSearch(fullText, searchString);
+                startPoint = UTILITYFUNCTIONS.newSearch(fullText, searchString);
                 endPoint = startPoint + searchString.length;
             }
         
@@ -1171,9 +1153,9 @@ const HIGHLIGHTDATATINPAGESCRIPT = (function() {
 
             for (let i=anchorIndex+1; i<focusIndex; i++) {
                 //findElement function has changed, may cause issues here
-                let childElemInDoc = findElement(type, nodeChunks[i]);
+                let childElemInDoc = UTILITYFUNCTIONS.findElement(type, nodeChunks[i]);
 
-                startPoint = newSearch(elemInDoc.innerHTML, childElemInDoc.innerText);
+                startPoint = UTILITYFUNCTIONS.newSearch(elemInDoc.innerHTML, childElemInDoc.innerText);
                 endPoint = startPoint + childElemInDoc.innerText.length;
 
                 console.log('elemInDoc: ', elemInDoc.innerHTML);
@@ -1254,7 +1236,7 @@ const HIGHLIGHTDATATINPAGESCRIPT = (function() {
 
         //finds anchor tag that nests parent element
         const foundAnnotationInAnchorTag = function(span) {
-            let parent = getParentElement(span);
+            let parent = UTILITYFUNCTIONS.getParentElement(span);
             let isContainingAnchor = false;
             
             console.log('parent.children: ', parent.children);
@@ -1293,11 +1275,11 @@ const HIGHLIGHTDATATINPAGESCRIPT = (function() {
                 //promise is needed to ensure that the submission will only open if the user presses 'cancel' in confirm dialog (confirm is inherently async)
                 if (foundAnnotationInAnchorTag(currentAnnotationAtOpenSubmission)) {
                     console.log('is nested');
-                    confirmSpanClickedOrLink(currentAnnotationAtOpenSubmission).catch(function() {viewSubmission(currentAnnotationAtOpenSubmission)});
+                    confirmSpanClickedOrLink(currentAnnotationAtOpenSubmission).catch(function() {OPENDATAINPAGESCRIPT.viewSubmission(currentAnnotationAtOpenSubmission)});
                 }
                 else {
                     console.log('is not nested');
-                    viewSubmission(currentAnnotationAtOpenSubmission);
+                    OPENDATAINPAGESCRIPT.viewSubmission(currentAnnotationAtOpenSubmission);
                 }
             });
 
@@ -1387,11 +1369,11 @@ const AUTOCOMPLETESCRIPT = (function() {
         let fullText = targetNode.wholeText;
 
         //if it couldnt be found then use parent
-        if (newSearch(fullText, selection.trim()) == 'failed') {     
-            fullText = getParentElement(targetNode).innerText;
+        if (UTILITYFUNCTIONS.newSearch(fullText, selection.trim()) == 'failed') {     
+            fullText = UTILITYFUNCTIONS.getParentElement(targetNode).innerText;
         }
 
-        let indexFound = newSearch(fullText, selection.trim());
+        let indexFound = UTILITYFUNCTIONS.newSearch(fullText, selection.trim());
         return [fullText, indexFound];
     };
 
@@ -1495,57 +1477,260 @@ const AUTOCOMPLETESCRIPT = (function() {
     };
 }());
 
-const MAINMOUSEEVENTS = (function() {
-    //add more global booleans used in begunSelecting() here
-    let booleans = {
-        isSelectMade: false,
-        isOverLimit: false,
-        isExpanded: false,
-        isFocussed: false,
-        isKeyDownRunOnce: false,
-        isKeyEventLoaded: false
-    };
+const INPUTSHADOWDOM = (function() {
 
-    let updateCharCountInterval = undefined;
-    let emptyVal = '';
+    //creating, styling and appending shadowDOM to document
+    let hostElement = document.createElement('div');
+    hostElement.id = 'user-input-host-element';
+    document.querySelector('body').appendChild(hostElement);
 
-    const resetAnnotation = function() {
-        annotation = {
-            annotationId: '',
-            textAnnotated: '',
-            isUnified: true,
-            isContainingChildren: false,
-            urlOfArticle: '',
-            anchor: {},
-            focus: {},
+    let shadowHost = hostElement;
+    let shadowRoot = shadowHost.attachShadow({mode: 'open'}); 
+    
+    let container = document.createElement('div');
+    container.id = 'user-input-context-menu-container';
+    container.className = 'hidden';
+    
+    container.innerHTML = `
+        <div id='user-input-loading' class='hidden'></div>
+        <div id='char-count' class='hidden'>
+            <p id='char-count-label' class='char-count-text'><span id='char-count-value' class='char-count-text'></span>/100</p>
+        </div>
+        <div id='selection-menu' class='hidden'>
+            <div class='selection-menu-output'>
+                <p id='selection-quotes' class='selection-menu-text hidden quotes-font'>‘<span id='selection-made' class='selection-menu-text'></span>’<span><img id='user-input-exit-button' class='hidden' src='` + chrome.runtime.getURL('images/exit-button.png') + `' alt='exit' height='15' width='15'></span></p>
+            </div>
+            <br>
+            <div id='radio-container'>
+                <div id='argument-nature-container' class='radio-headers'>Nature of argument
+                    <br>
+                    <input class='selection-menu-radios argument-nature-radios' type='radio' id='for-radio' name='argument-nature' value='for'>
+                    <label class='selection-menu-labels' for='for'>For</label>
+                    <br>
+                    <input class='selection-menu-radios argument-nature-radios' type='radio' id='against-radio' name='argument-nature' value='against'>
+                    <label class='selection-menu-labels' for='against'>Against</label>
+                    <br>
+                    <input class='selection-menu-radios argument-nature-radios' type='radio' id='other-radio' name='argument-nature' value='other'>
+                    <label class='selection-menu-labels' for='other'>Other</label>
+                    <br>
+                </div>
+                <br>
+                <div id='source-container' class='radio-headers'>Have a source?
+                    <br>
+                    <input class='selection-menu-radios source-radios' type='radio' id='yes-source-radio' name='source' value='yes'>
+                    <label class='selection-menu-labels' for='yes'>Yes</label>
+                    <br>
+                    <input class='selection-menu-radios source-radios' type='radio' id='no-source-radio' name='source' value='no'>
+                    <label class='selection-menu-labels' for='no'>No</label>
+                    <br>
+                    <button id='confirm-choices'>Confirm</button>
+                </div>
+            </div>
+            
+            <div id='user-annotation-container' class='hidden'>
+                <textarea id='submission-input' name='user-annotation' rows='4'>Your thoughts</textarea>
+                <input type='text' id='source-input' name='source' value='Link'>
+                <br>
+                <input id='publish-annotation' type='submit' value='Publish'>
+            </div>
+        </div>`
+    ;
+    
+    let shadowDomStyles = document.createElement('style');
+    shadowDomStyles.innerText = `
+        #user-input-context-menu-container {
+            position: fixed;
+            height: 2%;
+            width: 6.5%;
+            background-color: rgba(230, 230, 230, 0.0);
+            padding: 0px;
+            border-radius: 2.5px 10px 10px 10px;
+            z-index: 9999
         }
-        console.log('resetting');
-    };
 
-    const setToMousePos = function(event) {
-        styleShadowDom(userInputShadowRoot, '#user-input-context-menu-container', [
-            ['left', event.clientX + 75 + 'px'],
-            ['top', event.clientY + 50 + 'px']
-        ]);
-    };
-
-    const whenNotHovering = function(element, callback) {
-        if (!element.matches(':hover')) {
-            callback();
+        #user-input-exit-button {
+            float: right;
+            margin-top: 4.5px;
+            margin-right: 5px
         }
-    };
-
-    const whenHovering = function(element, callback) {
-        if (element.matches(':hover')) {
-            callback();
+        #user-input-exit-button:hover {
+            cursor: pointer
         }
-    };
+        
+        .selection-menu-output {
+            text-align: center
+        }
+        #selection-quotes {
+            margin-top: 4px;
+            font-weight: bold;
+            font-size: 32px;
+            font-family: 'Revalia', cursive;
+        }
+        #selection-made {
+            font-weight: normal;
+            font-size: 14px;
+            font-family: Arial
+        }
+        .selection-menu-radios {
+            margin-left: 40px
+        }
+        
+        #argument-nature-container {
+            text-align: left;
+            margin-left: 20px
+        }
+        
+        #source-container {
+            text-align: left;
+            margin-left: 20px
+        }
+        #confirm-choices {
+            margin-left: 10px;
+            margin-top: 10px;
+        }
+        #user-annotation-container {
+            margin-top: 0px;
+        }
+        
+        #submission-input, #source-input {
+            border: none;
+            border-radius: 2.5px 20px 20px 20px;
+            margin-top: 10px;
+            margin-left: 15%;
+            margin-right: 15%;
+            width: 70%;
+            resize: none
+        }
+        #submission-input:focus, #source-input:focus {
+            outline: none;
+        }
+        #source-input {
+            height: 25px
+        }
+        #publish-annotation {
+            margin-left: 15%;
+            margin-top: 20px
+        }
+        #char-count {
+            text-align: center
+        }
+        .char-count-text {
+            margin-top: 0px;
+            font-family: calibri, sans-serif;
+            font-size: 20px
+        }
+        .hidden {
+            display: none
+        }
+        .quotes-font {
+            font-family: 'Revalia', Verdana
+        }
+
+        #user-input-loading {
+            border: 5px solid rgb(240, 240, 240);
+            border-top: 5px solid rgb(166, 166, 166);
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            animation: spin 0.5s linear infinite
+        }
+        
+        @keyframes spin {
+            0% {transform: rotate(0deg)}
+            100% {transform: rotate(360deg)}
+        }
+        
+        .shake-anim {
+            animation-name: shake;
+            animation-duration: 0.3s
+        }
+        @keyframes shake {
+            0% {transform: translateX(-20px)}
+            20% {transform: translateX(20px)}
+            40% {transform: translateX(-20px)}
+            60% {transform: translateX(20px)}
+            80% {transform: translateX(-20px)}
+            100% {transform: translateX(20px)}
+        }
+        .expand-anim {
+            animation-name: expand;
+            animation-duration: 0.6s;
+            animation-fill-mode: forwards       
+        }
+        @keyframes expand {
+            0% {
+                height: 2%;
+                width: 6.5%
+            }
+            100% {
+                height: 20%;
+                width: 30%;
+            }
+        }
+        .fadein-anim {
+            animation-name: fade-in;
+            animation-duration: 0.1s;
+            animation-fill-mode: forwards        
+        }
+        @keyframes fade-in {
+            0% {opacity: 0}
+            100% {opacity: 1}
+        }
+        .fadeout-anim {
+            animation-name: fade-out;
+            animation-duration: 0.1s;
+            animation-fill-mode: forwards         
+        }
+        @keyframes fade-out {
+            0% {opacity: 1}
+            100% {opacity: 0}
+        }
+        .slide-right-anim {
+            animation-name: slide-right;
+            animation-duration: 1.5s;
+            animation-fill-mode: forwards
+        }
+        @keyframes slide-right {
+            0% {
+                opacity: 1;
+                margin-left: 20px
+            }
+            40% {opacity: 0}
+            100% {
+                margin-left: 400px;
+                opacity: 0
+            }
+        }
+        .slide-right-offset-anim {
+            animation-name: slide-right-offset;
+            animation-duration: 1.5s;
+            animation-fill-mode: forwards
+        }
+        
+        @keyframes slide-right-offset {
+            0% {
+                opacity: 1;
+                margin-left: 40px
+            }
+            40% {opacity: 0}
+            100% {
+                margin-left: 400px;
+                opacity: 0
+            }
+        }
+    `;
+
+    shadowRoot.appendChild(shadowDomStyles);
+    shadowRoot.appendChild(container);
 
     //confirm button click function
     const confirmChoices = function() {
         let isArgNatureValid = false;
         let isSourceValid = false;
         let selectedVals = [];
+        let argumentNatureVals = shadowRoot.querySelectorAll('.argument-nature-radios');
+        let sourceVals = shadowRoot.querySelectorAll('.source-radios');
+        let annotationContainer = shadowRoot.querySelector('#user-annotation-container');
 
         //validates that radios are ticked before progressing
         for (let i=0; i<argumentNatureVals.length; i++) {
@@ -1564,15 +1749,21 @@ const MAINMOUSEEVENTS = (function() {
             }
         }
 
+        console.log('selectedVals: ', selectedVals);
+
         //triggers animations to progress to the next screen
         if (isArgNatureValid && isSourceValid) {
             isConfirmed = true;
+            let elemList = [shadowRoot.querySelectorAll('.selection-menu-radios'), shadowRoot.querySelectorAll('.selection-menu-labels')];
+            let radioHeaders = shadowRoot.querySelectorAll('.radio-headers');
+
             submission.argumentNature = selectedVals[0];
             
             if (selectedVals[1] == 'yes') {submission.isSource = true}
             else {submission.isSource = false}
+            console.log('submission.isSource: ', submission.isSource);
 
-            let elemList = [userInputShadowRoot.querySelectorAll('.selection-menu-radios'), userInputShadowRoot.querySelectorAll('.selection-menu-labels')];
+
             
             for (let i=0; i<radioHeaders.length; i++) {radioHeaders[i].classList.add('slide-right-anim')}
 
@@ -1583,7 +1774,7 @@ const MAINMOUSEEVENTS = (function() {
             }
 
             setTimeout(function() {
-                radioContainer.classList.add('hidden');
+                shadowRoot.querySelector('#radio-container').classList.add('hidden');
                 for (let i=0; i<radioHeaders.length; i++) {radioHeaders[i].classList.remove('slide-right-anim')}
         
                 for (let i=0; i<elemList.length; i++) {
@@ -1595,9 +1786,9 @@ const MAINMOUSEEVENTS = (function() {
                 annotationContainer.classList.add('fadein-anim');
 
                 setTimeout(function() {
-                    if (!submission.isSource) {sourceInput.classList.add('hidden');}
-
-                    styleShadowDom(userInputShadowRoot, ['#user-annotation-container'], [['display', 'inline']]);
+                    if (!submission.isSource) {shadowRoot.querySelector('#source-input').classList.add('hidden');}
+                                                
+                    UTILITYFUNCTIONS.styleShadowDom(shadowRoot, ['#user-annotation-container'], [['display', 'inline']]);
                     annotationContainer.classList.remove('fadein-anim');
                 }, 150)
             }, 550);
@@ -1607,6 +1798,8 @@ const MAINMOUSEEVENTS = (function() {
 
     //publish button click function
     const publishSubmission = function() {
+        let annotationContainer = shadowRoot.querySelector('#user-annotation-container');
+        let submissionInput = shadowRoot.querySelector('#submission-input');
 
         //sends preliminarily validated data to background script for more in depth validation
         const sendData = function(annotation, submission) {
@@ -1628,24 +1821,7 @@ const MAINMOUSEEVENTS = (function() {
                 data: data
             }, 
             function(response) {console.log('sent submission for validation, data received: ', JSON.stringify(response.dataReceived, null, 4))});
-
-            /*
-            findAnnotationInPage(annotation, 'anchor');
-
-            //may cause bugs here
-            if (!annotation.isUnified) {
-                findAnnotationInPage(annotation, 'middle');
-                findAnnotationInPage(annotation, 'focus');
-            }
-
-            console.log('insertions: ', JSON.stringify(insertions), 'elemInDoc: ', elemInDoc);
-            highlightAnnotation(insertions, elemInDoc);
             
-            elemInDoc = null;
-            nodeChunks = null;
-            insertions = {}
-            */
-
             location.reload();
         };
 
@@ -1659,14 +1835,16 @@ const MAINMOUSEEVENTS = (function() {
             return url.protocol === 'http:' || url.protocol === 'https:';
         };
 
+        console.log('val: ', annotationContainer);
+
         //validates if input is unchanged or whitespace and other data, then set values to the submission object
         if (submissionInput.value != '' && submissionInput.value.trim() != '' && submissionInput.value != emptyVal) {
             submission.submissionText = submissionInput.value;
-            submission.submissionId = generateId('submission');
+            submission.submissionId = UTILITYFUNCTIONS.generateId('submission');
 
             if (submission.isSource) {
-                if (validateUrlFormat(sourceInput.value) != false) {
-                    submission.sourceLink = sourceInput.value;
+                if (validateUrlFormat(submissionInput.value) != false) {
+                    submission.sourceLink = shadowRoot.querySelector('#source-input').value;
                     sendData(annotation, submission);
                 }
                 else {alert('Enter a valid HTTP Link (http://, https://)')}
@@ -1679,12 +1857,69 @@ const MAINMOUSEEVENTS = (function() {
         }
         else {alert('Enter a valid submission')}
     };
+    
+    shadowRoot.querySelector('#confirm-choices').addEventListener('click', confirmChoices);
+    shadowRoot.querySelector('#publish-annotation').addEventListener('click', publishSubmission);
+    
+    let emptyVal = shadowRoot.querySelector('#submission-input').value;
+ 
+    console.log('shadowRoot: ', shadowRoot);
 
-    //add more (if any) global event callbacks used in begunSelecting()
+    let exitButton = shadowRoot.querySelector('#user-input-exit-button');
+    exitButton.addEventListener('mouseover', UTILITYFUNCTIONS.exitButtonActive);
+    exitButton.addEventListener('click', UTILITYFUNCTIONS.exitContextMenu);
+
+    return {shadowRoot};
+}());
+
+const MAINMOUSEEVENTS = (function() {
+    //add more global booleans used in begunSelecting() here
+    let booleans = {
+        isSelectMade: false,
+        isOverLimit: false,
+        isExpanded: false,
+        isFocussed: false,
+        isKeyDownRunOnce: false,
+        isKeyEventLoaded: false
+    };
+
+    let updateCharCountInterval = undefined;
+
+    const resetAnnotation = function() {
+        annotation = {
+            annotationId: '',
+            textAnnotated: '',
+            isUnified: true,
+            isContainingChildren: false,
+            urlOfArticle: '',
+            anchor: {},
+            focus: {},
+        }
+        console.log('resetting');
+    };
+
+    const setToMousePos = function(event) {
+        UTILITYFUNCTIONS.styleShadowDom(INPUTSHADOWDOM.shadowRoot, '#user-input-context-menu-container', [
+            ['left', event.clientX + 75 + 'px'],
+            ['top', event.clientY + 50 + 'px']
+        ]);
+    };
+
+    const whenNotHovering = function(element, callback) {
+        if (!element.matches(':hover')) {
+            callback();
+        }
+    };
+
+    const whenHovering = function(element, callback) {
+        if (element.matches(':hover')) {
+            callback();
+        }
+    };
 
     const keyDown = function(event) {
-        if (event.keyCode === 83 && !MAINMOUSEEVENTS.variables.booleans.isKeyDownRunOnce) {
-            MAINMOUSEEVENTS.variables.booleans.isKeyDownRunOnce = true;
+        if (event.keyCode === 83 && !booleans.isKeyDownRunOnce) {
+            booleans.isKeyDownRunOnce = true;
             window.addEventListener('mousedown', MAINMOUSEEVENTS.begunSelecting);
             window.addEventListener('keyup', keyUp);
             console.log('keyDown');
@@ -1695,329 +1930,55 @@ const MAINMOUSEEVENTS = (function() {
     
     const keyUp = function(event) {
         if (event.keyCode === 83) {
-            MAINMOUSEEVENTS.variables.booleans.isKeyDownRunOnce = false;
+            booleans.isKeyDownRunOnce = false;
             window.removeEventListener('mousedown', MAINMOUSEEVENTS.begunSelecting);
-            //window.removeEventListener('keydown', keyDown);
-            //window.removeEventListener('keyup', keyUp);
             console.log('keyUp');
         }
     };
-
-    console.log('runs once')
+    
+    //console.log('runs once')
 
     return {
-        get variables() {
-            return {
-                booleans,
-                updateCharCountInterval
-            }
-        },
         begunSelecting: function() {
             console.log('begun selecting');
 
-            //console.log('arguments in begunSelecting: ', booleans);
-            let booleanObject = MAINMOUSEEVENTS.variables.booleans;
-            console.log('booleanObject: ', booleanObject);
             let checkSelectMadeInterval = undefined;
             let isAbortSelection = false;
             let isConfirmed = false;
+            console.log('INPUTSHADOWDOM: ', INPUTSHADOWDOM.shadowRoot.querySelector('#user-input-context-menu-container'));
+            let inputMenuContainer = INPUTSHADOWDOM.shadowRoot.querySelector('#user-input-context-menu-container');
+            let charCountContainer = INPUTSHADOWDOM.shadowRoot.querySelector('#char-count');
+
 
             //only need to run this set up code the first time a selection is made
             if (!isUserInputDomCreated) {
 
-                //MOVE CREATING SHADOW DOM TO ITS OWN IIDF, FIGURE OUT HOW TO ACCESS IT TO CHANGE STYLES FROM ANY OTHER FUNCTION.
-                
-                //creating, styling and appending shadowDOM to document
-                let hostElement = document.createElement('div');
-                hostElement.id = 'user-input-host-element';
-                $(hostElement).appendTo('body');
 
-                let shadowHost = hostElement;
-                userInputShadowRoot = shadowHost.attachShadow({mode: 'open'}); 
-                
-                let container = document.createElement('div');
-                container.id = 'user-input-context-menu-container';
-                container.className = 'hidden';
-                
-                container.innerHTML = `
-                    <div id='user-input-loading' class='hidden'></div>
-                    <div id='char-count' class='hidden'>
-                        <p id='char-count-label' class='char-count-text'><span id='char-count-value' class='char-count-text'></span>/100</p>
-                    </div>
-                    <div id='selection-menu' class='hidden'>
-                        <div class='selection-menu-output'>
-                            <p id='selection-quotes' class='selection-menu-text hidden quotes-font'>‘<span id='selection-made' class='selection-menu-text'></span>’<span><img id='user-input-exit-button' class='hidden' src='` + chrome.runtime.getURL('images/exit-button.png') + `' alt='exit' height='15' width='15'></span></p>
-                        </div>
-                        <br>
-                        <div id='radio-container'>
-                            <div id='argument-nature-container' class='radio-headers'>Nature of argument
-                                <br>
-                                <input class='selection-menu-radios argument-nature-radios' type='radio' id='for-radio' name='argument-nature' value='for'>
-                                <label class='selection-menu-labels' for='for'>For</label>
-                                <br>
-                                <input class='selection-menu-radios argument-nature-radios' type='radio' id='against-radio' name='argument-nature' value='against'>
-                                <label class='selection-menu-labels' for='against'>Against</label>
-                                <br>
-                                <input class='selection-menu-radios argument-nature-radios' type='radio' id='other-radio' name='argument-nature' value='other'>
-                                <label class='selection-menu-labels' for='other'>Other</label>
-                                <br>
-                            </div>
-                            <br>
-                            <div id='source-container' class='radio-headers'>Have a source?
-                                <br>
-                                <input class='selection-menu-radios source-radios' type='radio' id='yes-source-radio' name='source' value='yes'>
-                                <label class='selection-menu-labels' for='yes'>Yes</label>
-                                <br>
-                                <input class='selection-menu-radios source-radios' type='radio' id='no-source-radio' name='source' value='no'>
-                                <label class='selection-menu-labels' for='no'>No</label>
-                                <br>
-                                <button id='confirm-choices'>Confirm</button>
-                            </div>
-                        </div>
-                        
-                        <div id='user-annotation-container' class='hidden'>
-                            <textarea id='submission-input' name='user-annotation' rows='4'>Your thoughts</textarea>
-                            <input type='text' id='source-input' name='source' value='Link'>
-                            <br>
-                            <input id='publish-annotation' type='submit' value='Publish'>
-                        </div>
-                    </div>`
-                ;
-                
-                let shadowDomStyles = document.createElement('style');
-                shadowDomStyles.innerText = `
-                    #user-input-context-menu-container {
-                        position: fixed;
-                        height: 2%;
-                        width: 6.5%;
-                        background-color: rgba(230, 230, 230, 0.0);
-                        padding: 0px;
-                        border-radius: 2.5px 10px 10px 10px;
-                        z-index: 9999
-                    }
 
-                    #user-input-exit-button {
-                        float: right;
-                        margin-top: 4.5px;
-                        margin-right: 5px
-                    }
-                    #user-input-exit-button:hover {
-                        cursor: pointer
-                    }
-                    
-                    .selection-menu-output {
-                        text-align: center
-                    }
-                    #selection-quotes {
-                        margin-top: 4px;
-                        font-weight: bold;
-                        font-size: 32px;
-                        font-family: 'Revalia', cursive;
-                    }
-                    #selection-made {
-                        font-weight: normal;
-                        font-size: 14px;
-                        font-family: Arial
-                    }
-                    .selection-menu-radios {
-                        margin-left: 40px
-                    }
-                    
-                    #argument-nature-container {
-                        text-align: left;
-                        margin-left: 20px
-                    }
-                    
-                    #source-container {
-                        text-align: left;
-                        margin-left: 20px
-                    }
-                    #confirm-choices {
-                        margin-left: 10px;
-                        margin-top: 10px;
-                    }
-                    #user-annotation-container {
-                        margin-top: 0px;
-                    }
-                    
-                    #submission-input, #source-input {
-                        border: none;
-                        border-radius: 2.5px 20px 20px 20px;
-                        margin-top: 10px;
-                        margin-left: 15%;
-                        margin-right: 15%;
-                        width: 70%;
-                        resize: none
-                    }
-                    #submission-input:focus, #source-input:focus {
-                        outline: none;
-                    }
-                    #source-input {
-                        height: 25px
-                    }
-                    #publish-annotation {
-                        margin-left: 15%;
-                        margin-top: 20px
-                    }
-                    #char-count {
-                        text-align: center
-                    }
-                    .char-count-text {
-                        margin-top: 0px;
-                        font-family: calibri, sans-serif;
-                        font-size: 20px
-                    }
-                    .hidden {
-                        display: none
-                    }
-                    .quotes-font {
-                        font-family: 'Revalia', Verdana
-                    }
-
-                    #user-input-loading {
-                        border: 5px solid rgb(240, 240, 240);
-                        border-top: 5px solid rgb(166, 166, 166);
-                        border-radius: 50%;
-                        width: 20px;
-                        height: 20px;
-                        animation: spin 0.5s linear infinite
-                    }
-                    
-                    @keyframes spin {
-                        0% {transform: rotate(0deg)}
-                        100% {transform: rotate(360deg)}
-                    }
-                    
-                    .shake-anim {
-                        animation-name: shake;
-                        animation-duration: 0.3s
-                    }
-                    @keyframes shake {
-                        0% {transform: translateX(-20px)}
-                        20% {transform: translateX(20px)}
-                        40% {transform: translateX(-20px)}
-                        60% {transform: translateX(20px)}
-                        80% {transform: translateX(-20px)}
-                        100% {transform: translateX(20px)}
-                    }
-                    .expand-anim {
-                        animation-name: expand;
-                        animation-duration: 0.6s;
-                        animation-fill-mode: forwards       
-                    }
-                    @keyframes expand {
-                        0% {
-                            height: 2%;
-                            width: 6.5%
-                        }
-                        100% {
-                            height: 20%;
-                            width: 30%;
-                        }
-                    }
-                    .fadein-anim {
-                        animation-name: fade-in;
-                        animation-duration: 0.1s;
-                        animation-fill-mode: forwards        
-                    }
-                    @keyframes fade-in {
-                        0% {opacity: 0}
-                        100% {opacity: 1}
-                    }
-                    .fadeout-anim {
-                        animation-name: fade-out;
-                        animation-duration: 0.1s;
-                        animation-fill-mode: forwards         
-                    }
-                    @keyframes fade-out {
-                        0% {opacity: 1}
-                        100% {opacity: 0}
-                    }
-                    .slide-right-anim {
-                        animation-name: slide-right;
-                        animation-duration: 1.5s;
-                        animation-fill-mode: forwards
-                    }
-                    @keyframes slide-right {
-                        0% {
-                            opacity: 1;
-                            margin-left: 20px
-                        }
-                        40% {opacity: 0}
-                        100% {
-                            margin-left: 400px;
-                            opacity: 0
-                        }
-                    }
-                    .slide-right-offset-anim {
-                        animation-name: slide-right-offset;
-                        animation-duration: 1.5s;
-                        animation-fill-mode: forwards
-                    }
-                    
-                    @keyframes slide-right-offset {
-                        0% {
-                            opacity: 1;
-                            margin-left: 40px
-                        }
-                        40% {opacity: 0}
-                        100% {
-                            margin-left: 400px;
-                            opacity: 0
-                        }
-                    }
-                `;
-
-                userInputShadowRoot.appendChild(shadowDomStyles);
-                userInputShadowRoot.appendChild(container);
-
-                //saves repeating querySelector + more readability
-                userInputContextMenuContainer = userInputShadowRoot.querySelector('#user-input-context-menu-container');
-                charCountContainer = userInputShadowRoot.querySelector('#char-count');
-                charCountText = userInputShadowRoot.querySelector('#char-count-label');
-                selectionMenu = userInputShadowRoot.querySelector('#selection-menu');
-                selectionMade = userInputShadowRoot.querySelector('#selection-made');
-                radioContainer = userInputShadowRoot.querySelector('#radio-container');
-                radioHeaders = userInputShadowRoot.querySelectorAll('.radio-headers');
-                userInputExitButton = userInputShadowRoot.querySelector('#user-input-exit-button');
-                argumentNatureVals = userInputShadowRoot.querySelectorAll('.argument-nature-radios');
-                sourceVals = userInputShadowRoot.querySelectorAll('.source-radios');
-                annotationContainer = userInputShadowRoot.querySelector('#user-annotation-container');
-                submissionInput = userInputShadowRoot.querySelector('#submission-input');
-                sourceInput = userInputShadowRoot.querySelector('#source-input');
-                userInputLoading = userInputShadowRoot.querySelector('#user-input-loading');
-
-                userInputExitButton.addEventListener('click', exitContextMenu);
-                userInputShadowRoot.querySelector('#confirm-choices').addEventListener('click', confirmChoices);
-                userInputShadowRoot.querySelector('#publish-annotation').addEventListener('click', publishSubmission);
-
-                emptyVal = submissionInput.value;
-
-                //console.log('userInputShadowRoot: ', userInputShadowRoot);
-                //console.log('document: ', document);
             }
             else {
+
                 //if already clicked once, just need to hide/unhide elements rather than creating them every time
-                whenNotHovering(userInputContextMenuContainer, function() {
-                    booleanObject.isFocussed = false;
+                whenNotHovering(inputMenuContainer, function() {
+                    booleans.isFocussed = false;
                     isAbortSelection = false;
                     resetAnnotation();
 
-                    if (booleanObject.isExpanded) {
-                        styleShadowDom(userInputShadowRoot, [
+                    if (booleans.isExpanded) {
+                        UTILITYFUNCTIONS.styleShadowDom(INPUTSHADOWDOM.shadowRoot, [
                             '#selection-quotes',
                             '#user-input-exit-button', 
                             '#argument-nature-container', 
                             '#source-container'
                         ], [['display', 'none']]);
 
-                        booleanObject.isExpanded = false;
+                        booleans.isExpanded = false;
                         if (isConfirmed) {
-                            if (!submission.isSource) {sourceInput.classList.remove('hidden')}
-                            styleShadowDom(userInputShadowRoot, ['#user-annotation-container'], [['display', 'none']])
+                            if (!submission.isSource) {INPUTSHADOWDOM.shadowRoot.querySelector('#user-annotation-container').classList.remove('hidden')}
+                            UTILITYFUNCTIONS.styleShadowDom(INPUTSHADOWDOM.shadowRoot, ['#user-annotation-container'], [['display', 'none']])
                         }
 
-                        userInputContextMenuContainer.classList.remove('expand-anim');
+                        inputMenuContainer.classList.remove('expand-anim');
                         charCountContainer.classList.add('hidden');
                     }
                 });
@@ -2025,10 +1986,11 @@ const MAINMOUSEEVENTS = (function() {
 
             isUserInputDomCreated = true;
             
-            whenHovering(userInputContextMenuContainer, function() {booleanObject.isFocussed = true});
-
-            styleShadowDom(userInputShadowRoot, '#user-input-context-menu-container', [['background-color', 'rgba(230, 230, 230, 0.0)']]);
-            userInputLoading.classList.remove('hidden');
+            whenHovering(inputMenuContainer, function() {booleans.isFocussed = true});
+            UTILITYFUNCTIONS.styleShadowDom(INPUTSHADOWDOM.shadowRoot, '#user-input-context-menu-container', [['background-color', 'rgba(230, 230, 230, 0.0)']]);
+            
+            let loadingRing = INPUTSHADOWDOM.shadowRoot.querySelector('#user-input-loading');
+            loadingRing.classList.remove('hidden');
 
             //displays the current character count of selection being made
             const updateCharCount = function() {
@@ -2037,24 +1999,22 @@ const MAINMOUSEEVENTS = (function() {
                 let thisSelection = AUTOCOMPLETESCRIPT.autoCompSelection();
                 let charCount = thisSelection.length;
                 
-                userInputShadowRoot.querySelector('#char-count-value').innerText = charCount;
+                INPUTSHADOWDOM.shadowRoot.querySelector('#char-count-value').innerText = charCount;
 
                 if (charCount > countLimit) {
                     rgb = 'rgba(255, 96, 96, 0.8)';
-                    booleanObject.isOverLimit = true;
+                    booleans.isOverLimit = true;
                 }
                 else {
                     rgb = 'rgba(230, 230, 230, 0.8)';
-                    booleanObject.isOverLimit = false;
+                    booleans.isOverLimit = false;
                 }
 
                 //console.log('styling opaque')
-                styleShadowDom(userInputShadowRoot, '#user-input-context-menu-container', [['background-color', rgb]]);
+                UTILITYFUNCTIONS.styleShadowDom(INPUTSHADOWDOM.shadowRoot, '#user-input-context-menu-container', [['background-color', rgb]]);
             };
 
             const selectIsMade = function() {
-                //console.log('select is made');
-                //console.log('booleanObject.isFocussed: ', booleanObject.isFocussed, 'isExpanded: ', booleanObject.isExpanded)
         
                 //check whether mouse let up before key event load
                 const keyEventLoadPromise = function() {
@@ -2074,49 +2034,49 @@ const MAINMOUSEEVENTS = (function() {
                     });
                 }
         
-                if (!booleanObject.isFocussed && !booleanObject.isExpanded) {
-                    whenNotHovering(userInputContextMenuContainer, function() {
+                if (!booleans.isFocussed && !booleans.isExpanded) {
+                    whenNotHovering(inputMenuContainer, function() {
                         window.addEventListener('mousemove', setToMousePos);
                     });
         
                     keyEventLoadPromise().then(function() {
-                        MAINMOUSEEVENTS.variables.booleans.isKeyEventLoaded = true;
-                        userInputLoading.classList.add('hidden');
+                        booleans.isKeyEventLoaded = true;
+                        loadingRing.classList.add('hidden');
                         charCountContainer.classList.remove('hidden');
                         
                         updateCharCount();
                         updateCharCountInterval = setInterval(updateCharCount, 100);
                     }).catch(function() {
                         console.log('mouse let up before load');
-                        MAINMOUSEEVENTS.variables.booleans.isKeyEventLoaded = false;
-                        userInputContextMenuContainer.classList.add('hidden');
+                        booleans.isKeyEventLoaded = false;
+                        inputMenuContainer.classList.add('hidden');
                     });
                 }
             };
         
             //checks to see whether mouse events lead to a selection being made or just normal click
             const checkSelectMade = function() {
-                whenNotHovering(userInputContextMenuContainer, function() {
+                whenNotHovering(inputMenuContainer, function() {
                     let initialSelection = window.getSelection().toString();
         
                     if (initialSelection.length > 0 && !isAbortSelection) {
-                        booleanObject.isSelectMade = true;
-                        userInputContextMenuContainer.classList.remove('hidden');
+                        booleans.isSelectMade = true;
+                        inputMenuContainer.classList.remove('hidden');
                         selectIsMade();
                         clearInterval(checkSelectMadeInterval);
                     }
                     else {
-                        booleanObject.isSelectMade = false;
+                        booleans.isSelectMade = false;
                     }
                 });
             };
 
             checkSelectMade();
-            if (!booleanObject.isSelectMade) {checkSelectMadeInterval = setInterval(checkSelectMade, 50)};
+            if (!booleans.isSelectMade) {checkSelectMadeInterval = setInterval(checkSelectMade, 50)};
 
             //allows user to 'click out' of context menu
-            whenNotHovering(userInputContextMenuContainer, function() {
-                styleShadowDom(userInputShadowRoot, '#user-input-context-menu-container', [
+            whenNotHovering(inputMenuContainer, function() {
+                UTILITYFUNCTIONS.styleShadowDom(INPUTSHADOWDOM.shadowRoot, '#user-input-context-menu-container', [
                     ['left', event.clientX + 75 + 'px'],
                     ['top', event.clientY + 50 + 'px'],
                 ]);
@@ -2125,7 +2085,7 @@ const MAINMOUSEEVENTS = (function() {
             const keyUpDelay = function(event) {
                 let isMouseUp = false;
                 if (event.keyCode === 83) {
-                    if (!booleanObject.isExpanded) {
+                    if (!booleans.isExpanded) {
                         //some delay added to check whether user meant to let mouse up but they let s key up first
                         window.addEventListener('mouseup', function checkMouseUp() {
                             isMouseUp = true;
@@ -2136,11 +2096,11 @@ const MAINMOUSEEVENTS = (function() {
                             //hide UI if s key is let up before mouse key
                             if (!isMouseUp) {
                                 isAbortSelection = true;
-                                userInputContextMenuContainer.classList.add('fadeout-anim');
+                                inputMenuContainer.classList.add('fadeout-anim');
 
                                 setTimeout(function() {
-                                    userInputContextMenuContainer.classList.add('hidden');
-                                    userInputContextMenuContainer.classList.remove('fadeout-anim');
+                                    inputMenuContainer.classList.add('hidden');
+                                    inputMenuContainer.classList.remove('fadeout-anim');
                                 }, 150);
                             }
                             else {doneSelecting()}
@@ -2151,81 +2111,53 @@ const MAINMOUSEEVENTS = (function() {
             };
 
             window.addEventListener('keyup', keyUpDelay);
-
             window.addEventListener('mouseup', MAINMOUSEEVENTS.doneSelecting);
         },
         doneSelecting: function() {
             console.log('done selecting');
             window.removeEventListener('mousemove', setToMousePos);
         
-            //console.log('arguments in doneSelecting: ', booleans);
-            let booleanObject = MAINMOUSEEVENTS.variables.booleans
-        
-            clearInterval(MAINMOUSEEVENTS.variables.updateCharCountInterval);
+            clearInterval(updateCharCountInterval);
 
             //initialises the annotation object to take a snapshot of actual values situated in the DOM
             const initAnnotation = function(object, selection) {
-                
-                /*const snapshotSelectionData = function(property) {
-                    let subProperty = undefined;
-                    let fullText = undefined;
-
-                    console.log('property: ', property);
-
-                    if (property.nodeName == '#text') {
-                        subProperty = property.parentNode;
-                        fullText = subProperty.innerText;
-                    }
-                    else {
-                        subProperty = property;
-                        fullText = property.wholeText;
-                    }
-                
-                    return {
-                        nodeName: subProperty.nodeName,
-                        nodeType: subProperty.nodeType,
-                        wholeText: fullText
-                    };
-                };
-                */
-
-            annotation.anchor = {
-                nodeName: object.anchorNode.nodeName,
-                nodeType: object.anchorNode.nodeType,
-                wholeText: object.anchorNode.wholeText,
-                parentNode: null
-            };
-        
-            if (object.anchorNode.parentNode.nodeName != 'BODY') {
-                annotation.anchor.parentNode = {
-                    nodeName: object.anchorNode.parentNode.nodeName,
-                    nodeType: object.anchorNode.parentNode.nodeType,
-                    parentWholeText: object.anchorNode.parentNode.innerText
-                };
-            }
-        
-            if (object.anchorNode.wholeText != object.focusNode.wholeText) {annotation.isUnified = false}
-        
-            //if selections spans multiple elements, then capture a snapshot of data for focus node to object
-            //this condition needs to be better (i dont know why this works)
-            if (getParentElement(findElement('anchor', annotation.anchor)).children.length >= 1) {
-                annotation.isContainingChildren = false;
-                annotation.focus = {
-                    nodeName: object.focusNode.nodeName,
-                    nodeType: object.focusNode.nodeType,
-                    wholeText: object.focusNode.wholeText,
+                annotation.anchor = {
+                    nodeName: object.anchorNode.nodeName,
+                    nodeType: object.anchorNode.nodeType,
+                    wholeText: object.anchorNode.wholeText,
                     parentNode: null
                 };
-        
-                if (object.focusNode.parentNode.nodeName != 'BODY') {
-                    annotation.focus.parentNode = {
-                        nodeName: object.focusNode.parentNode.nodeName,
-                        nodeType: object.focusNode.parentNode.nodeType,
-                        parentWholeText: object.focusNode.parentNode.innerText
+            
+                if (object.anchorNode.parentNode.nodeName != 'BODY') {
+                    annotation.anchor.parentNode = {
+                        nodeName: object.anchorNode.parentNode.nodeName,
+                        nodeType: object.anchorNode.parentNode.nodeType,
+                        parentWholeText: object.anchorNode.parentNode.innerText
                     };
                 }
-            }
-            else {delete annotation.focus}
+            
+                if (object.anchorNode.wholeText != object.focusNode.wholeText) {annotation.isUnified = false}
+            
+                //if selections spans multiple elements, then capture a snapshot of data for focus node to object
+                //this condition needs to be better (i dont know why this works)
+                if (UTILITYFUNCTIONS.getParentElement(UTILITYFUNCTIONS.findElement('anchor', annotation.anchor)).children.length >= 1) {
+                    annotation.isContainingChildren = false;
+                    annotation.focus = {
+                        nodeName: object.focusNode.nodeName,
+                        nodeType: object.focusNode.nodeType,
+                        wholeText: object.focusNode.wholeText,
+                        parentNode: null
+                    };
+            
+                    if (object.focusNode.parentNode.nodeName != 'BODY') {
+                        annotation.focus.parentNode = {
+                            nodeName: object.focusNode.parentNode.nodeName,
+                            nodeType: object.focusNode.parentNode.nodeType,
+                            parentWholeText: object.focusNode.parentNode.innerText
+                        };
+                    }
+                }
+                else {delete annotation.focus}
 
                 //annotation.anchor = snapshotSelectionData(object.anchorNode);
                 //console.log('annotation.anchor: ', annotation.anchor);
@@ -2241,40 +2173,42 @@ const MAINMOUSEEVENTS = (function() {
                 if (object.anchorNode.wholeText != object.focusNode.wholeText) {annotation.isUnified = false}
 
                 annotation.textAnnotated = selection;
-                annotation.annotationId = generateId('annotation');
+                annotation.annotationId = UTILITYFUNCTIONS.generateId('annotation');
 
                 //console.log('initAnnotation: ', annotation);
             }
+
+            let inputMenuContainer = INPUTSHADOWDOM.shadowRoot.querySelector('#user-input-context-menu-container');
         
             //hide ui if let up and not loaded
-            if (MAINMOUSEEVENTS.variables.booleans.isKeyEventLoaded) {
+            if (booleans.isKeyEventLoaded) {
         
                 //if selection more than 100 chars, then appropriate animation displayed
-                if (booleanObject.isOverLimit) {
-                    userInputContextMenuContainer.classList.add('shake-anim');
+                if (booleans.isOverLimit) {
+                    inputMenuContainer.classList.add('shake-anim');
         
                     setTimeout(function() {
-                        userInputContextMenuContainer.classList.add('fadeout-anim');
+                        inputMenuContainer.classList.add('fadeout-anim');
         
                         setTimeout(function() {
-                            userInputContextMenuContainer.classList.add('hidden');
-                            userInputContextMenuContainer.classList.remove('fadeout-anim');
-                            userInputContextMenuContainer.classList.remove('shake-anim');
-                            styleShadowDom(userInputShadowRoot, '#user-input-context-menu-container', [['background-color', 'rgba(230, 230, 230, 1.0)']]);
+                            inputMenuContainer.classList.add('hidden');
+                            inputMenuContainer.classList.remove('fadeout-anim');
+                            inputMenuContainer.classList.remove('shake-anim');
+                            UTILITYFUNCTIONS.styleShadowDom(INPUTSHADOWDOM.shadowRoot, '#user-input-context-menu-container', [['background-color', 'rgba(230, 230, 230, 1.0)']]);
                         }, 150);
                     }, 350);
                 }
                 else {
-                    if (booleanObject.isSelectMade) {
+                    if (booleans.isSelectMade) {
                         let finalSelection = '';
                         annotation.urlOfArticle = window.location.href;
                         submission.urlOfArticle = window.location.href;
         
-                        whenNotHovering(userInputContextMenuContainer, function() {
+                        whenNotHovering(inputMenuContainer, function() {
                             //triple clicks cause weird bugs
-                            //if (event.detail === 3) {userInputContextMenuContainer.classList.add('hidden')}
+                            //if (event.detail === 3) {contextMenuContainer.classList.add('hidden')}
         
-                            if (!booleanObject.isFocussed) {
+                            if (!booleans.isFocussed) {
                                 let selectionObj = window.getSelection();
         
                                 finalSelection = AUTOCOMPLETESCRIPT.autoCompSelection();
@@ -2285,29 +2219,34 @@ const MAINMOUSEEVENTS = (function() {
                         //15ms delay to smooth out async key load promise functionality
                         setTimeout(function() {
                             //expand ui
+                            let charCountContainer = INPUTSHADOWDOM.shadowRoot.querySelector('#char-count');
                             charCountContainer.classList.add('fadeout-anim');
-                            userInputContextMenuContainer.classList.add('expand-anim');
-            
-                            styleShadowDom(userInputShadowRoot, '#user-input-context-menu-container', [['background-color', 'rgba(230, 230, 230, 1.0)']]);
+                            inputMenuContainer.classList.add('expand-anim');
+                            UTILITYFUNCTIONS.styleShadowDom(INPUTSHADOWDOM.shadowRoot, '#user-input-context-menu-container', [['background-color', 'rgba(230, 230, 230, 1.0)']]);
                             
-                            booleanObject.isExpanded = true;
+                            booleans.isExpanded = true;
             
                             setTimeout(function() {
                                 charCountContainer.classList.add('hidden');
                                 charCountContainer.classList.remove('fadeout-anim');
+
+                                let selectionMenu = INPUTSHADOWDOM.shadowRoot.querySelector('#selection-menu');
                                 selectionMenu.classList.add('fadein-anim');
-                                userInputExitButton.classList.add('fadein-anim');
+
+                                let exitButton = INPUTSHADOWDOM.shadowRoot.querySelector('#user-input-exit-button');
+                                exitButton.classList.add('fadein-anim');
             
                                 setTimeout(function() {
-                                    whenNotHovering(userInputContextMenuContainer, function() {
-                                        if (!booleanObject.isFocussed) {
+                                    whenNotHovering(inputMenuContainer, function() {
+                                        if (!booleans.isFocussed) {
+                                            let selectionMade = INPUTSHADOWDOM.shadowRoot.querySelector('#selection-made');
             
                                             //displays first 50 chars of selection to save space
                                             if (finalSelection.length > 50) {selectionMade.innerText = finalSelection.substr(0, 50) + '...';}
                                             else {selectionMade.innerText = finalSelection}
-                                            radioContainer.classList.remove('hidden');
+                                            INPUTSHADOWDOM.shadowRoot.querySelector('#radio-container').classList.remove('hidden');
             
-                                            styleShadowDom(userInputShadowRoot, 
+                                            UTILITYFUNCTIONS.styleShadowDom(INPUTSHADOWDOM.shadowRoot, 
                                                 [
                                                     '#selection-quotes', 
                                                     '#user-input-exit-button', 
@@ -2316,7 +2255,7 @@ const MAINMOUSEEVENTS = (function() {
                                                 ], 
                                             [['display', 'inline']]);
         
-                                            userInputExitButton.addEventListener('mouseover', exitButtonActive);
+                                            exitButton.addEventListener('mouseover', UTILITYFUNCTIONS.exitButtonActive);
                                         }
                                     });
             
@@ -2325,14 +2264,14 @@ const MAINMOUSEEVENTS = (function() {
                             }, 150)
                         }, 15);
                     }
-                    else {userInputContextMenuContainer.classList.add('hidden')}
+                    else {inputMenuContainer.classList.add('hidden')}
                 }
             }
             else {
-                userInputContextMenuContainer.classList.add('fadeout-anim');
+                inputMenuContainer.classList.add('fadeout-anim');
                 setTimeout(function() {
-                    userInputContextMenuContainer.classList.add('hidden');
-                    userInputContextMenuContainer.classList.remove('fadeout-anim');
+                    inputMenuContainer.classList.add('hidden');
+                    inputMenuContainer.classList.remove('fadeout-anim');
                 }, 150)
             }
             window.removeEventListener('mouseup', MAINMOUSEEVENTS.doneSelecting);
@@ -2340,11 +2279,11 @@ const MAINMOUSEEVENTS = (function() {
     };
 }());
 
-//event listeners
-chrome.runtime.onMessage.addListener(handleContentRequests);
-
 window.addEventListener('load', function() {
     console.log('doc loaded');
+
+    //event listeners
+    chrome.runtime.onMessage.addListener(UTILITYFUNCTIONS.handleContentRequests);
 
     //parent DOM elements
     let parentDocStyle = undefined;
@@ -2360,6 +2299,9 @@ window.addEventListener('load', function() {
 
     $(parentDocStyle).appendTo('body');
 
+    console.log('test: ', OUTPUTSHADOWDOM.shadowRoot);
+    
+
     chrome.runtime.sendMessage({
         request: 'delete',
         resource: 'Annotations', 
@@ -2369,7 +2311,6 @@ window.addEventListener('load', function() {
         console.log('deleting: ', JSON.stringify(response.dataFetched, null, 4));
     });
     
-
     chrome.runtime.sendMessage({
         request: 'read',
         quantity: 'all',

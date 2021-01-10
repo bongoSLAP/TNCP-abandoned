@@ -1334,6 +1334,7 @@ const AUTOCOMPLETESCRIPT = (function() {
 
     let selectionList = [];
     let punctuation = ['.', '?', '!', ',', ';', ':', '-', '—', ' ']; //include brackets, quotes etc? not sure
+    let digits = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
 
     //filters out non block level tags
     const filterSelectedNodes = function(liveList) {
@@ -1405,14 +1406,18 @@ const AUTOCOMPLETESCRIPT = (function() {
             while (!found && startPoint > 0) {
                 for (let i=0; i<punctuation.length; i++) {
                     if (fullText.charAt(startPoint-1) == punctuation[i]) {
-                        found = true
-                        break;
+                        if (!digits.includes(fullText.charAt(startPoint-2)) && !digits.includes(fullText.charAt(startPoint)) || fullText.charAt(startPoint-1) == ' ') {
+                            //console.log('fullText.charAt(startPoint-1): ', fullText.charAt(startPoint-1));
+                            found = true
+                            break;
+                        }
                     }
                 }
 
                 if (!found) {
                     selection = fullText.charAt(startPoint-1).concat(selection);
                     startPoint--;
+                    //console.log('selection: ', selection);
                 }
             }
         }
@@ -1420,6 +1425,7 @@ const AUTOCOMPLETESCRIPT = (function() {
         return selection;
     };
 
+    //APPLY ABOVE !DIGITS.INCLUDES() BUG FIX TO COMPLETELASTWORD FUNCTION
     const completeLastWord = function(targetNode, selection) {
         let context = searchForContext(targetNode, selection);
         let startPoint = context[1];
@@ -1430,15 +1436,19 @@ const AUTOCOMPLETESCRIPT = (function() {
         if (fullText.charAt(endPoint) != ' ' && fullText.charAt(endPoint-1) != ' ') {
             while (!found && endPoint < fullText.length) {
                 for (let i=0; i<punctuation.length; i++) {
+                    //console.log('fullText.charAt(endPoint): ', fullText.charAt(endPoint));
                     if (fullText.charAt(endPoint) == punctuation[i]) {
-                        found = true
-                        break;
+                        if (!digits.includes(fullText.charAt(endPoint-1)) && !digits.includes(endPoint+1) || fullText.charAt(endPoint) == ' ') {
+                            found = true
+                            break;
+                        }
                     }
                 }
 
                 if (!found) {
                     selection = selection.concat(fullText.charAt(endPoint));
                     endPoint++;
+                    //console.log('selection: ', selection);
                 }
             }
         }
